@@ -1,0 +1,20 @@
+@import 'tailwindcss';
+@plugin '@tailwindcss/forms';
+@plugin '@tailwindcss/typography';
+
+
+h1 {
+  font-size: larger;
+  font-weight: bold;
+}
+
+h2 {
+  font-size: large;
+  font-weight: bold;
+}
+
+a {
+  text-decoration-style: solid;
+  text-decoration: underline;
+  
+}
