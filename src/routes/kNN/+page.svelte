@@ -323,12 +323,6 @@
 						<td class="text-center">{(corr / (corr + FN[i])).toFixed(3)}</td>
 					{/each}
 				</tr>
-				<tr>
-					<th class="w-40 bg-blue-200">f1 = </th>
-					{#each TP.entries() as [i, corr]}
-						<td class="text-center">{(corr / (corr + FN[i])).toFixed(3)}</td>
-					{/each}
-				</tr>
 			</tbody>
 		</table>
 	</div>
