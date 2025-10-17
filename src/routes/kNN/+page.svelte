@@ -1,8 +1,16 @@
 <script lang="ts">
-	import { asset } from '$app/paths';
-	import { euclid, rand, randint, weight } from '$lib';
 	import { type Sample, type Category, generateNewCategories, generateNewData } from '$lib/data';
-	import { buildDecisionTree, DT_inference, misclassification_rate, type DT_Node } from '$lib/dt';
+	import {
+		buildDecisionTree,
+		DT_inference,
+		entropy_impurity,
+		gini_impurity,
+		misclassification_impurity,
+		prune_tree,
+		type DT_Heuristic,
+		type DT_Node
+	} from '$lib/dt';
+	import { render_DT } from '$lib/dt_mermaid';
 	import {
 		inv_weight,
 		kNN_inference,
@@ -17,7 +25,7 @@
 	let cvs: HTMLCanvasElement;
 
 	// viz stuff
-	let category_colors = [
+	let category_colors: [string, string][] = [
 		['red', 'lightcoral'],
 		['blue', 'lightblue'],
 		['green', 'lightgreen'],
@@ -35,11 +43,15 @@
 	let test_data: Sample[] = [];
 	let categories: Category[] = [];
 	let decision_tree: DT_Node | undefined = $state<DT_Node>();
+	let diagram_svg: string = $state('');
+  let pruned_diagram_svg: string = $state('');
 	let chosen_inference: 'kNN' | 'DT' = $state('DT');
-
-	let n_categories: number = $state(3);
-	let n_data: number = $state(50);
-	let n_test_data: number = $state(10);
+	let chosen_impurity_measure: DT_Heuristic = $state(misclassification_impurity);
+	let impurity_threshold = $state(0.1);
+  let use_pruned_tree = $state(false);
+	let n_categories: number = $state(4);
+	let n_data: number = $state(100);
+	let n_test_data: number = $state(150);
 
 	let TP: number[] = $state([]);
 	let TN: number[] = $state([]);
@@ -63,6 +75,19 @@
 
 	$effect(() => {
 		drawData();
+	});
+
+	$effect(() => {
+		if (!decision_tree) return;
+		render_DT('diagram', decision_tree, category_colors, false).then((v) => {
+			diagram_svg = v;
+			// console.log(v);
+		});
+
+    render_DT('diagram-pruned', decision_tree, category_colors, true).then((v) => {
+			pruned_diagram_svg = v;
+			// console.log(v);
+		});
 	});
 
 	function update() {
@@ -93,9 +118,15 @@
 		const used_data = data.slice(0, n_data);
 		const used_test_data = test_data.slice(0, n_test_data);
 
-		const dec_tree = buildDecisionTree(Infinity, n_categories, used_data, misclassification_rate);
+		const dec_tree = buildDecisionTree(
+			Infinity,
+			n_categories,
+			used_data,
+			chosen_impurity_measure,
+			impurity_threshold
+		);
+    prune_tree(dec_tree, n_categories, used_test_data);
 
-		console.log(dec_tree);
 		decision_tree = dec_tree;
 
 		// draw colored grid
@@ -119,19 +150,21 @@
 						result = kNN_result;
 						break;
 					case 'DT':
-						const DT_result = DT_inference(dec_tree, { category: -1, x: cx, y: cy });
-            result = DT_result;
+						const DT_result = DT_inference(dec_tree, { category: -1, x: cx, y: cy }, use_pruned_tree);
+						result = DT_result;
 						break;
+					default:
+						const NEVER: never = chosen_inference;
 				}
 
 				if (result) {
 					ctx.save();
 					if (mix_colors) {
-						for (let [catergory, count] of result.category_weights.entries()) {
+						for (let [c, count] of result.category_weights.entries()) {
 							ctx.globalAlpha = Math.max(0, count / result.norm_factor);
 
 							ctx.beginPath();
-							ctx.fillStyle = category_colors[catergory][1];
+							ctx.fillStyle = category_colors[c][1];
 							ctx.rect(x, y, g, g);
 							ctx.fill();
 						}
@@ -172,9 +205,11 @@
 					break;
 				case 'DT':
 					test_results = test_inference(n_categories, used_test_data, (sample) =>
-						DT_inference(dec_tree, sample)
+						DT_inference(dec_tree, sample, use_pruned_tree)
 					);
 					break;
+				default:
+					const NEVER: never = chosen_inference;
 			}
 
 			if (!test_results) return;
@@ -214,18 +249,39 @@
 </script>
 
 <div class="flex flex-col gap-2 p-2">
-	<h1>kNN</h1>
+	<h1>kNN & DT</h1>
 
-	<canvas class="w-120 border" bind:this={cvs}> </canvas>
+	<div class="flex flex-row gap-5 p-2">
+		<canvas class="w-120 h-120 border" bind:this={cvs}> </canvas>
+    {#if decision_tree && chosen_inference === "DT"}
+			<div class="flex flex-col items-center max-h-120">
+        <div><h1>DT</h1></div>
+				{@html diagram_svg}
+			</div>
+      <div class="flex flex-col items-center max-h-120">
+        <div><h1>DT pruned</h1></div>
+				{@html pruned_diagram_svg}
+			</div>
+		{/if}
+	</div>
 
 	<div class="flex flex-col gap-2">
 		<div class="flex flex-row items-center gap-2">
 			<button class="border" onclick={update}>Redraw</button>
-			<label>Show datapoints <input type="checkbox" bind:checked={show_data} /></label>
+			<label
+				>Show datapoints
+				<input type="checkbox" bind:checked={show_data} />
+			</label>
+			<label
+				>Method:
+				<select bind:value={chosen_inference}>
+					<option value="kNN">kNN</option>
+					<option value="DT">DT</option>
+				</select>
+			</label>
 		</div>
 
 		<div class="flex flex-row items-center gap-2">
-			<label>k = <input type="number" bind:value={k} min="1" max={n_data} /></label>
 			<label
 				>c = <input
 					type="number"
@@ -257,30 +313,55 @@
 
 		<div class="flex flex-row items-center gap-2">
 			<label>mix colors <input type="checkbox" bind:checked={mix_colors} /></label>
-			<select bind:value={chosen_inference}>
-				<option value="kNN">kNN</option>
-				<option value="DT">DT</option>
-			</select>
-			<select bind:value={chosen_norm}>
-				<option value={L2_norm}>L2-norm</option>
-				<option value={L1_norm}>L1-norm</option>
-				<option value={LInf_norm}>LInf-norm</option>
-			</select>
-			<select bind:value={chosen_weight}>
-				<option value={no_weight}>by occurence</option>
-				<option value={inv_weight}>by inverse distance</option>
-			</select>
 		</div>
+
+		<!-- kNN stuff -->
+		{#if chosen_inference === 'kNN'}
+			<div class="flex flex-row items-center gap-2">
+				<label>k = <input type="number" bind:value={k} min="1" max={n_data} /></label>
+				<select bind:value={chosen_norm}>
+					<option value={L2_norm}>L2-norm</option>
+					<option value={L1_norm}>L1-norm</option>
+					<option value={LInf_norm}>LInf-norm</option>
+				</select>
+				<select bind:value={chosen_weight}>
+					<option value={no_weight}>by occurence</option>
+					<option value={inv_weight}>by inverse distance</option>
+				</select>
+			</div>
+    <!-- DT stuff -->
+		{:else if chosen_inference === 'DT'}
+			<div class="flex flex-row items-center gap-2">
+				<label
+					>impurity measure:
+					<select bind:value={chosen_impurity_measure}>
+						<option value={misclassification_impurity}>misclassification</option>
+						<option value={entropy_impurity}>entropy</option>
+						<option value={gini_impurity}>gini</option>
+					</select>
+				</label>
+				<label
+					>threshold:
+					<input type="number" bind:value={impurity_threshold} min="-0.5" step="0.01" />
+				</label>
+        <label>
+          use pruned tree
+          <input type="checkbox" bind:checked={use_pruned_tree}>
+        </label>
+			</div>
+		{/if}
 	</div>
 
-	<div>
-		{correctly_categorized} / {n_test_data} = {(correctly_categorized / n_test_data).toFixed(4)}
-	</div>
+	<!-- statistics -->
 	<div>
 		<table class="w-full">
 			<thead>
 				<tr>
-					<th>*</th>
+					<th rowspan="100"
+						>{correctly_categorized} / {n_test_data} = {(
+							correctly_categorized / n_test_data
+						).toFixed(4)}</th
+					>
 					{#each TP.entries() as [i, corr]}
 						<th style="background-color: {category_colors[i][1]};">Category {i}</th>
 					{/each}
