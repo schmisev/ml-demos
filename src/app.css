@@ -4,13 +4,17 @@
 
 
 h1 {
-  font-size: larger;
+  font-size: xx-large;
   font-weight: bold;
 }
 
 h2 {
-  font-size: large;
+  font-size: x-large;
   font-weight: bold;
+}
+
+h3 {
+  font-size: large;
 }
 
 a {
@@ -23,4 +27,9 @@ a {
   padding: 0.5rem;
   border: 2px solid black;
   box-shadow: 2px 2px 0px rgba(0, 0, 0, 0.2);
+}
+
+.light-border {
+  padding: 0.5rem 1rem;
+  border: 2px solid rgba(0, 0, 0, 0.2);
 }

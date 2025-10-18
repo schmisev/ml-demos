@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { type Sample, type Category, generateNewCategories, generateNewData } from '$lib/data';
 	import {
-		buildDecisionTree,
+		build_DT,
 		DT_inference,
 		entropy_impurity,
 		gini_impurity,
@@ -44,11 +44,12 @@
 	let categories: Category[] = [];
 	let decision_tree: DT_Node | undefined = $state<DT_Node>();
 	let diagram_svg: string = $state('');
-  let pruned_diagram_svg: string = $state('');
+	let pruned_diagram_svg: string = $state('');
 	let chosen_inference: 'kNN' | 'DT' = $state('DT');
 	let chosen_impurity_measure: DT_Heuristic = $state(misclassification_impurity);
 	let impurity_threshold = $state(0.1);
-  let use_pruned_tree = $state(false);
+	let allow_same_category_split = $state(false);
+	let use_pruned_tree = $state(false);
 	let n_categories: number = $state(4);
 	let n_data: number = $state(100);
 	let n_test_data: number = $state(150);
@@ -68,30 +69,36 @@
 	let chosen_weight = $state(no_weight);
 	let chosen_norm = $state(L2_norm);
 
-	onMount(() => {
-		makeUpData();
-		drawData();
+	onMount(update);
+
+	$effect(() => {
+		doTraining();
 	});
 
 	$effect(() => {
 		drawData();
 	});
 
-	$effect(() => {
-		if (!decision_tree) return;
-		render_DT('diagram', decision_tree, category_colors, false).then((v) => {
+	$effect(renderTrees);
+
+  function renderTrees() {
+    if (!decision_tree) return;
+    render_DT('diagram', decision_tree, category_colors, false)
+    .then((v) => {
 			diagram_svg = v;
 			// console.log(v);
 		});
 
-    render_DT('diagram-pruned', decision_tree, category_colors, true).then((v) => {
+		render_DT('diagram-pruned', decision_tree, category_colors, true)
+    .then((v) => {
 			pruned_diagram_svg = v;
 			// console.log(v);
 		});
-	});
+  }
 
 	function update() {
 		makeUpData();
+		doTraining();
 		drawData();
 	}
 
@@ -99,6 +106,23 @@
 		categories = generateNewCategories(n_categories).categories;
 		data = generateNewData(categories, MAX_DATA).data;
 		test_data = generateNewData(categories, MAX_TEST_DATA).data;
+	}
+
+	function doTraining() {
+		const used_data = data.slice(0, n_data);
+		const used_test_data = test_data.slice(0, n_test_data);
+
+		const dec_tree = build_DT(
+			Infinity,
+			n_categories,
+			used_data,
+			chosen_impurity_measure,
+			impurity_threshold,
+			allow_same_category_split
+		);
+		prune_tree(dec_tree, n_categories, used_test_data);
+
+		decision_tree = dec_tree;
 	}
 
 	function drawData() {
@@ -117,17 +141,6 @@
 
 		const used_data = data.slice(0, n_data);
 		const used_test_data = test_data.slice(0, n_test_data);
-
-		const dec_tree = buildDecisionTree(
-			Infinity,
-			n_categories,
-			used_data,
-			chosen_impurity_measure,
-			impurity_threshold
-		);
-    prune_tree(dec_tree, n_categories, used_test_data);
-
-		decision_tree = dec_tree;
 
 		// draw colored grid
 		for (let x = 0; x < w; x += g) {
@@ -150,7 +163,11 @@
 						result = kNN_result;
 						break;
 					case 'DT':
-						const DT_result = DT_inference(dec_tree, { category: -1, x: cx, y: cy }, use_pruned_tree);
+						const DT_result = DT_inference(
+							decision_tree!,
+							{ category: -1, x: cx, y: cy },
+							use_pruned_tree
+						);
 						result = DT_result;
 						break;
 					default:
@@ -198,16 +215,18 @@
 			let test_results;
 
 			switch (chosen_inference) {
-				case 'kNN':
+				case 'kNN': {
 					test_results = test_inference(n_categories, used_test_data, (sample) =>
 						kNN_inference(k, n_categories, sample, used_data, chosen_norm, chosen_weight)
 					);
 					break;
-				case 'DT':
+				}
+				case 'DT': {
 					test_results = test_inference(n_categories, used_test_data, (sample) =>
-						DT_inference(dec_tree, sample, use_pruned_tree)
+						DT_inference(decision_tree!, sample, use_pruned_tree)
 					);
 					break;
+				}
 				default:
 					const NEVER: never = chosen_inference;
 			}
@@ -249,26 +268,28 @@
 </script>
 
 <div class="flex flex-col gap-2 p-2">
-	<h1>kNN & DT</h1>
+	<h1>kNN & DT | <a href="../">back</a></h1>
 
 	<div class="flex flex-row gap-5 p-2">
-		<canvas class="w-120 h-120 border" bind:this={cvs}> </canvas>
-    {#if decision_tree && chosen_inference === "DT"}
-			<div class="flex flex-col items-center max-h-120">
-        <div><h1>DT</h1></div>
+		<canvas class="h-120 w-120 border" bind:this={cvs}> </canvas>
+		{#if decision_tree && chosen_inference === 'DT'}
+			<div class="flex max-h-120 flex-col items-center">
+				<div><h1>DT</h1></div>
 				{@html diagram_svg}
 			</div>
-      <div class="flex flex-col items-center max-h-120">
-        <div><h1>DT pruned</h1></div>
+			<div class="flex max-h-120 flex-col items-center">
+				<div><h1>DT pruned</h1></div>
 				{@html pruned_diagram_svg}
 			</div>
 		{/if}
 	</div>
 
+	<hr />
+
 	<div class="flex flex-col gap-2">
 		<div class="flex flex-row items-center gap-2">
 			<button class="border" onclick={update}>Redraw</button>
-			<label
+			<label class="light-border flex flex-row items-center gap-2"
 				>Show datapoints
 				<input type="checkbox" bind:checked={show_data} />
 			</label>
@@ -298,7 +319,7 @@
 					max="200"
 					min="1"
 					onchange={drawData}
-				/></label
+				/> / {MAX_DATA}</label
 			>
 			<label
 				>N_test = <input
@@ -307,12 +328,14 @@
 					max="200"
 					min="1"
 					onchange={drawData}
-				/></label
+				/> / {MAX_TEST_DATA}</label
 			>
 		</div>
 
 		<div class="flex flex-row items-center gap-2">
-			<label>mix colors <input type="checkbox" bind:checked={mix_colors} /></label>
+			<label class="light-border flex flex-row items-center gap-2"
+				>mix colors <input type="checkbox" bind:checked={mix_colors} /></label
+			>
 		</div>
 
 		<!-- kNN stuff -->
@@ -329,7 +352,7 @@
 					<option value={inv_weight}>by inverse distance</option>
 				</select>
 			</div>
-    <!-- DT stuff -->
+			<!-- DT stuff -->
 		{:else if chosen_inference === 'DT'}
 			<div class="flex flex-row items-center gap-2">
 				<label
@@ -342,15 +365,23 @@
 				</label>
 				<label
 					>threshold:
-					<input type="number" bind:value={impurity_threshold} min="-0.5" step="0.01" />
+					<input type="number" class="w-20" bind:value={impurity_threshold} min="-0.5" step="0.01" />
 				</label>
-        <label>
-          use pruned tree
-          <input type="checkbox" bind:checked={use_pruned_tree}>
-        </label>
+			</div>
+			<div class="flex flex-row items-center gap-2">
+				<label class="light-border flex flex-row items-center gap-2">
+					use pruned
+					<input type="checkbox" bind:checked={use_pruned_tree} />
+				</label>
+				<label class="light-border flex flex-row items-center gap-2">
+					allow split on same category
+					<input type="checkbox" bind:checked={allow_same_category_split} />
+				</label>
 			</div>
 		{/if}
 	</div>
+
+	<hr />
 
 	<!-- statistics -->
 	<div>

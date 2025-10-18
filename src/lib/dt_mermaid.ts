@@ -26,7 +26,7 @@ export async function render_DT(element_id: string, decision_tree: DT_Node, colo
           return node_id;
         }
 
-				nodes.push(`${node_id}(${node.feature} < ${node.value.toFixed(3)}):::d${node.fallback_choice.chosen_category}`);
+				nodes.push(`${node_id}([${node.feature} < ${node.value.toFixed(3)}]):::d${node.fallback_choice.chosen_category}`);
         connections.push(`${node_id} -->|true| ${render_DT_Node(node.left)}`);
         connections.push(`${node_id} -->|false| ${render_DT_Node(node.right)}`);
         return node_id;
@@ -37,6 +37,7 @@ export async function render_DT(element_id: string, decision_tree: DT_Node, colo
 	}
 
   render_DT_Node(decision_tree);
+  nodes.push(`start(( )) --> n0`);
 
 	const graph_def = `flowchart TD\n${nodes.join("\n")}\n${connections.join("\n")}\n${styles.join("\n")}`;
 	const { svg } = await mermaid.render(element_id, graph_def);

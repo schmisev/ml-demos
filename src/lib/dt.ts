@@ -6,10 +6,10 @@ type Feature = keyof Sample;
 export type DT_Node = DT_Decision | DT_Choice;
 
 export interface DT_Decision {
-  id: number;
+	id: number;
 	kind: 'decision';
-  fallback_choice: DT_Choice;
-  severed?: boolean;
+	fallback_choice: DT_Choice;
+	severed?: boolean;
 	feature: Feature;
 	value: number; // < value or >= value;
 	left: DT_Node;
@@ -17,16 +17,15 @@ export interface DT_Decision {
 }
 
 export interface DT_Choice {
-  id: number;
+	id: number;
 	kind: 'choice';
 	chosen_category: number;
 	category_weights: number[];
 	norm_factor: number;
 }
 
-
 const DUMMY_CHOICE: DT_Choice = {
-  id: -1,
+	id: -1,
 	kind: 'choice',
 	chosen_category: -1,
 	category_weights: [],
@@ -34,33 +33,34 @@ const DUMMY_CHOICE: DT_Choice = {
 };
 
 const DUMMY_DECISION: DT_Decision = {
-  id: -2,
-  kind: "decision",
-  fallback_choice: DUMMY_CHOICE,
-  feature: "category",
-  value: 0,
-  left: DUMMY_CHOICE,
-  right: DUMMY_CHOICE
-}
+	id: -2,
+	kind: 'decision',
+	fallback_choice: DUMMY_CHOICE,
+	feature: 'category',
+	value: 0,
+	left: DUMMY_CHOICE,
+	right: DUMMY_CHOICE
+};
 
-export function buildDecisionTree(
+export function build_DT(
 	max_depth: number,
 	n_categories: number,
 	data: Sample[],
 	heuristic: DT_Heuristic,
-  heuristic_threshold: number,
+	heuristic_threshold: number,
+  allow_same_category_split: boolean
 ): DT_Node {
-  let id = 0;
-  function generate_id() {
-    return id++;
-  }
+	let id = 0;
+	function generate_id() {
+		return id++;
+	}
 
 	const init_heuristic = heuristic(n_categories, data);
-	return growDecisionTree(
+	return grow_DT(
 		max_depth,
 		0,
 		{
-      id: generate_id(),
+			id: generate_id(),
 			kind: 'choice',
 			chosen_category: init_heuristic.chosen_category,
 			category_weights: init_heuristic.category_weights,
@@ -70,12 +70,13 @@ export function buildDecisionTree(
 		data,
 		heuristic,
 		init_heuristic.heuristic,
-    heuristic_threshold,
-    generate_id,
+		heuristic_threshold,
+		generate_id,
+    allow_same_category_split
 	);
 }
 
-export function growDecisionTree(
+export function grow_DT(
 	max_depth: number,
 	depth: number,
 	node: DT_Choice,
@@ -84,7 +85,8 @@ export function growDecisionTree(
 	heuristic: DT_Heuristic,
 	prev_heuristic: number,
 	heuristic_threshold: number,
-  generate_id: () => number,
+	generate_id: () => number,
+	allow_same_category_split: boolean
 ): DT_Node {
 	// console.log(`depth: ${depth} of ${max_depth}`);
 	if (
@@ -96,6 +98,8 @@ export function growDecisionTree(
 
 	let candidate_result;
 
+	// collect candidate results and store them
+	// if they improve on previous result
 	for (const sample of data) {
 		for (let feature of ['x', 'y'] satisfies Feature[]) {
 			// console.log(`Try split ${feature}: ${sample[feature]}`);
@@ -108,25 +112,30 @@ export function growDecisionTree(
 				heuristic
 			);
 
-			if (!candidate_result || result.delta_heuristic > candidate_result.delta_heuristic) {
+			if (
+				(allow_same_category_split || result.left_category !== result.right_category) && // should actually categorize!)
+				(!candidate_result || // if there is no result yet
+					result.delta_heuristic > candidate_result.delta_heuristic) // should be a better split than before
+			) {
 				candidate_result = result;
 			}
 		}
 	}
 
+	// create a new split if candidate result meets heuristic threshold
 	if (candidate_result && candidate_result.delta_heuristic > heuristic_threshold) {
 		// we are splitting here!
 		const new_dec: DT_Decision = {
-      id: generate_id(),
+			id: generate_id(),
 			kind: 'decision',
 			feature: candidate_result.feature,
 			value: candidate_result.value,
-      fallback_choice: node,
-			left: growDecisionTree(
+			fallback_choice: node,
+			left: grow_DT(
 				max_depth,
 				depth + 1,
 				{
-          id: generate_id(),
+					id: generate_id(),
 					kind: 'choice',
 					chosen_category: candidate_result.left_category,
 					category_weights: candidate_result.left_category_weights,
@@ -137,13 +146,14 @@ export function growDecisionTree(
 				heuristic,
 				candidate_result.left_heuristic,
 				heuristic_threshold,
-        generate_id
+				generate_id,
+        allow_same_category_split
 			),
-			right: growDecisionTree(
+			right: grow_DT(
 				max_depth,
 				depth + 1,
 				{
-          id: generate_id(),
+					id: generate_id(),
 					kind: 'choice',
 					chosen_category: candidate_result.right_category,
 					category_weights: candidate_result.right_category_weights,
@@ -154,7 +164,8 @@ export function growDecisionTree(
 				heuristic,
 				candidate_result.right_heuristic,
 				heuristic_threshold,
-        generate_id
+				generate_id,
+        allow_same_category_split
 			)
 		};
 		return new_dec;
@@ -164,17 +175,22 @@ export function growDecisionTree(
 	return node;
 }
 
-export function DT_inference(sub_tree: DT_Node, sample: Sample, use_pruned_tree: boolean, prune_at?: DT_Decision): InferenceResult {
+export function DT_inference(
+	sub_tree: DT_Node,
+	sample: Sample,
+	use_pruned_tree: boolean,
+	prune_at?: DT_Decision
+): InferenceResult {
 	switch (sub_tree.kind) {
 		case 'decision':
-      if (prune_at && sub_tree.id === prune_at.id) {
-        console.log(`stopped at prune stop ${sub_tree.id}`);
-        return sub_tree.fallback_choice;
-      }
+			if (prune_at && sub_tree.id === prune_at.id) {
+				console.log(`stopped at prune stop ${sub_tree.id}`);
+				return sub_tree.fallback_choice;
+			}
 
-      if (use_pruned_tree && sub_tree.severed) {
-        return sub_tree.fallback_choice;
-      }
+			if (use_pruned_tree && sub_tree.severed) {
+				return sub_tree.fallback_choice;
+			}
 
 			if (sample[sub_tree.feature] < sub_tree.value) {
 				return DT_inference(sub_tree.left, sample, use_pruned_tree, prune_at);
@@ -185,7 +201,6 @@ export function DT_inference(sub_tree: DT_Node, sample: Sample, use_pruned_tree:
 			return sub_tree;
 	}
 }
-
 
 export type DT_Heuristic = typeof misclassification_impurity;
 
@@ -319,51 +334,46 @@ export const gini_impurity: DT_Heuristic = (n_categories: number, data: Sample[]
 	};
 };
 
-
 export function prune_tree(sub_tree: DT_Node, n_categories: number, validation_data: Sample[]) {
-  // idea: step through every node, try to prune everywhere
-  const first_result = test_inference(
-    n_categories, 
-    validation_data, 
-    (sample) => DT_inference(sub_tree, sample, false)
-  )
+	// idea: step through every node, try to prune everywhere
+	const first_result = test_inference(n_categories, validation_data, (sample) =>
+		DT_inference(sub_tree, sample, false)
+	);
 
-  console.log(`==> Correctly categorized: ${first_result.correctly_categorized}`);
+	console.log(`==> Correctly categorized: ${first_result.correctly_categorized}`);
 
-  let node_candidates: DT_Decision[] = [];
-  let most_matches: number[] = [first_result.correctly_categorized];
-  
-  function prune_recursively(prune_at: DT_Node) {
-    if (prune_at.kind === "choice") {
-      return;
-    }
+	let node_candidates: DT_Decision[] = [];
+	let most_matches: number[] = [first_result.correctly_categorized];
 
-    let result = test_inference(
-      n_categories, 
-      validation_data, 
-      (sample) => DT_inference(sub_tree, sample, false, prune_at)
-    )
+	function prune_recursively(prune_at: DT_Node) {
+		if (prune_at.kind === 'choice') {
+			return;
+		}
 
-    console.log(`@ ${prune_at.id} => ${result.correctly_categorized}`);
+		let result = test_inference(n_categories, validation_data, (sample) =>
+			DT_inference(sub_tree, sample, false, prune_at)
+		);
 
-    // TODO: this should be some sort of error function
-    if (result.correctly_categorized > most_matches[0]) {
-      node_candidates.splice(0, 0, prune_at);
-      most_matches.splice(0, 0, result.correctly_categorized);
-    }
+		console.log(`@ ${prune_at.id} => ${result.correctly_categorized}`);
 
-    prune_recursively(prune_at.left);
-    prune_recursively(prune_at.right);
-  }
+		// TODO: this should be some sort of error function
+		if (result.correctly_categorized >= most_matches[0]) {
+			node_candidates.splice(0, 0, prune_at);
+			most_matches.splice(0, 0, result.correctly_categorized);
+		}
 
-  // finally, do the pruning
-  prune_recursively(sub_tree);
+		prune_recursively(prune_at.left);
+		prune_recursively(prune_at.right);
+	}
 
-  // mark all candidates for severing
-  if (node_candidates.length >= 0) {
-    for (const candidate of node_candidates) {
-      candidate.severed = true;
-      console.log(`Pruned at: ${candidate.id}`);
-    }
-  }
+	// finally, do the pruning
+	prune_recursively(sub_tree);
+
+	// mark all candidates for severing
+	if (node_candidates.length >= 0) {
+		for (const candidate of node_candidates) {
+			candidate.severed = true;
+			console.log(`Pruned at: ${candidate.id}`);
+		}
+	}
 }
