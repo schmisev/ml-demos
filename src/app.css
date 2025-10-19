@@ -2,34 +2,51 @@
 @plugin '@tailwindcss/forms';
 @plugin '@tailwindcss/typography';
 
-
 h1 {
-  font-size: xx-large;
-  font-weight: bold;
+	font-size: xx-large;
+	font-weight: bold;
 }
 
 h2 {
-  font-size: x-large;
-  font-weight: bold;
+	font-size: x-large;
+	font-weight: bold;
 }
 
 h3 {
-  font-size: large;
+	font-size: large;
 }
 
 a {
-  text-decoration-style: solid;
-  text-decoration: underline;
-  
+	text-decoration-style: solid;
+	text-decoration: underline;
 }
 
 .border {
-  padding: 0.5rem;
-  border: 2px solid black;
-  box-shadow: 2px 2px 0px rgba(0, 0, 0, 0.2);
+	padding: 0.5rem;
+	border: 2px solid black;
+	box-shadow: 2px 2px 0px rgba(0, 0, 0, 0.2);
+	translate: -2px -2px;
+	transition: 0.1s;
+
+	&.negative {
+		background-color: lightcoral;
+	}
+}
+
+button {
+	&.border {
+		&:hover {
+			background-color: bisque;
+		}
+
+		&:active {
+			translate: 0 0;
+			box-shadow: none;
+		}
+	}
 }
 
 .light-border {
-  padding: 0.5rem 1rem;
-  border: 2px solid rgba(0, 0, 0, 0.2);
+	padding: 0.5rem 1rem;
+	border: 2px solid rgba(0, 0, 0, 0.2);
 }

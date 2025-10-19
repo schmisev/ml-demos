@@ -30,6 +30,8 @@
 		"vite": "^7.1.7"
 	},
 	"dependencies": {
+		"@stdlib/math-base-special-gamma": "^0.3.0",
+		"chart.js": "^4.5.1",
 		"mermaid": "^11.12.0"
 	}
 }
