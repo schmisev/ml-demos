@@ -26,9 +26,7 @@ export async function render_DT(element_id: string, decision_tree: DT_Node, colo
           return node_id;
         }
 
-        const feature_string = node.feature.toString().split("=> ");
-
-				nodes.push(`${node_id}(["${feature_string[1]} < ${node.value.toFixed(3)}"]):::d${node.fallback_choice.chosen_category}`);
+				nodes.push(`${node_id}(["${node.feature.signature} < ${node.value.toFixed(3)}"]):::d${node.fallback_choice.chosen_category}`);
         connections.push(`${node_id} -->|true| ${render_DT_Node(node.left)}`);
         connections.push(`${node_id} -->|false| ${render_DT_Node(node.right)}`);
         return node_id;

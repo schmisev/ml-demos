@@ -1,8 +1,12 @@
+<script lang="ts">
+  import { resolve } from "$app/paths";
+</script>
+
 <div class="p-2">
   <h1>ML demos</h1>
   <div>Disclaimer: these demos are in no way optimized and just here for my own amusement</div>
   <h2>Classfication</h2>
-  <h3><a href="./kNN">kNN & DT</a></h3>
+  <h3><a href="{resolve(`/kNN`)}">kNN & DT</a></h3>
   <h2>Probabilistic Inference</h2>
-  <h3><a href="./prob-inf">Coin flips</a></h3>
+  <h3><a href="{resolve(`/prob-inf`)}">Coin flips</a></h3>
 </div>

@@ -67,37 +67,37 @@
 	// computed feature sets
 	let feature_sets: Record<string, ComputedFeature[]> = {
 		'x & y': [
-			(sample) => sample.x,
-			(sample) => sample.y,
+			{signature: "x", fn: (sample) => sample.x},
+			{signature: "y", fn: (sample) => sample.y},
 		],
 		'4-way': [
-			(sample) => sample.x,
-			(sample) => sample.y,
-			(sample) => sample.x - sample.y,
-			(sample) => sample.x + sample.y
+			{signature: "x", fn: (sample) => sample.x},
+			{signature: "y", fn: (sample) => sample.y},
+			{signature: "(x - y)", fn: (sample) => sample.x - sample.y},
+			{signature: "(x + y)", fn: (sample) => sample.x + sample.y}
 		],
     'distance from center': [
-			(sample) => euclid(sample.x, sample.y, 0.5, 0.5),
+			{signature: "||[x, y] - [0.5, 0.5]||", fn: (sample) => euclid(sample.x, sample.y, 0.5, 0.5)},
 		],
     'x & y with noise': [
-      (sample) => sample.x + rand(-0.05, 0.05),
-      (sample) => sample.y + rand(-0.05, 0.05),
+      {signature: "(x ∓ 0.05)", fn: (sample) => sample.x + rand(-0.05, 0.05)},
+      {signature: "(y ∓ 0.05)", fn: (sample) => sample.y + rand(-0.05, 0.05)},
     ],
     'x * y': [
-      (sample) => sample.x * sample.y,
-      (sample) => (1-sample.x) * sample.y,
-      (sample) => sample.x * (1-sample.y),
-      (sample) => (1-sample.x) * (1-sample.y),
+      {signature: "x * y", fn: (sample) => sample.x * sample.y},
+      {signature: "(1-x) * y", fn: (sample) => (1-sample.x) * sample.y},
+      {signature: "x * (1-y)", fn: (sample) => sample.x * (1-sample.y)},
+      {signature: "(1-x) * (1-y)", fn: (sample) => (1-sample.x) * (1-sample.y)},
     ],
     'distance from corners': [
-      (sample) => euclid(sample.x, sample.y, 0, 1),
-      (sample) => euclid(sample.x, sample.y, 1, 0),
-      (sample) => euclid(sample.x, sample.y, 0, 0),
-      (sample) => euclid(sample.x, sample.y, 1, 1),
+      {signature: "||[x, y] - [0, 1]||", fn: (sample) => euclid(sample.x, sample.y, 0, 1)},
+      {signature: "||[x, y] - [1, 0]||", fn: (sample) => euclid(sample.x, sample.y, 1, 0)},
+      {signature: "||[x, y] - [0, 0]||", fn: (sample) => euclid(sample.x, sample.y, 0, 0)},
+      {signature: "||[x, y] - [1, 1]||", fn: (sample) => euclid(sample.x, sample.y, 1, 1)},
     ],
     'tilted': [
-      (sample) => Math.cos(feature_tilt) * sample.x + Math.sin(feature_tilt) * sample.y,
-      (sample) => Math.sin(feature_tilt) * sample.x - Math.cos(feature_tilt) * sample.y,
+      {signature: "cos(θ) * x + sin(θ) * y", fn: (sample) => Math.cos(feature_tilt) * sample.x + Math.sin(feature_tilt) * sample.y},
+      {signature: "sin(θ) * x + cos(θ) * y", fn: (sample) => Math.sin(feature_tilt) * sample.x - Math.cos(feature_tilt) * sample.y},
     ]
 	};
 
@@ -342,10 +342,10 @@
 					<option value="DT">DT</option>
 				</select>
 			</label>
-      <label>Cell size: <input type="number" class="w-20" bind:value={cell_size} step="1"> (keep &geq; 4)</label>
+      <label>Cell size: <input type="number" class="w-20" bind:value={cell_size} min="1" step="1"> (keep &geq; 4)</label>
 		</div>
 
-		<div class="flex flex-row items-center gap-2">
+		<div class="flex flex-row items-center gap-4">
 			<label
 				>c = <input
 					type="number"
@@ -359,7 +359,7 @@
 				>N = <input type="number" bind:value={n_data} max="200" min="1" onchange={drawData} /> / {MAX_DATA}</label
 			>
 			<label
-				>N_test = <input
+				>N<sub>val</sub> = <input
 					type="number"
 					bind:value={n_test_data}
 					max="200"
@@ -430,7 +430,9 @@
           </select>
         </label>
         {#if chosen_feature_set === feature_sets['tilted']}
-          <input bind:value={feature_tilt} type="number" min="0" max={Math.PI} step={Math.PI / 36}>
+          <label>θ =
+            <input bind:value={feature_tilt} class="w-30" type="number" min="0" max={Math.PI} step={Math.PI / 36}>
+          </label>
         {/if}
 			</div>
 		{/if}

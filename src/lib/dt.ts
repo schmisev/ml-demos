@@ -2,7 +2,10 @@ import type { Sample } from './data';
 import { test_inference, type InferenceResult } from './ml';
 
 type Feature = keyof Sample;
-export type ComputedFeature = (sample: Sample) => number;
+export type ComputedFeature = {
+  signature: string;
+  fn: (sample: Sample) => number;
+}
 
 export type DT_Node = DT_Decision | DT_Choice;
 
@@ -37,7 +40,7 @@ const DUMMY_DECISION: DT_Decision = {
 	id: -2,
 	kind: 'decision',
 	fallback_choice: DUMMY_CHOICE,
-	feature: (sample) => 0,
+	feature: {signature: "?", fn: (sample) => 0},
 	value: 0,
 	left: DUMMY_CHOICE,
 	right: DUMMY_CHOICE
@@ -110,7 +113,7 @@ export function grow_DT(
 			const result = split_with_heuristic(
 				n_categories,
 				feature,
-				feature(sample),
+				feature.fn(sample),
 				data,
 				prev_heuristic,
 				heuristic
@@ -198,7 +201,7 @@ export function DT_inference(
 				return sub_tree.fallback_choice;
 			}
 
-			if (sub_tree.feature(sample) < sub_tree.value) {
+			if (sub_tree.feature.fn(sample) < sub_tree.value) {
 				return DT_inference(sub_tree.left, sample, use_pruned_tree, prune_at);
 			} else {
 				return DT_inference(sub_tree.right, sample, use_pruned_tree, prune_at);
@@ -223,10 +226,10 @@ export function split_with_heuristic(
 
 	// split the dataset
 	for (const sample of data) {
-		if (split_on_feature(sample) < split_on_value) {
+		if (split_on_feature.fn(sample) < split_on_value) {
 			left_data.push(sample);
 		} else {
-			if (split_on_value === split_on_feature(sample)) {
+			if (split_on_value === split_on_feature.fn(sample)) {
 				// filter out value
 			} else {
 				right_data.push(sample);

@@ -15,7 +15,7 @@ const config = {
 	preprocess: vitePreprocess(),
 	kit: {
 		adapter: adapter({
-			pages: 'build/'
+			pages: 'build',
 		}),
 		paths: {
 			base: process.env.NODE_ENV === 'production' ? '/ml-demos' : ''
