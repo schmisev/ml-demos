@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { euclid, rand } from '$lib';
 	import { type Sample, type Category, generateNewCategories, generateNewData } from '$lib/data';
 	import {
 		build_DT,
@@ -7,6 +8,7 @@
 		gini_impurity,
 		misclassification_impurity,
 		prune_tree,
+		type ComputedFeature,
 		type DT_Heuristic,
 		type DT_Node
 	} from '$lib/dt';
@@ -60,6 +62,41 @@
 	let FN: number[] = $state([]);
 	let correctly_categorized: number = $state(0);
 
+	// computed feature sets
+	let feature_sets: Record<string, ComputedFeature[]> = {
+		'x & y': [
+			(sample) => sample.x,
+			(sample) => sample.y,
+		],
+		'4-way': [
+			(sample) => sample.x,
+			(sample) => sample.y,
+			(sample) => sample.x - sample.y,
+			(sample) => sample.x + sample.y
+		],
+    'distance from center': [
+			(sample) => euclid(sample.x, sample.y, 0.5, 0.5),
+		],
+    'x & y with noise': [
+      (sample) => sample.x + rand(-0.05, 0.05),
+      (sample) => sample.y + rand(-0.05, 0.05),
+    ],
+    'x * y': [
+      (sample) => sample.x * sample.y,
+      (sample) => (1-sample.x) * sample.y,
+      (sample) => sample.x * (1-sample.y),
+      (sample) => (1-sample.x) * (1-sample.y),
+    ],
+    'distance from corners': [
+      (sample) => euclid(sample.x, sample.y, 0, 1),
+      (sample) => euclid(sample.x, sample.y, 1, 0),
+      (sample) => euclid(sample.x, sample.y, 0, 0),
+      (sample) => euclid(sample.x, sample.y, 1, 1),
+    ],
+	};
+
+	let chosen_feature_set = $state(feature_sets["axis-aligned"]);
+
 	const MAX_DATA: number = 300;
 	const MAX_TEST_DATA: number = 200;
 
@@ -81,20 +118,18 @@
 
 	$effect(renderTrees);
 
-  function renderTrees() {
-    if (!decision_tree) return;
-    render_DT('diagram', decision_tree, category_colors, false)
-    .then((v) => {
+	function renderTrees() {
+		if (!decision_tree) return;
+		render_DT('diagram', decision_tree, category_colors, false).then((v) => {
 			diagram_svg = v;
 			// console.log(v);
 		});
 
-		render_DT('diagram-pruned', decision_tree, category_colors, true)
-    .then((v) => {
+		render_DT('diagram-pruned', decision_tree, category_colors, true).then((v) => {
 			pruned_diagram_svg = v;
 			// console.log(v);
 		});
-  }
+	}
 
 	function update() {
 		makeUpData();
@@ -118,7 +153,8 @@
 			used_data,
 			chosen_impurity_measure,
 			impurity_threshold,
-			allow_same_category_split
+			allow_same_category_split,
+			chosen_feature_set,
 		);
 		prune_tree(dec_tree, n_categories, used_test_data);
 
@@ -313,13 +349,7 @@
 				/></label
 			>
 			<label
-				>N = <input
-					type="number"
-					bind:value={n_data}
-					max="200"
-					min="1"
-					onchange={drawData}
-				/> / {MAX_DATA}</label
+				>N = <input type="number" bind:value={n_data} max="200" min="1" onchange={drawData} /> / {MAX_DATA}</label
 			>
 			<label
 				>N_test = <input
@@ -328,7 +358,8 @@
 					max="200"
 					min="1"
 					onchange={drawData}
-				/> / {MAX_TEST_DATA}</label
+				/>
+				/ {MAX_TEST_DATA}</label
 			>
 		</div>
 
@@ -365,7 +396,13 @@
 				</label>
 				<label
 					>threshold:
-					<input type="number" class="w-20" bind:value={impurity_threshold} min="-0.5" step="0.01" />
+					<input
+						type="number"
+						class="w-20"
+						bind:value={impurity_threshold}
+						min="-0.5"
+						step="0.01"
+					/>
 				</label>
 			</div>
 			<div class="flex flex-row items-center gap-2">
@@ -377,6 +414,14 @@
 					allow split on same category
 					<input type="checkbox" bind:checked={allow_same_category_split} />
 				</label>
+        <label>
+          feature set:
+          <select bind:value={chosen_feature_set}>
+            {#each Object.entries(feature_sets) as [name, set]}
+              <option value={set}>{name}</option>
+            {/each}
+          </select>
+        </label>
 			</div>
 		{/if}
 	</div>

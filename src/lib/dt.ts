@@ -2,6 +2,7 @@ import type { Sample } from './data';
 import { test_inference, type InferenceResult } from './ml';
 
 type Feature = keyof Sample;
+export type ComputedFeature = (sample: Sample) => number;
 
 export type DT_Node = DT_Decision | DT_Choice;
 
@@ -10,7 +11,7 @@ export interface DT_Decision {
 	kind: 'decision';
 	fallback_choice: DT_Choice;
 	severed?: boolean;
-	feature: Feature;
+	feature: ComputedFeature;
 	value: number; // < value or >= value;
 	left: DT_Node;
 	right: DT_Node;
@@ -36,7 +37,7 @@ const DUMMY_DECISION: DT_Decision = {
 	id: -2,
 	kind: 'decision',
 	fallback_choice: DUMMY_CHOICE,
-	feature: 'category',
+	feature: (sample) => 0,
 	value: 0,
 	left: DUMMY_CHOICE,
 	right: DUMMY_CHOICE
@@ -48,7 +49,8 @@ export function build_DT(
 	data: Sample[],
 	heuristic: DT_Heuristic,
 	heuristic_threshold: number,
-  allow_same_category_split: boolean
+  allow_same_category_split: boolean,
+  feature_candidates: ComputedFeature[]
 ): DT_Node {
 	let id = 0;
 	function generate_id() {
@@ -72,7 +74,8 @@ export function build_DT(
 		init_heuristic.heuristic,
 		heuristic_threshold,
 		generate_id,
-    allow_same_category_split
+    allow_same_category_split,
+    feature_candidates
 	);
 }
 
@@ -86,7 +89,8 @@ export function grow_DT(
 	prev_heuristic: number,
 	heuristic_threshold: number,
 	generate_id: () => number,
-	allow_same_category_split: boolean
+	allow_same_category_split: boolean,
+  feature_candidates: ComputedFeature[],
 ): DT_Node {
 	// console.log(`depth: ${depth} of ${max_depth}`);
 	if (
@@ -101,12 +105,12 @@ export function grow_DT(
 	// collect candidate results and store them
 	// if they improve on previous result
 	for (const sample of data) {
-		for (let feature of ['x', 'y'] satisfies Feature[]) {
+		for (let feature of feature_candidates) {
 			// console.log(`Try split ${feature}: ${sample[feature]}`);
 			const result = split_with_heuristic(
 				n_categories,
 				feature,
-				sample[feature],
+				feature(sample),
 				data,
 				prev_heuristic,
 				heuristic
@@ -147,7 +151,8 @@ export function grow_DT(
 				candidate_result.left_heuristic,
 				heuristic_threshold,
 				generate_id,
-        allow_same_category_split
+        allow_same_category_split,
+        feature_candidates,
 			),
 			right: grow_DT(
 				max_depth,
@@ -165,7 +170,8 @@ export function grow_DT(
 				candidate_result.right_heuristic,
 				heuristic_threshold,
 				generate_id,
-        allow_same_category_split
+        allow_same_category_split,
+        feature_candidates,
 			)
 		};
 		return new_dec;
@@ -192,7 +198,7 @@ export function DT_inference(
 				return sub_tree.fallback_choice;
 			}
 
-			if (sample[sub_tree.feature] < sub_tree.value) {
+			if (sub_tree.feature(sample) < sub_tree.value) {
 				return DT_inference(sub_tree.left, sample, use_pruned_tree, prune_at);
 			} else {
 				return DT_inference(sub_tree.right, sample, use_pruned_tree, prune_at);
@@ -206,7 +212,7 @@ export type DT_Heuristic = typeof misclassification_impurity;
 
 export function split_with_heuristic(
 	n_categories: number,
-	split_on_feature: Feature,
+	split_on_feature: ComputedFeature,
 	split_on_value: number,
 	data: Sample[],
 	prev_heuristic: number,
@@ -217,10 +223,10 @@ export function split_with_heuristic(
 
 	// split the dataset
 	for (const sample of data) {
-		if (sample[split_on_feature] < split_on_value) {
+		if (split_on_feature(sample) < split_on_value) {
 			left_data.push(sample);
 		} else {
-			if (split_on_value === sample[split_on_feature]) {
+			if (split_on_value === split_on_feature(sample)) {
 				// filter out value
 			} else {
 				right_data.push(sample);
