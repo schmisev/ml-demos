@@ -11,7 +11,8 @@
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
 		"format": "prettier --write .",
-		"lint": "prettier --check ."
+		"lint": "prettier --check .",
+		"deploy": "vite build && gh-pages -d build -t"
 	},
 	"devDependencies": {
 		"@sveltejs/adapter-static": "^3.0.9",
@@ -32,6 +33,7 @@
 	"dependencies": {
 		"@stdlib/math-base-special-gamma": "^0.3.0",
 		"chart.js": "^4.5.1",
+		"gh-pages": "^6.3.0",
 		"mermaid": "^11.12.0"
 	}
 }
