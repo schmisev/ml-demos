@@ -41,6 +41,7 @@
 	let k = $state(1);
 
 	// data & categories
+  let cell_size = $state(4);
 	let data: Sample[] = [];
 	let test_data: Sample[] = [];
 	let categories: Category[] = [];
@@ -55,6 +56,7 @@
 	let n_categories: number = $state(4);
 	let n_data: number = $state(100);
 	let n_test_data: number = $state(150);
+  let feature_tilt: number = $state(0);
 
 	let TP: number[] = $state([]);
 	let TN: number[] = $state([]);
@@ -93,6 +95,10 @@
       (sample) => euclid(sample.x, sample.y, 0, 0),
       (sample) => euclid(sample.x, sample.y, 1, 1),
     ],
+    'tilted': [
+      (sample) => Math.cos(feature_tilt) * sample.x + Math.sin(feature_tilt) * sample.y,
+      (sample) => Math.sin(feature_tilt) * sample.x - Math.cos(feature_tilt) * sample.y,
+    ]
 	};
 
 	let chosen_feature_set = $state(feature_sets["axis-aligned"]);
@@ -162,7 +168,7 @@
 	}
 
 	function drawData() {
-		const g = 4;
+		const g = cell_size;
 		const w = 500;
 		const h = 500;
 
@@ -336,6 +342,7 @@
 					<option value="DT">DT</option>
 				</select>
 			</label>
+      <label>Cell size: <input type="number" class="w-20" bind:value={cell_size} step="1"> (keep &geq; 4)</label>
 		</div>
 
 		<div class="flex flex-row items-center gap-2">
@@ -422,6 +429,9 @@
             {/each}
           </select>
         </label>
+        {#if chosen_feature_set === feature_sets['tilted']}
+          <input bind:value={feature_tilt} type="number" min="0" max={Math.PI} step={Math.PI / 36}>
+        {/if}
 			</div>
 		{/if}
 	</div>
