@@ -52,6 +52,8 @@
 	let chosen_impurity_measure: DT_Heuristic = $state(misclassification_impurity);
 	let impurity_threshold = $state(0.1);
 	let allow_same_category_split = $state(false);
+  let split_on_training_data = $state(true);
+  let test_grid_exp = $state(2);
 	let use_pruned_tree = $state(false);
 	let n_categories: number = $state(4);
 	let n_data: number = $state(100);
@@ -161,6 +163,8 @@
 			impurity_threshold,
 			allow_same_category_split,
 			chosen_feature_set,
+      split_on_training_data,
+      2**(-test_grid_exp)
 		);
 		prune_tree(dec_tree, n_categories, used_test_data);
 
@@ -435,6 +439,19 @@
           </label>
         {/if}
 			</div>
+      <div class="flex flex-row items-center gap-2">
+        <label class="light-border flex flex-row items-center gap-2">
+					split on training data
+					<input type="checkbox" bind:checked={split_on_training_data} />
+				</label>
+        {#if !split_on_training_data}
+          <label class="flex flex-row items-center gap-2">
+            test inverval
+            2^-<input type="number" min="1" max="8" step="1" bind:value={test_grid_exp} />
+            = {2**(-test_grid_exp)}
+          </label>
+        {/if}
+      </div>
 		{/if}
 	</div>
 

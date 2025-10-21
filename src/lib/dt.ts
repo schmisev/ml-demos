@@ -53,7 +53,9 @@ export function build_DT(
 	heuristic: DT_Heuristic,
 	heuristic_threshold: number,
   allow_same_category_split: boolean,
-  feature_candidates: ComputedFeature[]
+  feature_candidates: ComputedFeature[],
+  split_on_training_data: boolean,
+  grid_interval: number
 ): DT_Node {
 	let id = 0;
 	function generate_id() {
@@ -78,7 +80,9 @@ export function build_DT(
 		heuristic_threshold,
 		generate_id,
     allow_same_category_split,
-    feature_candidates
+    feature_candidates,
+    split_on_training_data,
+    grid_interval
 	);
 }
 
@@ -94,6 +98,8 @@ export function grow_DT(
 	generate_id: () => number,
 	allow_same_category_split: boolean,
   feature_candidates: ComputedFeature[],
+  split_on_training_data: boolean,
+  grid_interval: number,
 ): DT_Node {
 	// console.log(`depth: ${depth} of ${max_depth}`);
 	if (
@@ -103,33 +109,48 @@ export function grow_DT(
 		return node;
 	}
 
-	let candidate_result;
+	let candidate_result: ReturnType<typeof split_with_heuristic>;
+
+  const collect_candidate = (feature: ComputedFeature, sample: Sample) => {
+    // console.log(`Try split ${feature}: ${sample[feature]}`);
+    const result = split_with_heuristic(
+      n_categories,
+      feature,
+      feature.fn(sample),
+      data,
+      prev_heuristic,
+      heuristic
+    );
+
+    if (
+      (allow_same_category_split || result.left_category !== result.right_category) && // should actually categorize!)
+      (!candidate_result || // if there is no result yet
+        result.delta_heuristic > candidate_result.delta_heuristic) // should be a better split than before
+    ) {
+      candidate_result = result;
+    }
+  }
 
 	// collect candidate results and store them
 	// if they improve on previous result
-	for (const sample of data) {
-		for (let feature of feature_candidates) {
-			// console.log(`Try split ${feature}: ${sample[feature]}`);
-			const result = split_with_heuristic(
-				n_categories,
-				feature,
-				feature.fn(sample),
-				data,
-				prev_heuristic,
-				heuristic
-			);
-
-			if (
-				(allow_same_category_split || result.left_category !== result.right_category) && // should actually categorize!)
-				(!candidate_result || // if there is no result yet
-					result.delta_heuristic > candidate_result.delta_heuristic) // should be a better split than before
-			) {
-				candidate_result = result;
-			}
-		}
-	}
+  if (split_on_training_data) {
+    for (const sample of data) {
+      for (let feature of feature_candidates) {
+        collect_candidate(feature, sample);
+      }
+    }
+  } else {
+    for (let x = 0; x <= 1; x += grid_interval) {
+      for (let y = 0; y <= 1; y += grid_interval) {
+        for (let feature of feature_candidates) {
+          collect_candidate(feature, {category: -1, x, y});
+        }
+      }
+    }
+  }
 
 	// create a new split if candidate result meets heuristic threshold
+  // @ts-ignore this is fine, WE WILL FIND AT LEAST ONE RESULT!
 	if (candidate_result && candidate_result.delta_heuristic > heuristic_threshold) {
 		// we are splitting here!
 		const new_dec: DT_Decision = {
@@ -156,6 +177,8 @@ export function grow_DT(
 				generate_id,
         allow_same_category_split,
         feature_candidates,
+        split_on_training_data,
+        grid_interval
 			),
 			right: grow_DT(
 				max_depth,
@@ -175,6 +198,8 @@ export function grow_DT(
 				generate_id,
         allow_same_category_split,
         feature_candidates,
+        split_on_training_data,
+        grid_interval
 			)
 		};
 		return new_dec;

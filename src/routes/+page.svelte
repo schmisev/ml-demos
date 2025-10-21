@@ -8,5 +8,6 @@
   <h2>Classfication</h2>
   <h3><a href="{resolve(`/kNN`)}">kNN & DT</a></h3>
   <h2>Probabilistic Inference</h2>
-  <h3><a href="{resolve(`/prob-inf`)}">Coin flips</a></h3>
+  <h3><a href="{resolve(`/coin-toss`)}">Coin flips</a></h3>
+  <h3><a href="{resolve(`/football-goals`)}">Football goals</a></h3>
 </div>
