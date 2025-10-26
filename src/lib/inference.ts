@@ -12,6 +12,6 @@ export function poisson(lambda: number, n: number) {
   return (Math.E ** (-lambda) * lambda**n)/gamma(n);
 }
 
-export function gamma_distro(lambda: number, b: number, p: number) {
-  return (b**b) / gamma(p) * lambda**(p-1) * Math.E ** (-b*lambda);
+export function gamma_distro(lambda: number, alpha: number, beta: number) {
+  return ((beta**alpha) / gamma(alpha)) * lambda**(alpha-1) * Math.E ** (-beta*lambda);
 }

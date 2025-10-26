@@ -10,4 +10,6 @@
   <h2>Probabilistic Inference</h2>
   <h3><a href="{resolve(`/coin-toss`)}">Coin flips</a></h3>
   <h3><a href="{resolve(`/football-goals`)}">Football goals</a></h3>
+  <h2>Search algorithms</h2>
+  <h3><a href="{resolve(`/uninformed-search`)}">Uninformed search</a></h3>
 </div>

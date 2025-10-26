@@ -1,15 +1,33 @@
 <script lang="ts">
-	import { rand } from '$lib';
-	import { bernoulli, beta_distro } from '$lib/inference';
+	import { rand, randint, randoisson } from '$lib';
+	import { bernoulli, beta_distro, gamma_distro, poisson } from '$lib/inference';
+	import gamma from '@stdlib/math-base-special-gamma';
+	import { sequence } from '@sveltejs/kit/hooks';
 	import { Chart, type ChartConfiguration, type ChartItem } from 'chart.js/auto';
 	import { onMount } from 'svelte';
 
-	type CoinFace = 'H' | 'T';
+	// type CoinFace = 'H' | 'T';
 
-	let p_heads = $state(0.5);
-	let event_sequence: CoinFace[] = $state([]);
-	let n_heads = $state(0);
-	let n_tails = $state(0);
+	interface FootballScore {
+		team_a: number;
+		team_b: number;
+	}
+
+	type GoalSum = number;
+
+	let lambda_goals_a = $state(2);
+  let lambda_goals_b = $state(1);
+	let played_games: FootballScore[] = $state([]);
+	let event_sequence: GoalSum[] = $derived(
+		played_games.map((g) => {
+			return g.team_a + g.team_b;
+		})
+	);
+
+	let last_n = $derived(event_sequence[event_sequence.length - 1]);
+	let N = $derived(event_sequence.length);
+	let S = $derived(event_sequence.reduce((a, b) => a + b, 0));
+	let avg_n = $derived(S / event_sequence.length);
 
 	let MLE: number[] = $state([]);
 	let last_MLE = $derived(MLE[MLE.length - 1]);
@@ -17,18 +35,20 @@
 	let MAP_beta: number[] = $state([]);
 	let last_MAP_beta = $derived(MAP_beta[MAP_beta.length - 1]);
 
-	let a = $state(1);
-	let b = $state(1);
+	let alpha = $state(4); // = b
+	let beta = $state(2); // = p
 
-	let fully_bayesian_theta = $derived((n_heads + a) / (n_heads + a + n_tails + b));
 	let fully_bayesian: number[] = $state([]);
 	let last_fully_bayesian = $derived(fully_bayesian.at(-1));
 
-	let resolution = $state(50);
-	let distro_labels = $derived(new Array(resolution + 1).fill(1).map((v, i) => i / resolution));
-	let beta_prior_distro = $derived(distro_labels.map((v) => beta_distro(v, a, b)));
+  let range = 6;
+	let resolution = $state(200);
+	let distro_labels = $derived(new Array(resolution + 1).fill(1).map((v, i) => range * i / resolution));
+	let beta_prior_distro = $derived(
+    distro_labels.map((v) => gamma_distro(v, alpha, beta))
+  );
 	let beta_posterior_distro = $derived(
-		distro_labels.map((v) => beta_distro(v, a + n_heads, b + n_tails))
+		distro_labels.map((v) => gamma_distro(v, alpha+S, beta+N))
 	);
 
 	$effect(() => {
@@ -36,9 +56,7 @@
 	});
 
 	function reset() {
-		event_sequence = [];
-		n_heads = 0;
-		n_tails = 0;
+		played_games = [];
 
 		MLE = [];
 		MAP_beta = [];
@@ -47,22 +65,25 @@
 		reset_chart(estimates_chart);
 	}
 
-	function flip(force?: CoinFace) {
+	function flip(force?: FootballScore) {
 		if (force) {
-			event_sequence.push(force);
-			force === 'H' ? n_heads++ : n_tails++;
-		} else if (rand(0, 1) < p_heads) {
-			event_sequence.push('H');
-			n_heads++;
+			played_games.push(force);
 		} else {
-			event_sequence.push('T');
-			n_tails++;
-		}
+      // TODO: replace
+      played_games.push({
+        team_a: randoisson(lambda_goals_a, 100),
+        team_b: randoisson(lambda_goals_b, 100),
+      });
+    }
 
 		// calculate new estimates
-		MLE.push(n_heads / (n_heads + n_tails));
-		MAP_beta.push((n_heads + a - 1) / (n_tails + n_heads + a + b - 2));
-		fully_bayesian.push(bernoulli(fully_bayesian_theta, 1, 0));
+		MLE.push(avg_n);
+		MAP_beta.push((S + alpha - 1) / (beta + N));
+
+    // negative binomial ???
+    const r = alpha + S;
+    const p = (beta + N) / (beta + N + 1);
+		fully_bayesian.push(r * (1-p) / p);
 
 		update_chart(
 			estimates_chart,
@@ -114,17 +135,17 @@
 		estimates_chart = new Chart(estimates_canvas, {
 			type: 'line',
 			options: {
-        plugins: {
-          title: {
-            text: "Predictive probability for HEADS",
-            display: true,
-          }
-        },
+				plugins: {
+					title: {
+						text: 'Predicted number of goals',
+						display: true
+					}
+				},
 				aspectRatio: 1.5,
 				scales: {
 					y: {
 						min: 0,
-						max: 1
+						// max: 0
 					}
 				}
 			},
@@ -156,30 +177,30 @@
 		distro_chart = new Chart(distro_canvas, {
 			type: 'line',
 			options: {
-        plugins: {
-          title: {
-            text: "Probability distributions of HEADS",
-            display: true,
-          }
-        },
+				plugins: {
+					title: {
+						text: 'Probability distributions of HEADS',
+						display: true
+					}
+				},
 				aspectRatio: 1.5,
 				scales: {
 					y: {
 						min: 0
-					}
+					},
 				}
 			},
 			data: {
 				labels: distro_labels,
 				datasets: [
 					{
-						label: 'prior: Beta(a, b)',
+						label: 'prior: Gamma(p, b)',
 						data: beta_prior_distro,
 						pointRadius: 0,
 						pointHoverRadius: 0
 					},
 					{
-						label: 'posterior: Beta(a+|H|, b+|T|)',
+						label: 'posterior: Gamma(p+S, b+N)',
 						data: beta_posterior_distro,
 						pointRadius: 0,
 						pointHoverRadius: 0
@@ -191,40 +212,39 @@
 </script>
 
 <div class="flex flex-col gap-2 p-2">
-	<h1>Flipping coins | <a href="../">back</a></h1>
+	<h1>Scoring points | <a href="../">back</a></h1>
 	<div class="flex flex-col gap-2">
 		<div class="flex flex-row gap-2">
-			<button class="border" onclick={() => flip()}>Flip!</button>
-			<button class="border" onclick={() => flip('H')}>&nbsp;H&nbsp;</button>
-			<button class="border" onclick={() => flip('T')}>&nbsp;T&nbsp;</button>
-			<button class="border" onclick={() => flipN(10)}>Flip 10 times!</button>
-			<button class="border" onclick={() => flipN(100)}>Flip 100 times!</button>
+			<button class="border" onclick={() => flip()}>Play!</button>
+			<button class="border" onclick={() => flipN(10)}>Play 10 times!</button>
+			<button class="border" onclick={() => flipN(100)}>Play 100 times!</button>
 			<button class="negative border" onclick={reset}>Reset!</button>
 		</div>
 	</div>
-	<div>True p(H) = <input type="number" min="0" max="1" step="0.01" bind:value={p_heads} /></div>
-	<div>heads (H): <b>{n_heads}</b> | tails (T): <b>{n_tails}</b></div>
+	<div>True &lambda;<sub>a</sub> = <input type="number" min="0" max="10" step="1" bind:value={lambda_goals_a} /></div>
+  <div>True &lambda;<sub>b</sub> = <input type="number" min="0" max="10" step="1" bind:value={lambda_goals_b} /></div>
+	<div>avg. goals: <b>{avg_n}</b> | sum of goals: <b>{S}</b></div>
 	<div class="flex flex-row flex-wrap gap-2 border">
 		Sequence:
-		{#each event_sequence as event}
-			<span style="color: {event === "H" ? "green" : "red"};" ><b>{event}</b></span>
+		{#each played_games as game}
+			<span><b>{game.team_a}:{game.team_b}</b></span>
 		{/each}
 	</div>
 	<div class="flex flex-col gap-2">
 		<div class="flex flex-row gap-2">
 			<div class="light-border flex flex-col gap-2">
 				<h2>MLE</h2>
-				<div>p(F = H, &theta;<sub>MLE</sub>) = <b>{toPercent(last_MLE)}</b></div>
+				<div>&lambda;<sub>MLE</sub> = <b>{(last_MLE || 0).toFixed(2)}</b></div>
 			</div>
 			<div class="light-border flex flex-col gap-2">
 				<h2>MAP</h2>
-				<div>p(F = H, &theta;<sub>MAP</sub>) = <b>{toPercent(last_MAP_beta)}</b></div>
-				<label>a = <input type="number" min="0" step="1" bind:value={a} /></label>
-				<label>b = <input type="number" min="0" step="1" bind:value={b} /></label>
+				<div>&lambda;<sub>MAP</sub> = <b>{(last_MAP_beta || 0).toFixed(2)}</b></div>
+				<label>&alpha; = <input type="number" min="0" step="1" bind:value={alpha} /></label>
+				<label>&beta; = <input type="number" min="0" step="1" bind:value={beta} /></label>
 			</div>
 			<div class="light-border">
 				<h2>Fully Bayesian</h2>
-				<div>p(F = H, <i>D</i>) = <b>{toPercent(last_fully_bayesian || NaN)}</b></div>
+				<div>&lambda;<sub>FB</sub> = <b>{(last_fully_bayesian || 0).toFixed(2)}</b></div>
 			</div>
 		</div>
 	</div>
