@@ -27,3 +27,14 @@ export function randoisson(lambda: number, max_p: number) {
   }
   return max_p;
 }
+
+export function get_mouse_on_canvas(cvs: HTMLCanvasElement, ev: PointerEvent): Vector2 {
+  var rect = cvs.getBoundingClientRect(), // abs. size of element
+    scaleX = cvs.width / rect.width,    // relationship bitmap vs. element for x
+    scaleY = cvs.height / rect.height;  // relationship bitmap vs. element for y
+
+  return {
+    x: (ev.clientX - rect.left) * scaleX,   // scale mouse coordinates after they have
+    y: (ev.clientY - rect.top) * scaleY     // been adjusted to be relative to element
+  }
+}

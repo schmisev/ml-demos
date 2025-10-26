@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { rand, randint } from '$lib';
+	import { get_mouse_on_canvas, rand, randint } from '$lib';
 	import {
 		NETWORK_ROMANIA,
 		network_to_graph,
@@ -24,24 +24,28 @@
 		vdiff,
 		vlen,
 		vlendiff,
+		vlendiff2,
 		vscale,
 		vscaleby,
 		vset,
 		vsub,
-		vv
+		vv,
+		type Vector2
 	} from '$lib/vector';
-	import { drag, min, zoom } from 'd3';
+	import { csv, drag, min, zoom } from 'd3';
 	import { onMount } from 'svelte';
 
 	let graph_canvas: HTMLCanvasElement;
+  let show_undiscovered = $state(true);
 
 	let physics = $state({
-		zoom: 0.2,
+		zoom: 0.5,
 		speed: 1.5,
-		spring_stiffness: 0.15,
-		node_charge: 1500,
+		spring_stiffness: 0.25,
+		node_charge: 3000,
 		center_pull: 0.5,
-		drag: 0.05
+		drag: 0.08,
+		node_radius: 7
 	});
 
 	let w = 700;
@@ -52,7 +56,14 @@
 
 	const raw_data = NETWORK_ROMANIA;
 	const nodes_2d: Network2DNode[] = raw_data.nodes.map((n) => {
-		return { node: n, pos: vv(rand(w / 4, (3 * w) / 4), rand(h / 4, (3 * h) / 4)), vel: vv(0, 0) };
+		return {
+			node: n,
+			pos: vv(rand(w / 4, (3 * w) / 4), rand(h / 4, (3 * h) / 4)),
+			vel: vv(0, 0),
+			grabbed: false,
+			hovered: false,
+			discovered: false
+		};
 	});
 	const links: NetworkLink[] = raw_data.links.map((v) => v);
 
@@ -66,7 +77,14 @@
 		restart();
 	}
 
+	function undiscover() {
+		for (const node of nodes_2d) {
+			node.discovered = false;
+		}
+	}
+
 	function restart() {
+		undiscover();
 		search_algo = new chosen_algo();
 		search_algo.start(graph[start_id], graph[goal_id]);
 	}
@@ -99,9 +117,32 @@
 	}
 
 	onMount(() => {
+		let mouse: Vector2 = vv();
+		let mouse_just_down: boolean = false;
+		let mouse_down: boolean = false;
+
+		graph_canvas.onpointermove = (ev) => {
+			mouse = get_mouse_on_canvas(graph_canvas, ev);
+		};
+
+		graph_canvas.onpointerdown = (ev) => {
+			graph_canvas.setPointerCapture(ev.pointerId);
+			mouse_just_down = true;
+			mouse_down = true;
+		};
+
+		graph_canvas.onpointerup = (ev) => {
+			graph_canvas.releasePointerCapture(ev.pointerId);
+			mouse_down = false;
+		};
+
 		graph_canvas.width = w;
 		graph_canvas.height = h;
 		const ctx = graph_canvas.getContext('2d')!;
+
+		function isInNode(mouse: Vector2, node: Network2DNode) {
+			return vlendiff(mouse, node.pos) < physics.node_radius * 2;
+		}
 
 		function run() {
 			let last_time: number | undefined = undefined;
@@ -127,6 +168,11 @@
 				}
 
 				for (const [i, node_1] of nodes_2d.entries()) {
+          // check if discovered
+          if (!node_1.discovered && search_algo.discovered.has(node_1.node.id)) {
+            node_1.discovered = true;
+          }
+
 					// central force
 					const c = vv(w / 2, h / 2);
 					const dc = vsub(c, node_1.pos);
@@ -147,9 +193,29 @@
 				}
 
 				for (const [i, node_1] of nodes_2d.entries()) {
-					vscaleby(node_1.vel, 1 - physics.drag);
-					vaddto(node_1.vel, vscale(forces[i], dt));
-					vaddto(node_1.pos, vscale(node_1.vel, dt * physics.speed));
+					// grabbing
+					if (isInNode(mouse, node_1)) {
+						if (mouse_just_down) node_1.grabbed = true;
+						node_1.hovered = true;
+					} else {
+						node_1.hovered = false;
+					}
+					if (!mouse_down) {
+						node_1.grabbed = false;
+					}
+
+					if ((show_undiscovered || node_1.discovered) && node_1.grabbed && mouse_down) {
+						/*
+            const dv = vsub(mouse, node_1.pos);
+            const L = vlen(dv);
+            vaddto(forces[node_1.node.id], vscale(dv, L * physics.spring_stiffness));
+            */
+						node_1.pos = mouse;
+					} else {
+						vscaleby(node_1.vel, 1 - physics.drag);
+						vaddto(node_1.vel, vscale(forces[i], dt));
+						vaddto(node_1.pos, vscale(node_1.vel, dt * physics.speed));
+					}
 				}
 
 				// do drawing
@@ -161,16 +227,18 @@
 					const n2 = nodes_2d[link.target];
 
 					ctx.save();
-					if (search_algo.link_path.includes(link.id)) {
-						ctx.strokeStyle = 'lightcoral';
-						ctx.lineWidth = 4;
-					}
+          if (show_undiscovered || (n1.discovered && n2.discovered)) {
+            if (search_algo.link_path.includes(link.id)) {
+              ctx.strokeStyle = 'lightcoral';
+              ctx.lineWidth = 4;
+            }
 
-					ctx.beginPath();
-					ctx.moveTo(n1.pos.x, n1.pos.y);
-					ctx.lineTo(n2.pos.x, n2.pos.y);
-					ctx.stroke();
-					ctx.restore();
+            ctx.beginPath();
+            ctx.moveTo(n1.pos.x, n1.pos.y);
+            ctx.lineTo(n2.pos.x, n2.pos.y);
+            ctx.stroke();
+          }
+          ctx.restore();
 				}
 
 				ctx.save();
@@ -182,6 +250,9 @@
 				// draw nodes
 				for (const node of nodes_2d) {
 					ctx.fillStyle = 'white';
+					// discover nodes
+					const in_frontier = search_algo.is_in_frontier(node.node.id);
+
 					if (search_algo.current && search_algo.current.state.node.id === node.node.id) {
 						if (search_algo.goal && search_algo.goal.node.id === node.node.id) {
 							ctx.fillStyle = 'green';
@@ -190,7 +261,7 @@
 						ctx.fillStyle = 'lightcoral';
 					} else if (search_algo.goal && search_algo.goal.node.id === node.node.id) {
 						ctx.fillStyle = 'lightgreen';
-					} else if (search_algo.is_in_frontier(node.node.id)) {
+					} else if (in_frontier) {
 						ctx.fillStyle = 'lightblue';
 					} else if (search_algo.reached.has(node.node.id)) {
 						ctx.fillStyle = 'black';
@@ -198,10 +269,51 @@
 						ctx.fillStyle = 'orange';
 					}
 
-					ctx.beginPath();
-					ctx.ellipse(node.pos.x, node.pos.y, 5, 5, 0, 0, Math.PI * 2);
-					ctx.stroke();
-					ctx.fill();
+					if (show_undiscovered || node.discovered) {
+						ctx.beginPath();
+						ctx.ellipse(
+							node.pos.x,
+							node.pos.y,
+							physics.node_radius,
+							physics.node_radius,
+							0,
+							0,
+							Math.PI * 2
+						);
+						ctx.stroke();
+						ctx.fill();
+
+						if (node.grabbed) {
+							ctx.beginPath();
+							ctx.ellipse(
+								node.pos.x,
+								node.pos.y,
+								physics.node_radius * 2,
+								physics.node_radius * 2,
+								0,
+								0,
+								Math.PI * 2
+							);
+							ctx.stroke();
+						}
+
+						ctx.save();
+						if (node.hovered || node.grabbed) {
+							ctx.beginPath();
+							ctx.fillStyle = 'yellow';
+							ctx.ellipse(
+								node.pos.x,
+								node.pos.y,
+								physics.node_radius,
+								physics.node_radius,
+								0,
+								0,
+								Math.PI * 2
+							);
+							ctx.fill();
+						}
+						ctx.restore();
+					}
 				}
 				ctx.restore();
 
@@ -210,10 +322,15 @@
 
 				ctx.save();
 				for (const node of nodes_2d) {
-					ctx.fillText(node.node.name, node.pos.x, node.pos.y - 11);
+          if (show_undiscovered || node.discovered) {
+					  ctx.fillText(node.node.name, node.pos.x, node.pos.y - physics.node_radius * 2);
+          }
 				}
 
 				ctx.restore();
+
+				// reset mouse down
+				mouse_just_down = false;
 
 				// next frame
 				requestAnimationFrame(sim);
@@ -228,9 +345,8 @@
 </script>
 
 <div class="grid grid-cols-2 gap-2 p-2">
-	<canvas bind:this={graph_canvas} class="w-full"></canvas>
 	<div class="flex flex-col gap-2">
-		<div class="flex flex-row gap-2">
+		<div class="flex flex-row items-center gap-2">
 			<button class="border" onclick={random_restart}>Random restart</button>
 			<button
 				class="border"
@@ -246,7 +362,12 @@
 					autostep();
 				}}>Random autostep</button
 			>
+      <label>show undiscovered <input type="checkbox" bind:checked={show_undiscovered}></label>
 		</div>
+		<canvas bind:this={graph_canvas} class="w-full"></canvas>
+	</div>
+
+	<div class="flex grow flex-col gap-2">
 		<div class="flex flex-row gap-2">
 			<button class="border" onclick={restart}>Restart</button>
 
@@ -257,14 +378,6 @@
 				style="{is_autostepping ? 'background-color: lightcoral' : ''};"
 				onclick={autostep}>Autostep</button
 			>
-			<input
-				type="number"
-				min="0"
-				max={graph.length - 1}
-				bind:value={start_id}
-				onchange={restart}
-			/>
-			<input type="number" min="0" max={graph.length - 1} bind:value={goal_id} onchange={restart} />
 			<select bind:value={chosen_algo} onchange={restart}>
 				<optgroup label="Breadth first">
 					<option value={BreadthFirstSearch}>naive breadth first</option>
@@ -284,13 +397,26 @@
 				</optgroup>
 			</select>
 		</div>
+		<div class="flex flex-row items-center gap-2">
+			<select bind:value={start_id} onchange={restart}>
+				{#each graph.entries() as [i, g]}
+					<option value={i}>{g.node.id} : {g.node.name}</option>
+				{/each}
+			</select>
+			<div>→</div>
+			<select bind:value={goal_id} onchange={restart}>
+				{#each graph.entries() as [i, g]}
+					<option value={i}>{g.node.id} : {g.node.name}</option>
+				{/each}
+			</select>
+		</div>
 		<div class="light-border flex flex-row gap-2">
 			<div class="border-r-2 pr-2">Steps: <b>{search_algo.step_count}</b></div>
 			<div class="border-r-2 pr-2">Maximal frontier size: <b>{search_algo.frontier_size}</b></div>
 			<div>Reached size: <b>{search_algo.reached_size}</b></div>
 		</div>
-		<div class="flex flex-row justify-evenly gap-2">
-			<div class="light-border flex h-full w-1/3 flex-col gap-2">
+		<div class="start flex flex-row items-start justify-evenly gap-2">
+			<div class="light-border flex w-1/3 flex-col gap-2">
 				<h2>frontier</h2>
 				<table>
 					<tbody>
@@ -298,19 +424,24 @@
 							<tr>
 								<td class="w-4" style="color: {'lightblue'}">●</td>
 								<td> {state.state.node.name}</td>
-								<td><b style="color: lightcoral;">{state.path_cost}</b>+<b style="color: blueviolet;">{state.heuristic.toFixed(1)}</b></td>
+								<td
+									><b style="color: lightcoral;">{state.path_cost}</b>+<b style="color: blueviolet;"
+										>{state.heuristic.toFixed(1)}</b
+									></td
+								>
 								<td>=</td><td> {(state.path_cost + state.heuristic).toFixed(1)}</td>
 							</tr>
 						{/each}
 					</tbody>
 				</table>
 			</div>
-			<div class="light-border flex h-full w-1/3 flex-col gap-2">
+			<div class="light-border flex w-1/3 flex-col gap-2">
 				<h2>reached</h2>
 				<table>
 					<tbody>
 						{#each search_algo.reached.values() as node}
-							<tr><td class="w-4">●</td><td>{node.state.node.name}</td><td>{node.path_cost}</td></tr>
+							<tr><td class="w-4">●</td><td>{node.state.node.name}</td><td>{node.path_cost}</td></tr
+							>
 						{/each}
 					</tbody>
 				</table>
@@ -323,7 +454,7 @@
 							<b style="color: {'lightgreen'}">GOAL ●</b>
 							{search_algo.goal?.node.name}
 						</div>
-						<div class="flex flex-row items-center bg-gray-100 pl-4 rounded-xl">↑ ···</div>
+						<div class="flex flex-row items-center rounded-xl bg-gray-100 pl-4">↑ ···</div>
 					{/if}
 					{#each search_algo.full_path.entries() as [i, node]}
 						<div class="flex flex-col">
@@ -338,7 +469,7 @@
 									<b style="color: {'green'}">GOAL REACHED ●</b>
 									{node.state.node.name}
 								</div>
-								<div class="flex flex-row items-center bg-gray-100 pl-4 rounded-xl">
+								<div class="flex flex-row items-center rounded-xl bg-gray-100 pl-4">
 									↑ <span class="text-xs"
 										>+{node.action?.weight || 0} = <b>{node.path_cost}</b></span
 									>
@@ -349,7 +480,7 @@
 									>
 									{node.state.node.name}
 								</div>
-								<div class="flex flex-row items-center bg-gray-100 pl-4 rounded-xl">
+								<div class="flex flex-row items-center rounded-xl bg-gray-100 pl-4">
 									↑ <span class="text-xs"
 										>+{node.action?.weight || 0} = <b>{node.path_cost}</b></span
 									>

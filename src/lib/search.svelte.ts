@@ -31,6 +31,7 @@ interface BranchNode extends SearchNode {
 export abstract class Search {
 	reached: SvelteMap<number, SearchNode> = $state(new SvelteMap());
 	frontier: Array<SearchNode> = $state([]);
+  discovered: Set<number> = new Set();
 	branch_roots: SvelteMap<number, BranchNode> = $state(new SvelteMap());
 
 	full_path: Array<SearchNode> = $state([]);
@@ -95,6 +96,11 @@ export abstract class Search {
 		return n;
 	}
 
+  push_frontier(node: SearchNode): void {
+    this.frontier.push(node);
+    this.discovered.add(node.state.node.id);
+  }
+
 	is_goal(id: number): boolean {
 		return !!this.goal && id === this.goal.node.id;
 	}
@@ -155,6 +161,7 @@ export abstract class Search {
 
 		this.reached.set(this.init.node.id, this.current);
 		this.frontier = [this.current];
+    this.discovered = new Set([this.current.state.node.id]);
 
 		if (this.is_goal(this.current.state.node.id)) return SearchResult.SUCCESS; // solution found
 		return SearchResult.CONTINUE;
@@ -218,7 +225,7 @@ export class BreadthFirstSearch extends Search {
 			const state = child.state.node.id;
 			if (!this.reached.has(state)) {
 				this.reached.set(state, child);
-				this.frontier.push(child);
+				this.push_frontier(child);
 			}
 		}
 		return SearchResult.CONTINUE;
@@ -235,7 +242,7 @@ export class DepthFirstSearch extends Search {
 			const state = child.state.node.id;
 			if (!this.is_in_cycle(state)) {
 				// this.reached.set(state, child); // not needed!
-				this.frontier.push(child);
+				this.push_frontier(child);
 			}
 		}
 		return SearchResult.CONTINUE;
@@ -266,7 +273,7 @@ export class IterativeDeepeningSearch extends Search {
 			const state = child.state.node.id;
 			if (!this.is_in_cycle(state)) {
 				// this.reached.set(state, child); // not needed!
-				this.frontier.push(child);
+				this.push_frontier(child);
 			}
 		}
 		return SearchResult.CONTINUE;
@@ -284,7 +291,7 @@ export class OptimisticLookaheadSearch extends IterativeDeepeningSearch {
 			const state = child.state.node.id;
 			if (!this.is_in_cycle(state)) {
 				// this.reached.set(state, child); // not needed!
-				this.frontier.push(child);
+				this.push_frontier(child);
 			}
 		}
 		return SearchResult.CONTINUE;
@@ -311,7 +318,7 @@ export class DeadBranchPruningSearch extends IterativeDeepeningSearch {
 		for (const child of this.expand(SortSetting.SORT_REVERSE)) {
 			const state = child.state.node.id;
 			if (!this.is_in_cycle(state) && !this.reached.has(state)) {
-				this.frontier.push(child);
+				this.push_frontier(child);
 				child_count++;
 			}
 		}
@@ -336,7 +343,7 @@ export class BestFirstSearch extends Search {
 			const reached_node = this.reached.get(state)!;
 			if (!reached_node || this.total_cost(child) < this.total_cost(reached_node)) {
 				this.reached.set(state, child);
-				this.frontier.push(child);
+				this.push_frontier(child);
 				this.frontier.sort((a, b) => this.total_cost(a) - this.total_cost(b));
 			}
 		}
