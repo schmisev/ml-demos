@@ -23,14 +23,13 @@ export type NetworkData = {
 
 export function network_to_graph(network: NetworkData): GraphNode[] {
 	let link_id = 0;
-	const nodes: GraphNode[] = network.nodes.map((v) => {
-		return { node: v, links: [], parent: undefined, cost: 0 };
+	const nodes: GraphNode[] = network.nodes.map(function(v): GraphNode {
+		return { node: v, links: [] };
 	});
 
 	for (const link of network.links) {
 		const source = nodes[link.source];
 		const target = nodes[link.target];
-
 		source.links.push({ id: link_id++, link_id: link.id, to: target, weight: link.weight });
 		target.links.push({ id: link_id++, link_id: link.id, to: source, weight: link.weight });
 	}
@@ -87,3 +86,38 @@ export const NETWORK_ROMANIA: NetworkData = {
 		{ id: 22, source: 18, target: 19, weight: 87 }
 	]
 };
+
+export const NETWORK_LEFT_HEAVY: NetworkData = (() => {
+  const network: NetworkData = {
+    nodes: [{id: 0, name: 'root'}],
+    links: [],
+  }
+
+  let link_id = 0;
+  let node_id = 0;
+
+  const deepen = (depth: number, at: number) => {
+    if (depth <= 0) return;
+
+    const left_id = node_id + 1;
+    const right_id = node_id + 2;
+    node_id += 2;
+
+    network.nodes.push(
+      {id: left_id, name: `L${left_id}`}, 
+      {id: right_id, name: `R${right_id}`}
+    );
+    network.links.push(
+      {id: link_id++, source: at, target: left_id, weight: 1},
+      {id: link_id++, source: at, target: right_id, weight: 1}
+    )
+    deepen(depth - 1, left_id);
+    deepen(depth - 1, right_id);
+  }
+
+  deepen(6, 0);
+
+  console.log(network);
+
+  return network;
+})();

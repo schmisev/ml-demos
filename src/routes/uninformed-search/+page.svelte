@@ -1,9 +1,12 @@
 <script lang="ts">
 	import { get_mouse_on_canvas, rand, randint } from '$lib';
 	import {
+		NETWORK_LEFT_HEAVY,
 		NETWORK_ROMANIA,
 		network_to_graph,
+		type GraphNode,
 		type Network2DNode,
+		type NetworkData,
 		type NetworkLink
 	} from '$lib/network';
 	import {
@@ -36,10 +39,11 @@
 	import { onMount } from 'svelte';
 
 	let graph_canvas: HTMLCanvasElement;
+  let chosen_dataset: NetworkData;
   let show_undiscovered = $state(true);
 
 	let physics = $state({
-		zoom: 0.5,
+		zoom: 0.1,
 		speed: 1.5,
 		spring_stiffness: 0.25,
 		node_charge: 3000,
@@ -54,22 +58,31 @@
 	let start_id: number = $state(0);
 	let goal_id: number = $state(10);
 
-	const raw_data = NETWORK_ROMANIA;
-	const nodes_2d: Network2DNode[] = raw_data.nodes.map((n) => {
-		return {
-			node: n,
-			pos: vv(rand(w / 4, (3 * w) / 4), rand(h / 4, (3 * h) / 4)),
-			vel: vv(0, 0),
-			grabbed: false,
-			hovered: false,
-			discovered: false
-		};
-	});
-	const links: NetworkLink[] = raw_data.links.map((v) => v);
+  let raw_data: NetworkData;
+	let nodes_2d: Network2DNode[];
+	let links: NetworkLink[];
+  let graph: GraphNode[];
 
-	const graph = network_to_graph(raw_data);
+  load_data(NETWORK_ROMANIA);
+
+  function load_data(dataset: NetworkData): void {
+    raw_data = dataset;
+    nodes_2d = raw_data.nodes.map((n) => {
+      return {
+        node: n,
+        pos: vv(rand(w / 4, (3 * w) / 4), rand(h / 4, (3 * h) / 4)),
+        vel: vv(0, 0),
+        grabbed: false,
+        hovered: false,
+        discovered: false
+      };
+    });
+    links = raw_data.links.map((v) => v);
+    graph = network_to_graph(raw_data);
+  }
+
 	let chosen_algo: new () => Search = $state(OptimisticLookaheadSearch);
-	let search_algo = $state(new chosen_algo());
+  let search_algo = $state(new chosen_algo());
 
 	function random_restart() {
 		start_id = randint(0, graph.length);
@@ -362,6 +375,10 @@
 					autostep();
 				}}>Random autostep</button
 			>
+      <select bind:value={chosen_dataset} onchange={(ev) => load_data(chosen_dataset)}>
+        <option value={NETWORK_LEFT_HEAVY}>binary tree</option>
+        <option value={NETWORK_ROMANIA}>Romania</option>
+      </select>
       <label>show undiscovered <input type="checkbox" bind:checked={show_undiscovered}></label>
 		</div>
 		<canvas bind:this={graph_canvas} class="w-full"></canvas>
