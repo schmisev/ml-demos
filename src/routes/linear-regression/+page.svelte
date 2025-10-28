@@ -67,11 +67,10 @@
 
       p5.push();
       // draw quad representing fit
-      const step = 0.1;
-      p5.fill(255, 200);
+      const step = 0.05;
 
-      for (let x = -0.5; x < 0.5; x += step) {
-        for (let y = -0.5; y < 0.5; y += step) {
+      for (let x = -0.5; x <= 0.5-step; x += step) {
+        for (let y = -0.5; y <= 0.5-step; y += step) {
           const x11 = x;
           const x21 = y;
           const x12 = x + step;
