@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { rand, randint, randoisson } from '$lib';
+	import { rand, randint, rand_poisson } from '$lib';
 	import { bernoulli, beta_distro, gamma_distro, poisson } from '$lib/inference';
 	import gamma from '@stdlib/math-base-special-gamma';
 	import { sequence } from '@sveltejs/kit/hooks';
@@ -71,8 +71,8 @@
 		} else {
       // TODO: replace
       played_games.push({
-        team_a: randoisson(lambda_goals_a, 100),
-        team_b: randoisson(lambda_goals_b, 100),
+        team_a: rand_poisson(lambda_goals_a, 100),
+        team_b: rand_poisson(lambda_goals_b, 100),
       });
     }
 

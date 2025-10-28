@@ -37,6 +37,7 @@
 		"gh-pages": "^6.3.0",
 		"graphology": "^0.26.0",
 		"mermaid": "^11.12.0",
+		"p5-svelte": "^3.1.2",
 		"sigma": "^3.0.2"
 	}
 }

@@ -7,7 +7,10 @@
 		type GraphNode,
 		type Network2DNode,
 		type NetworkData,
-		type NetworkLink
+		type NetworkLink,
+
+		type NetworkPhysics
+
 	} from '$lib/network';
 	import {
 		AStarSearch,
@@ -35,22 +38,11 @@
 		vv,
 		type Vector2
 	} from '$lib/vector';
-	import { csv, drag, min, zoom } from 'd3';
 	import { onMount } from 'svelte';
 
 	let graph_canvas: HTMLCanvasElement;
-  let chosen_dataset: NetworkData;
+  let chosen_dataset: NetworkData = $state(NETWORK_LEFT_HEAVY);
   let show_undiscovered = $state(true);
-
-	let physics = $state({
-		zoom: 0.1,
-		speed: 1.5,
-		spring_stiffness: 0.25,
-		node_charge: 3000,
-		center_pull: 0.5,
-		drag: 0.08,
-		node_radius: 7
-	});
 
 	let w = 700;
 	let h = 700;
@@ -58,15 +50,17 @@
 	let start_id: number = $state(0);
 	let goal_id: number = $state(10);
 
+  let physics: NetworkPhysics;
   let raw_data: NetworkData;
 	let nodes_2d: Network2DNode[];
 	let links: NetworkLink[];
   let graph: GraphNode[];
 
-  load_data(NETWORK_ROMANIA);
+  load_data(NETWORK_LEFT_HEAVY);
 
   function load_data(dataset: NetworkData): void {
     raw_data = dataset;
+    physics = dataset.physics;
     nodes_2d = raw_data.nodes.map((n) => {
       return {
         node: n,
@@ -163,7 +157,7 @@
 
 			function sim(timestamp: DOMHighResTimeStamp) {
 				if (last_time) {
-					dt = Math.min(1, (timestamp - last_time) / 1000);
+					dt = Math.min(0.02, (timestamp - last_time) / 1000);
 				}
 				last_time = timestamp;
 				// do sim
@@ -176,8 +170,8 @@
 					const L = vlen(dv);
 					const dL = (link.weight * physics.zoom - L) * physics.spring_stiffness; // negative --> push apart
 
-					vaddto(forces[link.source], vscale(dv, dL));
-					vaddto(forces[link.target], vscale(dv, -dL));
+					vaddto(forces[link.source], vscale(dv, dL / vlen(dv)));
+					vaddto(forces[link.target], vscale(dv, -dL / vlen(dv)));
 				}
 
 				for (const [i, node_1] of nodes_2d.entries()) {
@@ -375,7 +369,7 @@
 					autostep();
 				}}>Random autostep</button
 			>
-      <select bind:value={chosen_dataset} onchange={(ev) => load_data(chosen_dataset)}>
+      <select bind:value={chosen_dataset} onchange={(ev) => {load_data(chosen_dataset); random_restart()}}>
         <option value={NETWORK_LEFT_HEAVY}>binary tree</option>
         <option value={NETWORK_ROMANIA}>Romania</option>
       </select>

@@ -5,8 +5,28 @@ export type Network2DNode = {
 	pos: { x: number; y: number };
 	vel: { x: number; y: number };
 	grabbed: boolean;
-  hovered: boolean;
-  discovered: boolean;
+	hovered: boolean;
+	discovered: boolean;
+};
+
+export type NetworkPhysics = {
+	zoom: number;
+	speed: number;
+	spring_stiffness: number;
+	node_charge: number;
+	center_pull: number;
+	drag: number;
+	node_radius: number;
+};
+
+export const STANDARD_PHYSICS: NetworkPhysics = {
+	zoom: 0.5,
+	speed: 1.5,
+	spring_stiffness: 100,
+	node_charge: 5000,
+	center_pull: 0.5,
+	drag: 0.08,
+	node_radius: 7
 };
 
 export type MetaInfo = {
@@ -19,11 +39,12 @@ export type GraphLink = { id: number; link_id: number; to: GraphNode; weight: nu
 export type NetworkData = {
 	nodes: NetworkNode[];
 	links: NetworkLink[];
+	physics: NetworkPhysics;
 };
 
 export function network_to_graph(network: NetworkData): GraphNode[] {
 	let link_id = 0;
-	const nodes: GraphNode[] = network.nodes.map(function(v): GraphNode {
+	const nodes: GraphNode[] = network.nodes.map(function (v): GraphNode {
 		return { node: v, links: [] };
 	});
 
@@ -38,6 +59,7 @@ export function network_to_graph(network: NetworkData): GraphNode[] {
 }
 
 export const NETWORK_ROMANIA: NetworkData = {
+	physics: STANDARD_PHYSICS,
 	nodes: [
 		{ id: 0, name: 'Arad', meta: { coord: { lat: 46.1667, lon: 21.3167 } } },
 		{ id: 1, name: 'Zerind', meta: { coord: { lat: 46.6167, lon: 21.5167 } } },
@@ -88,36 +110,35 @@ export const NETWORK_ROMANIA: NetworkData = {
 };
 
 export const NETWORK_LEFT_HEAVY: NetworkData = (() => {
-  const network: NetworkData = {
-    nodes: [{id: 0, name: 'root'}],
-    links: [],
-  }
+	const network: NetworkData = {
+		physics: { ...STANDARD_PHYSICS, node_charge: 3000, zoom: 25, center_pull: 5 },
+		nodes: [{ id: 0, name: 'root' }],
+		links: []
+	};
 
-  let link_id = 0;
-  let node_id = 0;
+	let link_id = 0;
+	let node_id = 0;
 
-  const deepen = (depth: number, at: number) => {
-    if (depth <= 0) return;
+	const deepen = (depth: number, at: number) => {
+		if (depth <= 0) return;
 
-    const left_id = node_id + 1;
-    const right_id = node_id + 2;
-    node_id += 2;
+		const left_id = node_id + 1;
+		const right_id = node_id + 2;
+		node_id += 2;
 
-    network.nodes.push(
-      {id: left_id, name: `L${left_id}`}, 
-      {id: right_id, name: `R${right_id}`}
-    );
-    network.links.push(
-      {id: link_id++, source: at, target: left_id, weight: 1},
-      {id: link_id++, source: at, target: right_id, weight: 1}
-    )
-    deepen(depth - 1, left_id);
-    deepen(depth - 1, right_id);
-  }
+		network.nodes.push(
+			{ id: left_id, name: `L${left_id}` },
+			{ id: right_id, name: `R${right_id}` }
+		);
+		network.links.push(
+			{ id: link_id++, source: at, target: left_id, weight: 1 },
+			{ id: link_id++, source: at, target: right_id, weight: 1 }
+		);
+		deepen(depth - 1, left_id);
+		deepen(depth - 1, right_id);
+	};
 
-  deepen(6, 0);
+	deepen(6, 0);
 
-  console.log(network);
-
-  return network;
+	return network;
 })();
