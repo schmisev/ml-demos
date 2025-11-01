@@ -2,12 +2,12 @@
 	import type { SAT_Assignment, SAT_Domain } from '$lib/sat.svelte';
 
 	let {
+    colormap,
 		dom
 	}: {
+    colormap: string[],
 		dom: SAT_Domain;
 	} = $props();
-
-	const colormap = ['lightcoral', 'lightgreen', 'lightblue', 'orange'];
 </script>
 
 <div class="border w-max flex flex-col gap-1 p-0 text-xs">
@@ -17,7 +17,7 @@
 		>
 			{variable} &in; &lcub;
       {#each dom[variable] as val}
-        <span class="pl-1 pr-1" style="background-color: {colormap[val]}">{val}</span>
+        <span class="pl-1 pr-1 rounded-xs" style="background-color: {colormap[val]}">{val}</span>
       {/each}
       &rcub;
 		</div>

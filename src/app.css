@@ -24,7 +24,8 @@ a {
 .border {
 	padding: 0.5rem;
 	border: 2px solid black;
-	box-shadow: 2px 2px 0px rgba(0, 0, 0, 0.2);
+  background-color: white;
+	box-shadow: 2px 2px 2px rgba(0, 0, 0, 0.2);
 	translate: -2px -2px;
 	transition: 0.1s;
 
