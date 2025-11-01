@@ -1,6 +1,7 @@
-import type { NetworkNode } from "./network";
+import type { GraphLink, NetworkNode } from "./network";
 
 export type SearchHeuristic = (a: NetworkNode, b: NetworkNode) => number;
+export type SearchWeight = (l: GraphLink) => number;
 
 export function uniform_heuristic(a: NetworkNode, b: NetworkNode) {
   return 0;
@@ -25,4 +26,12 @@ export function geo_distance(a: NetworkNode, b: NetworkNode) {
   const C = 2 * Math.atan2(Math.sqrt(A), Math.sqrt(1-A));
 
   return R * C / 1000;
+}
+
+export function link_weight(l: GraphLink) {
+  return l.weight;
+}
+
+export function no_weight(l: GraphLink) {
+  return 0;
 }

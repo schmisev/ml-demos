@@ -14,10 +14,12 @@
 	} from '$lib/network';
 	import {
 		AStarSearch,
+		BestFirstGreedySearch,
 		BestFirstSearch,
 		BreadthFirstSearch,
 		DeadBranchPruningSearch,
 		DepthFirstSearch,
+		GreedyHeuristicSearch,
 		IterativeDeepeningSearch,
 		OptimisticHeuristicSearch,
 		OptimisticLookaheadSearch,
@@ -41,7 +43,7 @@
 	import { onMount } from 'svelte';
 
 	let graph_canvas: HTMLCanvasElement;
-  let chosen_dataset: NetworkData = $state(NETWORK_LEFT_HEAVY);
+  let chosen_dataset: NetworkData = $state(NETWORK_ROMANIA);
   let show_undiscovered = $state(true);
 
 	let w = 700;
@@ -51,12 +53,12 @@
 	let goal_id: number = $state(10);
 
   let physics: NetworkPhysics;
-  let raw_data: NetworkData;
+  let raw_data: NetworkData = NETWORK_ROMANIA;
 	let nodes_2d: Network2DNode[];
 	let links: NetworkLink[];
-  let graph: GraphNode[];
+  let graph: GraphNode[] = $state(network_to_graph(raw_data));
 
-  load_data(NETWORK_LEFT_HEAVY);
+  load_data(chosen_dataset);
 
   function load_data(dataset: NetworkData): void {
     raw_data = dataset;
@@ -199,11 +201,13 @@
 					}
 				}
 
+        let already_hovered = false;
 				for (const [i, node_1] of nodes_2d.entries()) {
 					// grabbing
-					if (isInNode(mouse, node_1)) {
+					if (!already_hovered && isInNode(mouse, node_1)) {
 						if (mouse_just_down) node_1.grabbed = true;
 						node_1.hovered = true;
+            already_hovered = true;
 					} else {
 						node_1.hovered = false;
 					}
@@ -395,6 +399,7 @@
 				</optgroup>
 				<optgroup label="Best first">
 					<option value={BestFirstSearch}>best first (Dijkstra)</option>
+          <option value={BestFirstGreedySearch}>greedy best first</option>
 					<option value={AStarSearch}>A* geo distance</option>
 				</optgroup>
 				<optgroup label="Depth first">
@@ -405,6 +410,7 @@
 					<option value={OptimisticLookaheadSearch}>optimistic lookahead</option>
 					<option value={DeadBranchPruningSearch}>dead branch pruning</option>
 					<option value={OptimisticHeuristicSearch}>optimistic heuristic</option>
+          <option value={GreedyHeuristicSearch}>greedy heuristic</option>
 				</optgroup>
 			</select>
 		</div>

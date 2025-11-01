@@ -1,3 +1,4 @@
+import { rand, randint } from '$lib';
 import type { Sample } from './data';
 import { test_inference, type InferenceResult } from './ml';
 
@@ -46,6 +47,12 @@ const DUMMY_DECISION: DT_Decision = {
 	right: DUMMY_CHOICE
 };
 
+export enum SplitMode {
+  DISCRETIZE,
+  ON_DATA,
+  RANDOM,
+}
+
 export function build_DT(
 	max_depth: number,
 	n_categories: number,
@@ -54,8 +61,9 @@ export function build_DT(
 	heuristic_threshold: number,
   allow_same_category_split: boolean,
   feature_candidates: ComputedFeature[],
-  split_on_training_data: boolean,
-  grid_interval: number
+  split_mode: SplitMode,
+  grid_interval: number,
+  rng_search_depth: number
 ): DT_Node {
 	let id = 0;
 	function generate_id() {
@@ -81,8 +89,9 @@ export function build_DT(
 		generate_id,
     allow_same_category_split,
     feature_candidates,
-    split_on_training_data,
-    grid_interval
+    split_mode,
+    grid_interval,
+    rng_search_depth,
 	);
 }
 
@@ -98,8 +107,9 @@ export function grow_DT(
 	generate_id: () => number,
 	allow_same_category_split: boolean,
   feature_candidates: ComputedFeature[],
-  split_on_training_data: boolean,
+  split_mode: SplitMode,
   grid_interval: number,
+  rng_search_depth: number,
 ): DT_Node {
 	// console.log(`depth: ${depth} of ${max_depth}`);
 	if (
@@ -133,18 +143,28 @@ export function grow_DT(
 
 	// collect candidate results and store them
 	// if they improve on previous result
-  if (split_on_training_data) {
-    for (const sample of data) {
-      for (let feature of feature_candidates) {
-        collect_candidate(feature, sample);
+  switch (split_mode) {
+    case SplitMode.DISCRETIZE: {
+      for (let x = 0; x <= 1; x += grid_interval) {
+        for (let y = 0; y <= 1; y += grid_interval) {
+          for (let feature of feature_candidates) {
+            collect_candidate(feature, {category: -1, x, y});
+          }
+        }
       }
     }
-  } else {
-    for (let x = 0; x <= 1; x += grid_interval) {
-      for (let y = 0; y <= 1; y += grid_interval) {
+    case SplitMode.ON_DATA: {
+      for (const sample of data) {
         for (let feature of feature_candidates) {
-          collect_candidate(feature, {category: -1, x, y});
+          collect_candidate(feature, sample);
         }
+      }
+    }
+    case SplitMode.RANDOM: {
+      for (let i = 0; i < rng_search_depth; i++) {
+        const feature = feature_candidates[randint(0, feature_candidates.length)];
+        const sample: Sample = {category: -1, x: rand(0, 1), y: rand(0, 1)}
+        collect_candidate(feature, sample);
       }
     }
   }
@@ -177,8 +197,9 @@ export function grow_DT(
 				generate_id,
         allow_same_category_split,
         feature_candidates,
-        split_on_training_data,
-        grid_interval
+        split_mode,
+        grid_interval,
+        rng_search_depth
 			),
 			right: grow_DT(
 				max_depth,
@@ -198,8 +219,9 @@ export function grow_DT(
 				generate_id,
         allow_same_category_split,
         feature_candidates,
-        split_on_training_data,
-        grid_interval
+        split_mode,
+        grid_interval,
+        rng_search_depth
 			)
 		};
 		return new_dec;
@@ -362,6 +384,24 @@ export const gini_impurity: DT_Heuristic = (n_categories: number, data: Sample[]
 
 	return {
 		heuristic: gini,
+		chosen_category: result.chosen_category,
+		category_weights: result.categories,
+		norm_factor: result.n_data
+	};
+};
+
+export const step_impurity: DT_Heuristic = (n_categories: number, data: Sample[]) => {
+	const result = count_categories(n_categories, data);
+
+	let step = 0;
+	for (const [c, count] of result.categories.entries()) {
+		const pi = count / result.n_data;
+		const add = (pi < 0.8) ? 1 : 0;
+		step += add;
+	}
+
+	return {
+		heuristic: step,
 		chosen_category: result.chosen_category,
 		category_weights: result.categories,
 		norm_factor: result.n_data

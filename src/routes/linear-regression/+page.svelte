@@ -1,106 +1,119 @@
 <script lang="ts">
-	import { generate_linear_2d_samples } from "$lib/linreg";
-	import { m_id, m_mat, m_vec, mmult, mprint, mscale } from "$lib/matrix";
-  import P5, { type p5 } from "p5-svelte";
+	import { generate_linear_2d_samples, type Dataset2D } from '$lib/linreg';
+	import { m_id, m_mat, m_vec, m_zeros, mmult, mprint, mscale, T, type Matrix } from '$lib/matrix';
+	import { xml } from 'd3';
+	import type p5 from 'p5';
+	import { onMount } from 'svelte';
+	import { ssrImportKey } from 'vite/module-runner';
 
-  const M2 = mprint(m_mat([[1, 2], [1, 0], [1, 0]]));
-  const M = mprint(mscale(m_id(3, 3), 4))
-  const v = mprint(m_vec([1, 1, 5]))
-  const e = mprint(mmult(M, M2))
+	const data = generate_linear_2d_samples(200, 100, 1, 0, 10);
 
-  const data = generate_linear_2d_samples(200, 100, 1, 0, 10);
+	const L = 400;
+	const W = 400;
+	const H = 300;
 
-  const L = 400;
-  const W = 400;
-  const H = 300;
+	const weights: Matrix = $state({
+		r: 3,
+		c: 1,
+		$: [[1], [50], [-59]]
+	});
 
-  let w0 = $state(0);
-  let w1 = $state(0);
-  let w2 = $state(0);
+	let canvas_container: HTMLDivElement;
 
-  const sketch = (p5: p5) => {
-    p5.setup = () => {
-      p5.createCanvas(600, 600, "webgl");
-      p5.background(0);
-      p5.stroke(0);
-    }
+	let data_model: p5.Geometry;
+  let data_surface: p5.Geometry;
 
-    p5.draw = () => {
-      p5.orbitControl();
+	onMount(async () => {
+		const p5_module = await import('p5');
+		const p5 = p5_module.default;
 
-      p5.background(0);
+		const sketch = (sk: p5) => {
+			const build_data = (data: Dataset2D) => {
+				// @ts-ignore
+				for (const sample of data.samples) {
+					sk.push();
+					sk.fill(
+						255,
+						255 * ((sample.y - data.y_min) / data.delta),
+						255 * (1 - (sample.y - data.y_min) / data.delta)
+					);
+					sk.translate(sample.X.x * L, sample.X.y * W, sample.y);
+					sk.box(5, 5, 5);
+					sk.pop();
+				}
+			};
 
-      p5.push();
+      const build_surface = (weights: Matrix) => {
+        const step = 0.125;
+        for (let x1 = -1; x1 <= 1; x1 += 0.125) {
+          for (let x2 = -1; x2 <= 1; x2 += 0.125) {
+            const X = m_mat([
+              [1, 1, 1, 1], 
+              [x1, x1+step, x1, x1+step], 
+              [x2, x2, x2+step, x2+step]
+            ])
 
-      p5.push();
-      p5.noFill();
-      p5.stroke(255);
-      p5.box(L, H, W);
-      p5.pop();
+            const y = mmult(T(weights), X);
 
-      p5.noStroke();
-      for (let s of data.samples) {
-        p5.push();
-        if (s.y === data.y_min) {
-          p5.fill(0, 0, 255);
-        } else if (s.y === data.y_max) {
-          p5.fill(0, 255, 0);
-        } else {
-          p5.fill(255, 0, 0);
+            sk.push();
+            sk.fill("blue");
+            sk.quad(
+              x1 * L, x2 * W, y.$[0][0],
+              x1 * L, x2 * W, y.$[0][1],
+              x1 * L, x2 * W, y.$[0][2],
+              x1 * L, x2 * W, y.$[0][3],
+            )
+            sk.pop();
+          }
         }
-
-        p5.translate(s.X.x * L, -(s.y - data.y_min), s.X.y * W);
-        p5.sphere(3, 3);
-        p5.pop();
+        
       }
 
-      p5.pop();
+      let cam: p5.Camera;
 
-      
-      // p5.push();
-      // p5.translate(0, H/2, 0);
-      // p5.noStroke();
-      // p5.rotateX(Math.PI / 2)
-      // p5.fill(255, 128);
-      // p5.plane(L, W);
-      // p5.pop();
+			sk.setup = () => {
+				sk.createCanvas(400, 400, 'webgl');
+				data_model = sk.buildGeometry(() => build_data(data));
+        data_surface = sk.buildGeometry(() => build_surface(weights));
+        cam = sk.createCamera();
+			};
 
-      p5.push();
-      // draw quad representing fit
-      const step = 0.05;
+			sk.draw = () => {
 
-      for (let x = -0.5; x <= 0.5-step; x += step) {
-        for (let y = -0.5; y <= 0.5-step; y += step) {
-          const x11 = x;
-          const x21 = y;
-          const x12 = x + step;
-          const x22 = y + step;
+				sk.rotateX(Math.PI / 2);
+				sk.orbitControl();
+				sk.background('lightblue');
+				sk.model(data_model);
+        sk.model(data_surface);
 
-          const y11 = w0 + w1*x11 + w2*x21;
-          const y12 = w0 + w1*x11 + w2*x22;
-          const y21 = w0 + w1*x12 + w2*x21;
-          const y22 = w0 + w1*x12 + w2*x22;
+        sk.push();
+        sk.stroke(255);
+        sk.strokeWeight(2);
+        sk.line(-1000, 0, 0, 1000, 0, 0);
+        sk.line(0, -1000, 0, 0, 1000, 0);
+        sk.line(0, 0, -1000, 0, 0, 1000);
+        sk.pop();
+			};
+		};
 
-          p5.quad(
-            x11 * L, -(y11), x21 * W,
-            x11 * L, -(y12), x22 * W, 
-            x12 * L, -(y22), x22 * W, 
-            x12 * L, -(y21), x21 * W, 
-          )
-        }
-      }
-
-      p5.pop();
-    }
-  }
+		new p5(sketch, canvas_container);
+	});
 </script>
 
 <div class="flex flex-col gap-2 p-2">
 	<h1>2D Linear regression | <a href="../">back</a></h1>
-  <div>
-    <P5 sketch={sketch}></P5>
-  </div>
-  <label>w0 = <input type="range" min="-100" max="100" bind:value={w0}> = {w0 - data.y_min}</label>
-  <label>w1 = <input type="range" min="-100" max="100" bind:value={w1}> = {w1}</label>
-  <label>w2 = <input type="range" min="-100" max="100" bind:value={w2}> = {w2}</label>
-</div> 
+	<div bind:this={canvas_container}></div>
+	{#each weights.$.entries() as [i, r]}
+		<label class="flex flex-row items-center gap-2">
+			w{i} =
+			<input
+				type="range"
+				min="-100"
+				max="100"
+				ondblclick={() => (weights.$[i][0] = 0)}
+				bind:value={weights.$[i][0]}
+			/>
+			= {weights.$[i][0]}
+		</label>
+	{/each}
+</div>

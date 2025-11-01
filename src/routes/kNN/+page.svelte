@@ -8,6 +8,8 @@
 		gini_impurity,
 		misclassification_impurity,
 		prune_tree,
+		SplitMode,
+		step_impurity,
 		type ComputedFeature,
 		type DT_Heuristic,
 		type DT_Node
@@ -52,8 +54,9 @@
 	let chosen_impurity_measure: DT_Heuristic = $state(misclassification_impurity);
 	let impurity_threshold = $state(0.1);
 	let allow_same_category_split = $state(false);
-  let split_on_training_data = $state(true);
+  let split_mode = $state(SplitMode.ON_DATA);
   let test_grid_exp = $state(2);
+  let rng_search_depth = $state(20);
 	let use_pruned_tree = $state(false);
 	let n_categories: number = $state(4);
 	let n_data: number = $state(100);
@@ -163,8 +166,9 @@
 			impurity_threshold,
 			allow_same_category_split,
 			chosen_feature_set,
-      split_on_training_data,
-      2**(-test_grid_exp)
+      split_mode,
+      2**(-test_grid_exp),
+      rng_search_depth
 		);
 		prune_tree(dec_tree, n_categories, used_test_data);
 
@@ -403,6 +407,7 @@
 						<option value={misclassification_impurity}>misclassification</option>
 						<option value={entropy_impurity}>entropy</option>
 						<option value={gini_impurity}>gini</option>
+            <option value={step_impurity}>80-20</option>
 					</select>
 				</label>
 				<label
@@ -440,15 +445,22 @@
         {/if}
 			</div>
       <div class="flex flex-row items-center gap-2">
-        <label class="light-border flex flex-row items-center gap-2">
-					split on training data
-					<input type="checkbox" bind:checked={split_on_training_data} />
-				</label>
-        {#if !split_on_training_data}
+          <select bind:value={split_mode}>
+            <option value={SplitMode.DISCRETIZE}>discretize</option>
+            <option value={SplitMode.ON_DATA}>on data</option>
+            <option value={SplitMode.RANDOM}>random</option>
+          </select>
+        {#if split_mode == SplitMode.DISCRETIZE}
           <label class="flex flex-row items-center gap-2">
             test inverval
             2^-<input type="number" min="1" max="8" step="1" bind:value={test_grid_exp} />
             = {2**(-test_grid_exp)}
+          </label>
+        {/if}
+        {#if split_mode == SplitMode.RANDOM}
+          <label class="flex flex-row items-center gap-2">
+            random search depth:
+            <input type="number" bind:value={rng_search_depth} min="1" max="100">
           </label>
         {/if}
       </div>

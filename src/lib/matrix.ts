@@ -40,7 +40,7 @@ export function m_id(r: number, c: number): Matrix {
   }
 }
 
-export function mt(m: Matrix): Matrix {
+export function T(m: Matrix): Matrix {
   const M = m_zeros(m.c, m.r);
 
   for (const [i, r] of m.$.entries()) {
@@ -50,6 +50,29 @@ export function mt(m: Matrix): Matrix {
   }
 
   return M;
+}
+
+export function *m_vals(M: Matrix): Generator<number, void, unknown> {
+  for (let i = 0; i < M.r; i++) {
+    for (let j = 0; j < M.c; j++) {
+      yield M.$[i][j];
+    }
+  }
+}
+
+export function m_pos_min(M: Matrix): number {
+  return Math.min(...m_vals(M).filter(v => v > 0));
+}
+
+export function m_diag(M: Matrix): Matrix {
+  const n = Math.min(M.r, M.c);
+  const D: Matrix = m_zeros(n, 1);
+
+  for (let i = 0; i < n; i++) {
+    D.$[i][0] = M.$[i][i];
+  }
+
+  return D;
 }
 
 export function mmult(m1: Matrix, m2: Matrix): Matrix {

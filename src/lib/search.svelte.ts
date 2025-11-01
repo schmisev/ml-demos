@@ -1,6 +1,6 @@
 import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 import type { GraphLink, GraphNode } from './network';
-import { geo_distance, uniform_heuristic, type SearchHeuristic } from './search-heuristics';
+import { geo_distance, link_weight, no_weight, uniform_heuristic, type SearchHeuristic, type SearchWeight } from './search-heuristics';
 
 export enum SearchResult {
 	FAILURE,
@@ -47,6 +47,7 @@ export abstract class Search {
 	reached_size: number = $state(0);
 
 	heuristic: SearchHeuristic = $state(uniform_heuristic);
+  weight: SearchWeight = $state(link_weight);
 
 	prune(node: SearchNode) {
 		while (node) {
@@ -112,7 +113,7 @@ export abstract class Search {
 
 	// w + h(x)
 	local_cost(link: GraphLink): number {
-		return link.weight + this.heuristic(link.to.node, this.goal!.node);
+		return this.weight(link) + this.heuristic(link.to.node, this.goal!.node);
 	}
 
 	*expand(presort: SortSetting = SortSetting.NONE): Generator<SearchNode, void, unknown> {
@@ -133,7 +134,7 @@ export abstract class Search {
 				state: link.to,
 				action: link,
 				parent: this.current,
-				path_cost: this.current.path_cost + link.weight,
+				path_cost: this.current.path_cost + this.weight(link),
 				depth: this.current.depth + 1,
 				heuristic: this.heuristic(link.to.node, this.goal!.node)
 			} satisfies SearchNode;
@@ -302,6 +303,11 @@ export class OptimisticHeuristicSearch extends OptimisticLookaheadSearch {
 	heuristic: SearchHeuristic = geo_distance;
 }
 
+export class GreedyHeuristicSearch extends OptimisticHeuristicSearch {
+  heuristic: SearchHeuristic = geo_distance;
+  weight: SearchWeight = no_weight;
+}
+
 export class DeadBranchPruningSearch extends IterativeDeepeningSearch {
 	start(init_node: GraphNode, goal_node: GraphNode): SearchResult {
 		this.branch_roots.clear();
@@ -349,6 +355,11 @@ export class BestFirstSearch extends Search {
 		}
 		return SearchResult.CONTINUE;
 	}
+}
+
+export class BestFirstGreedySearch extends BestFirstSearch {
+	heuristic: SearchHeuristic = geo_distance;
+  weight: SearchWeight = no_weight;
 }
 
 export class AStarSearch extends BestFirstSearch {
