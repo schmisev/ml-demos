@@ -1,18 +1,22 @@
+import { STANDARD_PHYSICS, type NetworkData } from './network';
+
 export type SAT_Assignment = Record<string, number | undefined>;
 export type SAT_Domain = Record<string, number[]>;
 export type SAT_Constraint = SAT_BinaryConstraint;
-export type SAT_Variable = "<no variable>" | string;
+export type SAT_Variable = '<no variable>' | string;
 
 export interface SAT_BinaryConstraint {
 	vars: string[];
-	op: '=' | '≠' | "<" | "⊻" | "+";
+	op: '=' | '≠' | '<' | '⊻' | '+';
 }
 
-enum SAT_Result {
-	FAILURE,
-	UNDECIDED,
-	SUCCESS
+export enum SAT_Result {
+	FAILURE = 'FAILURE',
+	UNDECIDED = 'UNDECIDED',
+	SUCCESS = 'SUCCESS'
 }
+
+export type SAT_Arc = [string, string];
 
 function cut_out_value(arr: number[], value: number) {
 	const i = arr.indexOf(value);
@@ -27,58 +31,58 @@ function copy_dom(dom: SAT_Domain): SAT_Domain {
 // checking values pairwise
 function check_constraint(cstr: SAT_Constraint, asg: SAT_Assignment): SAT_Result {
 	let undecided = false;
-  switch (cstr.op) {
-    case "=":
-    case "≠":
-    case "<":
-      break;
-    case "⊻":
-    case "+":
-      let over_zero_count = 0;
-      let undecided_count = 0;
-      for (const v of cstr.vars) {
-        if (asg[v] === undefined) undecided_count++;
-        else if (asg[v] > 0) over_zero_count++;
-      }
-      if (over_zero_count > 1) return SAT_Result.FAILURE;
-      if (undecided_count > 0) return SAT_Result.UNDECIDED;
-      if (cstr.op === "⊻" && over_zero_count !== 1) return SAT_Result.FAILURE;
-      return SAT_Result.SUCCESS;
-  }
+	switch (cstr.op) {
+		case '=':
+		case '≠':
+		case '<':
+			break;
+		case '⊻':
+		case '+':
+			let over_zero_count = 0;
+			let undecided_count = 0;
+			for (const v of cstr.vars) {
+				if (asg[v] === undefined) undecided_count++;
+				else if (asg[v] > 0) over_zero_count++;
+			}
+			if (over_zero_count > 1) return SAT_Result.FAILURE;
+			if (undecided_count > 0) return SAT_Result.UNDECIDED;
+			if (cstr.op === '⊻' && over_zero_count !== 1) return SAT_Result.FAILURE;
+			return SAT_Result.SUCCESS;
+	}
 
-  for (const [i, v1] of cstr.vars.entries()) {
-    for (const [j, v2] of cstr.vars.entries()) {
-      const A = asg[v1];
-      const B = asg[v2];
+	for (const [i, v1] of cstr.vars.entries()) {
+		for (const [j, v2] of cstr.vars.entries()) {
+			const A = asg[v1];
+			const B = asg[v2];
 
-      if (A === undefined || B === undefined) {
-        undecided = true;
-        continue; // skip undefined values
-      }
+			if (A === undefined || B === undefined) {
+				undecided = true;
+				continue; // skip undefined values
+			}
 
-      if (i >= j) continue; // skip greater < lesser
+			if (i >= j) continue; // skip greater < lesser
 
-      switch (cstr.op) {
-        case '=':
-          if (A !== B) return SAT_Result.FAILURE;
-          break;
-        case '≠':
-          if (A === B) return SAT_Result.FAILURE;
-          break;
-        case "<":
-          if (A >= B) return SAT_Result.FAILURE;
-          break;
-        default:
-          const NEVER: never = cstr.op;
-      }
-    }
-  }
+			switch (cstr.op) {
+				case '=':
+					if (A !== B) return SAT_Result.FAILURE;
+					break;
+				case '≠':
+					if (A === B) return SAT_Result.FAILURE;
+					break;
+				case '<':
+					if (A >= B) return SAT_Result.FAILURE;
+					break;
+				default:
+					const NEVER: never = cstr.op;
+			}
+		}
+	}
 
 	return undecided ? SAT_Result.UNDECIDED : SAT_Result.SUCCESS;
 }
 
 export interface SAT_Problem {
-  name: string;
+	name: string;
 	init_asg: SAT_Assignment;
 	init_domains: SAT_Domain;
 	constraints: SAT_Constraint[];
@@ -88,8 +92,29 @@ export function show(o: any) {
 	return JSON.stringify(o);
 }
 
+export enum SAT_InferenceMode {
+	NO_INFERENCE,
+	FORWARD_CHECKING
+}
+
+export enum SAT_VarSelectionMode {
+	ANY,
+	MRV
+}
+
+export enum SAT_FirstVarMode {
+	ANY,
+	DEGREE
+}
+
+export enum SAT_ValueSelectionMode {
+	ANY,
+	LEAST_CONSTRAINING
+}
+
 export class SAT_Solver {
 	steps = $state(0);
+	last_result = $state(SAT_Result.UNDECIDED);
 	csp: SAT_Problem;
 
 	// these stacks represent the current search
@@ -98,17 +123,46 @@ export class SAT_Solver {
 	rejected = $state<SAT_Assignment[]>([]);
 	rejected_domains = $state<SAT_Domain[]>([]);
 
+	neighborhood: Record<string, Set<string>>;
+
 	current_asg = $state<SAT_Assignment>();
 	current_dom = $state<SAT_Domain>();
 
-  current_variable: SAT_Variable = $state("<no variable>");
-  choice_values = $state<number[]>([]);
+	current_variable: SAT_Variable = $state('<no variable>');
+	choice_values = $state<number[]>([]);
 
-	constructor(csp: SAT_Problem) {
+	inference_mode = $state(SAT_InferenceMode.FORWARD_CHECKING);
+	var_selection = $state(SAT_VarSelectionMode.MRV);
+	first_var_selection = $state(SAT_FirstVarMode.DEGREE);
+	value_selection = $state(SAT_ValueSelectionMode.LEAST_CONSTRAINING);
+
+	constructor(
+		csp: SAT_Problem,
+		inference_mode: SAT_InferenceMode,
+		var_selection: SAT_VarSelectionMode,
+		first_var_selection: SAT_FirstVarMode,
+		value_selection: SAT_ValueSelectionMode
+	) {
 		this.csp = csp;
 
 		this.assignments = [{ ...csp.init_asg }];
 		this.domains = [{ ...csp.init_domains }];
+
+		this.inference_mode = inference_mode;
+		this.var_selection = var_selection;
+		this.first_var_selection = first_var_selection;
+		this.value_selection = value_selection;
+
+		// calculate neigborhood
+		this.neighborhood = {};
+		for (const c of this.csp.constraints) {
+			for (const v1 in this.csp.init_asg) {
+				this.neighborhood[v1] = new Set();
+				for (const v2 of c.vars) {
+					if (v1 !== v2) this.neighborhood[v1].add(v2);
+				}
+			}
+		}
 	}
 
 	reject(asg: SAT_Assignment, dom: SAT_Domain) {
@@ -126,33 +180,46 @@ export class SAT_Solver {
 	}
 
 	step() {
-    this.current_variable = "<no variable>";
-    this.choice_values = [];
+		if (this.last_result !== SAT_Result.UNDECIDED) return;
+		this.last_result = this._step();
+		this.steps += 1;
+	}
+
+	_step() {
+		this.current_variable = '<no variable>';
+		this.choice_values = [];
 
 		if (this.current_asg && this.check_all_constraints(this.current_asg) === SAT_Result.SUCCESS)
 			return SAT_Result.SUCCESS;
 		if (this.assignments.length === 0) return SAT_Result.FAILURE;
 
-    [this.current_asg, this.current_dom] = this.pop();
-    const res = this.check_all_constraints(this.current_asg);
-    switch (res) {
-      case SAT_Result.FAILURE:
-        this.reject(this.current_asg, this.current_dom);
-        return SAT_Result.UNDECIDED; // this branch is DEAD --> we should never have gone here!
-      case SAT_Result.SUCCESS:
-        return SAT_Result.SUCCESS;
-      case SAT_Result.UNDECIDED:
-        break; // checkout more options
-    }
-    
+		[this.current_asg, this.current_dom] = this.pop();
+		const res = this.check_all_constraints(this.current_asg);
+		switch (res) {
+			case SAT_Result.FAILURE:
+				this.reject(this.current_asg, this.current_dom);
+				return SAT_Result.UNDECIDED; // this branch is DEAD --> we should never have gone here!
+			case SAT_Result.SUCCESS:
+				return SAT_Result.SUCCESS;
+			case SAT_Result.UNDECIDED:
+				break; // checkout more options
+		}
+
 		if (this.steps === 0) {
-			this.current_variable = this.select_first_unassigned_candidate(this.current_asg, this.current_dom);
+			this.current_variable = this.select_first_unassigned_candidate(
+				this.csp.init_asg,
+				this.csp.init_domains
+			);
 		} else {
 			this.current_variable = this.select_unassigned_candidate(this.current_asg, this.current_dom);
 		}
-    this.choice_values = this.order_domain_values(this.current_variable, this.current_asg, this.current_dom);
-    
-    const variable = this.current_variable;
+		this.choice_values = this.order_domain_values(
+			this.current_variable,
+			this.current_asg,
+			this.current_dom
+		);
+
+		const variable = this.current_variable;
 		for (const value of this.choice_values) {
 			const new_asg = { ...this.current_asg };
 			const new_dom = copy_dom(this.current_dom);
@@ -177,94 +244,143 @@ export class SAT_Solver {
 			}
 		}
 
-		this.steps += 1;
 		return SAT_Result.UNDECIDED;
 	}
 
 	// directly edits assignments & domain
-	inference(asg: SAT_Assignment, dom: SAT_Domain, variable: string, value: number) {
-		return this.restrict_domains(asg, dom, variable, value);
+	inference(asg: SAT_Assignment, dom: SAT_Domain, variable: string, value: number): SAT_Result {
+		switch (this.inference_mode) {
+			case SAT_InferenceMode.NO_INFERENCE:
+				return SAT_Result.UNDECIDED; // we do no inference
+			case SAT_InferenceMode.FORWARD_CHECKING:
+				return this.forward_checking(asg, dom, variable, value);
+		}
 	}
 
-  restrict_domains(asg: SAT_Assignment, dom: SAT_Domain, changed_variable: string, set_value: number) {
+	make_consistant(
+		asg: SAT_Assignment,
+		dom: SAT_Domain,
+		constraint: SAT_Constraint,
+		changed_variable: string,
+		set_value: number
+	) {
+		const variable_index = constraint.vars.indexOf(changed_variable);
+		for (const [ci, cvar] of constraint.vars.entries()) {
+			if (cvar === changed_variable) continue;
+			switch (constraint.op) {
+				case '=':
+					// values must be equal
+					if (!dom[cvar].includes(set_value)) return SAT_Result.FAILURE;
+					dom[cvar] = [set_value];
+					asg[cvar] = set_value;
+					break;
+				case '≠':
+					// values must be unequal
+					if (asg[cvar] === set_value) return SAT_Result.FAILURE;
+					cut_out_value(dom[cvar], set_value);
+					if (dom[cvar].length <= 0) return SAT_Result.FAILURE;
+					if (dom[cvar].length === 1) asg[cvar] = dom[cvar][0];
+					break;
+				case '<':
+					// first value must be smaller or equal to second
+					if (variable_index <= ci) {
+						// cvar should be bigger than set value
+						for (let i = 0; i < dom[cvar].length; ) {
+							const cval = dom[cvar][i];
+							if (cval < set_value) dom[cvar].splice(i, 1);
+							else i++;
+						}
+					} else {
+						// cvar should be smaller than set value
+						for (let i = 0; i < dom[cvar].length; ) {
+							const cval = dom[cvar][i];
+							if (cval > set_value) dom[cvar].splice(i, 1);
+							else i++;
+						}
+					}
+					break;
+				case '⊻':
+				case '+':
+					if (set_value > 0) {
+						// we can discard all values greater 0 from dom
+						for (let i = 0; i < dom[cvar].length; ) {
+							const cval = dom[cvar][i];
+							if (cval > 0) dom[cvar].splice(i, 1);
+							else i++;
+						}
+						if (dom[cvar].length <= 0) return SAT_Result.FAILURE;
+						if (dom[cvar].length === 1) asg[cvar] = dom[cvar][0];
+					}
+					break;
+				default:
+					const NEVER: never = constraint.op;
+			}
+		}
+		return SAT_Result.SUCCESS;
+	}
+
+	forward_checking(
+		asg: SAT_Assignment,
+		dom: SAT_Domain,
+		changed_variable: string,
+		set_value: number
+	) {
 		for (const constraint of this.csp.constraints) {
 			if (constraint.vars.includes(changed_variable)) {
-        const variable_index = constraint.vars.indexOf(changed_variable);
 				// the new variable is involved in the constraint
-				for (const [ci, cvar] of constraint.vars.entries()) {
-					if (cvar === changed_variable) continue;
-					switch (constraint.op) {
-						case '=':
-							// values must be equal
-							if (!dom[cvar].includes(set_value)) return SAT_Result.FAILURE;
-							dom[cvar] = [set_value];
-							asg[cvar] = set_value;
-							break;
-						case '≠':
-              // values must be unequal
-							if (asg[cvar] === set_value) return SAT_Result.FAILURE;
-							cut_out_value(dom[cvar], set_value);
-							if (dom[cvar].length <= 0) return SAT_Result.FAILURE;
-							if (dom[cvar].length === 1) asg[cvar] = dom[cvar][0];
-							break;
-            case "<":
-              // first value must be smaller or equal to second
-              if (variable_index <= ci) {
-                // cvar should be bigger than set value
-                for (let i = 0; i < dom[cvar].length;) {
-                  const cval = dom[cvar][i];
-                  if (cval < set_value) dom[cvar].splice(i, 1);
-                  else i++;
-                }
-              } else {
-                // cvar should be smaller than set value
-                for (let i = 0; i < dom[cvar].length;) {
-                  const cval = dom[cvar][i];
-                  if (cval > set_value) dom[cvar].splice(i, 1);
-                  else i++;
-                }
-              }
-              break;
-            case "⊻":
-            case "+":
-              if (set_value > 0) {
-                // we can discard all values greater 0 from dom
-                for (let i = 0; i < dom[cvar].length;) {
-                  const cval = dom[cvar][i];
-                  if (cval > 0) dom[cvar].splice(i, 1);
-                  else i++;
-                }
-                if (dom[cvar].length <= 0) return SAT_Result.FAILURE;
-                if (dom[cvar].length === 1) asg[cvar] = dom[cvar][0];
-              }
-              break;
-            default:
-              const NEVER: never = constraint.op;
-					}
-				}
+				const ret = this.make_consistant(asg, dom, constraint, changed_variable, set_value);
+				if (ret === SAT_Result.FAILURE) return ret;
 			}
 		}
 		return this.check_all_constraints(asg);
 	}
 
-  neighborhood_domain_size(variable: string, dom: SAT_Domain): number {
-    let n = 0;
-    for (const c of this.csp.constraints) {
-      if (c.vars.includes(variable)) {
-        for (const v of c.vars) {
-          if (v === variable) continue;
-          n += dom[v].length;
-        }
-      }
-    }
-    return n;
-  }
+	neighborhood_domain_size(variable: string, dom: SAT_Domain): number {
+		let n = 0;
+		for (const c of this.csp.constraints) {
+			if (c.vars.includes(variable)) {
+				for (const v of c.vars) {
+					if (v === variable) continue;
+					n += dom[v].length;
+				}
+			}
+		}
+		return n;
+	}
 
-	select_first_unassigned_candidate(fallback_asg: SAT_Assignment, fallback_dom: SAT_Domain): string {
+	// FIRST CANDIDATE
+	select_first_unassigned_candidate(asg: SAT_Assignment, dom: SAT_Domain): string {
+		switch (this.first_var_selection) {
+			case SAT_FirstVarMode.ANY:
+				return this.select_any_unassigned_candidate(asg, dom);
+			case SAT_FirstVarMode.DEGREE:
+				return this.select_highest_degree_candidate(asg, dom);
+		}
+	}
+
+	// SELECT NEXT CANDIDATE
+	select_unassigned_candidate(asg: SAT_Assignment, dom: SAT_Domain): string {
+		switch (this.var_selection) {
+			case SAT_VarSelectionMode.ANY:
+				return this.select_any_unassigned_candidate(asg, dom);
+			case SAT_VarSelectionMode.MRV:
+				return this.select_MRV_candidate(asg, dom);
+		}
+	}
+
+	// SELECTION MECHANISMS
+	select_any_unassigned_candidate(asg: SAT_Assignment, dom: SAT_Domain): string {
+		for (const v in asg) {
+			if (asg[v] === undefined) return v;
+		}
+		throw `No unassigned candidate!`;
+	}
+
+	select_highest_degree_candidate(asg: SAT_Assignment, dom: SAT_Domain): string {
 		let variable_candidate: string | undefined = undefined;
 		let number_of_constraints: number = 0;
 
-		for (const v in this.csp.init_asg) {
+		for (const v in asg) {
 			let n = 0;
 			for (const c of this.csp.constraints) {
 				if (c.vars.includes(v)) n++;
@@ -275,10 +391,10 @@ export class SAT_Solver {
 			}
 		}
 		if (variable_candidate !== undefined) return variable_candidate;
-		return this.select_unassigned_candidate(fallback_asg, fallback_dom);
+		return this.select_any_unassigned_candidate(asg, dom);
 	}
 
-	select_unassigned_candidate(asg: SAT_Assignment, dom: SAT_Domain): string {
+	select_MRV_candidate(asg: SAT_Assignment, dom: SAT_Domain): string {
 		let variable_candidate: string | undefined = undefined;
 		let remaining_values = Infinity;
 		// select for minimum remaining values
@@ -293,18 +409,39 @@ export class SAT_Solver {
 		throw `No unassigned variable!`;
 	}
 
+	// ORDERING DOMAIN VALUES
 	order_domain_values(variable: string, asg: SAT_Assignment, dom: SAT_Domain) {
+		switch (this.value_selection) {
+			case SAT_ValueSelectionMode.ANY:
+				return this.order_domain_values_by_occurence(variable, asg, dom);
+			case SAT_ValueSelectionMode.LEAST_CONSTRAINING:
+				return this.order_domain_values_by_LRV(variable, asg, dom);
+		}
+	}
+
+	// ORDERING METHODS
+	order_domain_values_by_occurence(variable: string, asg: SAT_Assignment, dom: SAT_Domain) {
+		const values: number[] = [];
+		for (const value of dom[variable]) {
+			values.push(value);
+		}
+		return values;
+	}
+
+	order_domain_values_by_LRV(variable: string, asg: SAT_Assignment, dom: SAT_Domain) {
 		const dom_sizes_for_value: Record<number, number> = {};
-    for (const value of dom[variable]) {
-      const new_dom = copy_dom(dom);
-      const new_asg = { ...asg };
-      this.restrict_domains(new_asg, new_dom, variable, value);
-      const size = this.neighborhood_domain_size(variable, new_dom);
-      dom_sizes_for_value[value] = size;
+		for (const value of dom[variable]) {
+			const new_dom = copy_dom(dom);
+			const new_asg = { ...asg };
+			this.forward_checking(new_asg, new_dom, variable, value);
+			const size = this.neighborhood_domain_size(variable, new_dom);
+			dom_sizes_for_value[value] = size;
 		}
 
-    const sorted_values = dom[variable].toSorted((a, b) => dom_sizes_for_value[a] - dom_sizes_for_value[b]);
-    return sorted_values;
+		const sorted_values = dom[variable].toSorted(
+			(a, b) => dom_sizes_for_value[a] - dom_sizes_for_value[b]
+		);
+		return sorted_values;
 	}
 
 	check_all_constraints(asg: SAT_Assignment): SAT_Result {
@@ -333,9 +470,43 @@ export class SAT_Solver {
 	}
 }
 
+export function csp_to_network(csp: SAT_Problem) {
+	let node_id = 0;
+	let link_id = 0;
+	const network: NetworkData = {
+		links: [],
+		nodes: [],
+		physics: { ...STANDARD_PHYSICS, center_pull: 4, node_charge: 6000, spring_stiffness: 1.4 }
+	};
+
+	const node_ref: Record<string, number> = {};
+
+	for (const variable in csp.init_asg) {
+		const new_node_id = node_id++;
+		node_ref[variable] = new_node_id;
+		network.nodes.push({ id: new_node_id, name: variable });
+	}
+
+	for (const c of csp.constraints) {
+		for (const [i, v1] of Object.entries(c.vars)) {
+			for (const [j, v2] of Object.entries(c.vars)) {
+				if (j >= i) break;
+				network.links.push({
+					id: link_id++,
+					source: node_ref[v1],
+					target: node_ref[v2],
+					weight: 100
+				});
+			}
+		}
+	}
+
+	return network;
+}
+
 // setting up a simple problem
 export const SIMPLE_PROBLEM: SAT_Problem = {
-  name: "simple-problem",
+	name: 'simple-problem',
 	init_asg: {
 		a: undefined,
 		b: undefined,
@@ -353,12 +524,12 @@ export const SIMPLE_PROBLEM: SAT_Problem = {
 		{ vars: ['b', 'c'], op: '≠' },
 		{ vars: ['c', 'd'], op: '≠' },
 		{ vars: ['d', 'a'], op: '≠' }
-	],
+	]
 };
 
 export const AUSTRALIA_PROBLEM: SAT_Problem = {
-	name: "australia",
-  init_asg: {
+	name: 'australia',
+	init_asg: {
 		WA: undefined,
 		NT: undefined,
 		V: undefined,
@@ -377,158 +548,159 @@ export const AUSTRALIA_PROBLEM: SAT_Problem = {
 		NSW: [1, 2, 3]
 	},
 	constraints: [
-    { vars: ['WA', 'NT'], op: '≠' },
+		{ vars: ['WA', 'NT'], op: '≠' },
 		{ vars: ['WA', 'SA'], op: '≠' },
 		{ vars: ['NT', 'Q'], op: '≠' },
 		{ vars: ['NT', 'SA'], op: '≠' },
 		{ vars: ['SA', 'Q'], op: '≠' },
 		{ vars: ['SA', 'NSW'], op: '≠' },
 		{ vars: ['SA', 'V'], op: '≠' },
+		{ vars: ['NSW', 'V'], op: '≠' },
 		{ vars: ['Q', 'NSW'], op: '≠' }
-	],
+	]
 };
 
 export const SUDOKU_PUZZLE: SAT_Problem = {
-	name: "4x4 sudoku",
-  init_asg: {
-    F11: undefined,
-    F12: undefined,
-    F13: undefined,
-    F14: 3,
-    F21: undefined,
-    F22: 2,
-    F23: undefined,
-    F24: undefined,
-    F31: undefined,
-    F32: undefined,
-    F33: 3,
-    F34: 2,
-    F41: undefined,
-    F42: undefined,
-    F43: undefined,
-    F44: undefined,
+	name: '4x4 sudoku',
+	init_asg: {
+		F11: undefined,
+		F12: undefined,
+		F13: undefined,
+		F14: 3,
+		F21: undefined,
+		F22: 2,
+		F23: undefined,
+		F24: undefined,
+		F31: undefined,
+		F32: undefined,
+		F33: 3,
+		F34: 2,
+		F41: undefined,
+		F42: undefined,
+		F43: undefined,
+		F44: undefined
 	},
 	init_domains: {
-    F11: [1, 2, 3, 4],
-    F12: [1, 2, 3, 4],
-    F13: [1, 2, 3, 4],
-    F14: [3],
-    F21: [1, 2, 3, 4],
-    F22: [2],
-    F23: [1, 2, 3, 4],
-    F24: [1, 2, 3, 4],
-    F31: [1, 2, 3, 4],
-    F32: [1, 2, 3, 4],
-    F33: [3],
-    F34: [2],
-    F41: [1, 2, 3, 4],
-    F42: [1, 2, 3, 4],
-    F43: [1, 2, 3, 4],
-    F44: [1, 2, 3, 4],
+		F11: [1, 2, 3, 4],
+		F12: [1, 2, 3, 4],
+		F13: [1, 2, 3, 4],
+		F14: [3],
+		F21: [1, 2, 3, 4],
+		F22: [2],
+		F23: [1, 2, 3, 4],
+		F24: [1, 2, 3, 4],
+		F31: [1, 2, 3, 4],
+		F32: [1, 2, 3, 4],
+		F33: [3],
+		F34: [2],
+		F41: [1, 2, 3, 4],
+		F42: [1, 2, 3, 4],
+		F43: [1, 2, 3, 4],
+		F44: [1, 2, 3, 4]
 	},
 	constraints: [
-    { vars: ["F11", "F12", "F13", "F14"], op: "≠" },
-    { vars: ["F21", "F22", "F23", "F24"], op: "≠" },
-    { vars: ["F31", "F32", "F33", "F34"], op: "≠" },
-    { vars: ["F41", "F42", "F43", "F44"], op: "≠" },
+		{ vars: ['F11', 'F12', 'F13', 'F14'], op: '≠' },
+		{ vars: ['F21', 'F22', 'F23', 'F24'], op: '≠' },
+		{ vars: ['F31', 'F32', 'F33', 'F34'], op: '≠' },
+		{ vars: ['F41', 'F42', 'F43', 'F44'], op: '≠' },
 
-    { vars: ["F11", "F21", "F31", "F41"], op: "≠" },
-    { vars: ["F12", "F22", "F32", "F42"], op: "≠" },
-    { vars: ["F13", "F23", "F33", "F43"], op: "≠" },
-    { vars: ["F14", "F24", "F34", "F44"], op: "≠" },
+		{ vars: ['F11', 'F21', 'F31', 'F41'], op: '≠' },
+		{ vars: ['F12', 'F22', 'F32', 'F42'], op: '≠' },
+		{ vars: ['F13', 'F23', 'F33', 'F43'], op: '≠' },
+		{ vars: ['F14', 'F24', 'F34', 'F44'], op: '≠' },
 
-    { vars: ["F11", "F21", "F12", "F22"], op: "≠" },
-    { vars: ["F31", "F32", "F41", "F42"], op: "≠" },
-    { vars: ["F13", "F23", "F14", "F24"], op: "≠" },
-    { vars: ["F33", "F34", "F43", "F44"], op: "≠" },
-	],
+		{ vars: ['F11', 'F21', 'F12', 'F22'], op: '≠' },
+		{ vars: ['F31', 'F32', 'F41', 'F42'], op: '≠' },
+		{ vars: ['F13', 'F23', 'F14', 'F24'], op: '≠' },
+		{ vars: ['F33', 'F34', 'F43', 'F44'], op: '≠' }
+	]
 };
 
 export const SORTING_LIST: SAT_Problem = {
-  name: "sorting",
+	name: 'sorting',
 	init_asg: {
-    V1: undefined,
-    V2: undefined,
-    V3: undefined,
-    V4: undefined,
-    V5: undefined,
-    V6: undefined,
-    V7: undefined,
+		V1: undefined,
+		V2: undefined,
+		V3: undefined,
+		V4: undefined,
+		V5: undefined,
+		V6: undefined,
+		V7: undefined
 	},
 	init_domains: {
-    V1: [7, 5, 2, 1, 4, 3, 6],
-    V2: [7, 5, 2, 1, 4, 3, 6],
-    V3: [7, 5, 2, 1, 4, 3, 6],
-    V4: [7, 5, 2, 1, 4, 3, 6],
-    V5: [7, 5, 2, 1, 4, 3, 6],
-    V6: [7, 5, 2, 1, 4, 3, 6],
-    V7: [7, 5, 2, 1, 4, 3, 6],
+		V1: [7, 5, 2, 1, 4, 3, 6],
+		V2: [7, 5, 2, 1, 4, 3, 6],
+		V3: [7, 5, 2, 1, 4, 3, 6],
+		V4: [7, 5, 2, 1, 4, 3, 6],
+		V5: [7, 5, 2, 1, 4, 3, 6],
+		V6: [7, 5, 2, 1, 4, 3, 6],
+		V7: [7, 5, 2, 1, 4, 3, 6]
 	},
 	constraints: [
-    {vars: ["V1", "V2", "V3", "V4", "V5", "V6", "V7"], op: "<"},
-    {vars: ["V1", "V2", "V3", "V4", "V5", "V6", "V7"], op: "≠"}
-	],
+		{ vars: ['V1', 'V2', 'V3', 'V4', 'V5', 'V6', 'V7'], op: '<' },
+		{ vars: ['V1', 'V2', 'V3', 'V4', 'V5', 'V6', 'V7'], op: '≠' }
+	]
 };
 
 export const FOUR_ROOKS: SAT_Problem = {
-  name: "four-rooks",
-  init_asg: {
-    F11: undefined,
-    F12: undefined,
-    F13: undefined,
-    F14: undefined,
-    F21: undefined,
-    F22: undefined,
-    F23: undefined,
-    F24: undefined,
-    F31: undefined,
-    F32: undefined,
-    F33: undefined,
-    F34: undefined,
-    F41: undefined,
-    F42: undefined,
-    F43: undefined,
-    F44: undefined,
+	name: 'four-rooks',
+	init_asg: {
+		F11: undefined,
+		F12: undefined,
+		F13: undefined,
+		F14: undefined,
+		F21: undefined,
+		F22: undefined,
+		F23: undefined,
+		F24: undefined,
+		F31: undefined,
+		F32: undefined,
+		F33: undefined,
+		F34: undefined,
+		F41: undefined,
+		F42: undefined,
+		F43: undefined,
+		F44: undefined
 	},
-  init_domains: {
-    F11: [0, 1],
-    F12: [0, 1],
-    F13: [0, 1],
-    F14: [0, 1],
-    F21: [0, 1],
-    F22: [0, 1],
-    F23: [0, 1],
-    F24: [0, 1],
-    F31: [0, 1],
-    F32: [0, 1],
-    F33: [0, 1],
-    F34: [0, 1],
-    F41: [0, 1],
-    F42: [0, 1],
-    F43: [0, 1],
-    F44: [0, 1],
+	init_domains: {
+		F11: [0, 1],
+		F12: [0, 1],
+		F13: [0, 1],
+		F14: [0, 1],
+		F21: [0, 1],
+		F22: [0, 1],
+		F23: [0, 1],
+		F24: [0, 1],
+		F31: [0, 1],
+		F32: [0, 1],
+		F33: [0, 1],
+		F34: [0, 1],
+		F41: [0, 1],
+		F42: [0, 1],
+		F43: [0, 1],
+		F44: [0, 1]
 	},
-  constraints: [
-    // rows have to have exactly one queen
-    {vars: ["F11", "F12", "F13", "F14"], op: "⊻"},
-    {vars: ["F21", "F22", "F23", "F24"], op: "⊻"},
-    {vars: ["F31", "F32", "F33", "F34"], op: "⊻"},
-    {vars: ["F41", "F42", "F43", "F44"], op: "⊻"},
-    // columns have to have exactly one queen
-    { vars: ["F11", "F21", "F31", "F41"], op: "⊻" },
-    { vars: ["F12", "F22", "F32", "F42"], op: "⊻" },
-    { vars: ["F13", "F23", "F33", "F43"], op: "⊻" },
-    { vars: ["F14", "F24", "F34", "F44"], op: "⊻" },
-    // diagonals can have up to one queen
-    { vars: ["F12", "F21"], op: "+" },
-    { vars: ["F13", "F22", "F31"], op: "+" },
-    { vars: ["F14", "F23", "F32", "F41"], op: "+" },
-    { vars: ["F24", "F33", "F42"], op: "+" },
-    { vars: ["F34", "F43"], op: "+" },
-    { vars: ["F13", "F24"], op: "+" },
-    { vars: ["F12", "F23", "F34"], op: "+" },
-    { vars: ["F11", "F22", "F33", "F44"], op: "+" },
-    { vars: ["F21", "F32", "F43"], op: "+" },
-    { vars: ["F31", "F42"], op: "+" },
-  ]
-}
+	constraints: [
+		// rows have to have exactly one queen
+		{ vars: ['F11', 'F12', 'F13', 'F14'], op: '⊻' },
+		{ vars: ['F21', 'F22', 'F23', 'F24'], op: '⊻' },
+		{ vars: ['F31', 'F32', 'F33', 'F34'], op: '⊻' },
+		{ vars: ['F41', 'F42', 'F43', 'F44'], op: '⊻' },
+		// columns have to have exactly one queen
+		{ vars: ['F11', 'F21', 'F31', 'F41'], op: '⊻' },
+		{ vars: ['F12', 'F22', 'F32', 'F42'], op: '⊻' },
+		{ vars: ['F13', 'F23', 'F33', 'F43'], op: '⊻' },
+		{ vars: ['F14', 'F24', 'F34', 'F44'], op: '⊻' },
+		// diagonals can have up to one queen
+		{ vars: ['F12', 'F21'], op: '+' },
+		{ vars: ['F13', 'F22', 'F31'], op: '+' },
+		{ vars: ['F14', 'F23', 'F32', 'F41'], op: '+' },
+		{ vars: ['F24', 'F33', 'F42'], op: '+' },
+		{ vars: ['F34', 'F43'], op: '+' },
+		{ vars: ['F13', 'F24'], op: '+' },
+		{ vars: ['F12', 'F23', 'F34'], op: '+' },
+		{ vars: ['F11', 'F22', 'F33', 'F44'], op: '+' },
+		{ vars: ['F21', 'F32', 'F43'], op: '+' },
+		{ vars: ['F31', 'F42'], op: '+' }
+	]
+};
