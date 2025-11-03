@@ -10,7 +10,7 @@
   <h2>Probabilistic Inference</h2>
   <h3><a href="{resolve(`/coin-toss`)}">Coin flips</a></h3>
   <h3><a href="{resolve(`/football-goals`)}">Football goals</a></h3>
-  <h2>Probabilistic Inference</h2>
+  <h2>Linear regression</h2>
   <h3><a href="{resolve(`/linear-regression`)}">Linear regression</a></h3>
   <h2>Search algorithms</h2>
  <h3><a href="{resolve(`/search`)}">Graph search</a></h3>
