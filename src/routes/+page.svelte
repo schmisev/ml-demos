@@ -5,7 +5,7 @@
 <div class="p-2">
   <h1>ML demos</h1>
   <div>Disclaimer: these demos are in no way optimized and just here for my own amusement</div>
-  <h2>Classfication</h2>
+  <h2>Classification</h2>
   <h3><a href="{resolve(`/kNN`)}">kNN & DT</a></h3>
   <h2>Probabilistic Inference</h2>
   <h3><a href="{resolve(`/coin-toss`)}">Coin flips</a></h3>
