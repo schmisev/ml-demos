@@ -5,7 +5,7 @@
   let constraint_txt = $derived(constraint.vars.join(" " + constraint.op + " "));
 </script>
 
-<div class="border flex flex-row">
+<div class="border flex flex-row font-bold text-xs">
   {#if constraint.op === "+"}
     ( {constraint_txt} ) &leq; 1
   {:else}

@@ -560,6 +560,23 @@ export const AUSTRALIA_PROBLEM: SAT_Problem = {
 	]
 };
 
+export const SUDOKU_CONSTRAINTS: SAT_Constraint[] = [
+		{ vars: ['F11', 'F12', 'F13', 'F14'], op: '≠' },
+		{ vars: ['F21', 'F22', 'F23', 'F24'], op: '≠' },
+		{ vars: ['F31', 'F32', 'F33', 'F34'], op: '≠' },
+		{ vars: ['F41', 'F42', 'F43', 'F44'], op: '≠' },
+
+		{ vars: ['F11', 'F21', 'F31', 'F41'], op: '≠' },
+		{ vars: ['F12', 'F22', 'F32', 'F42'], op: '≠' },
+		{ vars: ['F13', 'F23', 'F33', 'F43'], op: '≠' },
+		{ vars: ['F14', 'F24', 'F34', 'F44'], op: '≠' },
+
+		{ vars: ['F11', 'F21', 'F12', 'F22'], op: '≠' },
+		{ vars: ['F31', 'F32', 'F41', 'F42'], op: '≠' },
+		{ vars: ['F13', 'F23', 'F14', 'F24'], op: '≠' },
+		{ vars: ['F33', 'F34', 'F43', 'F44'], op: '≠' }
+]
+
 export const SUDOKU_PUZZLE: SAT_Problem = {
 	name: '4x4 sudoku',
 	init_asg: {
@@ -598,22 +615,7 @@ export const SUDOKU_PUZZLE: SAT_Problem = {
 		F43: [1, 2, 3, 4],
 		F44: [1, 2, 3, 4]
 	},
-	constraints: [
-		{ vars: ['F11', 'F12', 'F13', 'F14'], op: '≠' },
-		{ vars: ['F21', 'F22', 'F23', 'F24'], op: '≠' },
-		{ vars: ['F31', 'F32', 'F33', 'F34'], op: '≠' },
-		{ vars: ['F41', 'F42', 'F43', 'F44'], op: '≠' },
-
-		{ vars: ['F11', 'F21', 'F31', 'F41'], op: '≠' },
-		{ vars: ['F12', 'F22', 'F32', 'F42'], op: '≠' },
-		{ vars: ['F13', 'F23', 'F33', 'F43'], op: '≠' },
-		{ vars: ['F14', 'F24', 'F34', 'F44'], op: '≠' },
-
-		{ vars: ['F11', 'F21', 'F12', 'F22'], op: '≠' },
-		{ vars: ['F31', 'F32', 'F41', 'F42'], op: '≠' },
-		{ vars: ['F13', 'F23', 'F14', 'F24'], op: '≠' },
-		{ vars: ['F33', 'F34', 'F43', 'F44'], op: '≠' }
-	]
+	constraints: SUDOKU_CONSTRAINTS
 };
 
 export const SORTING_LIST: SAT_Problem = {

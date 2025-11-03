@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { SAT_Assignment, SAT_Problem } from '$lib/sat.svelte';
-  import ChessQueenImg from "$lib/images/chess-queen.svg";
-  import CrossImg from "$lib/images/simple-cross.svg";
+	import ChessQueenImg from '$lib/images/chess-queen.svg';
+	import CrossImg from '$lib/images/simple-cross.svg';
 
 	let { asg, colormap }: { asg: SAT_Assignment; colormap: string[] } = $props();
 
@@ -27,24 +27,22 @@
 	});
 </script>
 
-<div class="light-border">
-	<div class="w-full aspect-square grid grid-cols-4 grid-rows-4">
-		{#each grid as row, i}
-			{#each row as cell, j}
-				<div
-					class="flex flex-row items-center justify-center text-center {(i + j) % 2 === 1
-						? 'bg-gray-200'
-						: 'bg-white'}"
-				>
-          {#if cell !== undefined}
-            {#if cell}
-              <img class="w-6/7" src={ChessQueenImg} alt="♛">
-            {:else}
-              <img class="w-6/7" src={CrossImg} alt="×">
-            {/if}
-          {/if}
-				</div>
-			{/each}
+<div class="min-w-40 max-w-80 border grid aspect-square w-full grid-cols-4 grid-rows-4">
+	{#each grid as row, i}
+		{#each row as cell, j}
+			<div
+				class="flex flex-row items-center justify-center text-center {(i + j) % 2 === 1
+					? 'bg-gray-200'
+					: 'bg-white'}"
+			>
+				{#if cell !== undefined}
+					{#if cell}
+						<img class="w-6/7" src={ChessQueenImg} alt="♛" />
+					{:else}
+						<img class="w-6/7" src={CrossImg} alt="×" />
+					{/if}
+				{/if}
+			</div>
 		{/each}
-	</div>
+	{/each}
 </div>

@@ -357,7 +357,8 @@
 
 <div class="grid grid-cols-2 gap-2 p-2">
 	<div class="flex flex-col gap-2">
-		<div class="flex flex-row items-center gap-2">
+    <h1>Search algorithms | <a href="../">back</a></h1>
+		<div class="flex flex-row items-center gap-2 flex-wrap">
 			<button class="border" onclick={random_restart}>Random restart</button>
 			<button
 				class="border"

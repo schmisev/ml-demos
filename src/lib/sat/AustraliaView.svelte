@@ -23,7 +23,7 @@
 
 </script>
 
-<div class="light-border flex flex-col gap-2">
+<div class="flex flex-col gap-2">
   <div class="max-w-100">
 	<svg class="w-full h-full" viewBox="0 0 2193.0847 2008.031" width="185.681mm" height="170.013mm" xmlns="http://www.w3.org/2000/svg">
   <g style="font-style:normal;font-weight:400;font-size:37.5px;font-family:'Sans Serif';fill:#0000ff;fill-opacity:1;fill-rule:evenodd;stroke:#232323;stroke-width:3.07086992;stroke-linecap:square;stroke-linejoin:bevel;stroke-opacity:1" id="g94" font-weight="400" font-style="normal" transform="matrix(0.9998120665550232, 0, 0, 0.9998120665550232, -474.4734262596581, -314.6204270514909)" font-size="37.5">
