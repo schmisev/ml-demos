@@ -1,4 +1,5 @@
 import { STANDARD_PHYSICS, type NetworkData } from './network';
+import seedrandom from "seedrandom";
 
 export type SAT_Assignment = Record<string, number | undefined>;
 export type SAT_Domain = Record<string, number[]>;
@@ -82,11 +83,13 @@ function check_constraint(cstr: SAT_Constraint, asg: SAT_Assignment): SAT_Result
 }
 
 export interface SAT_Problem {
-	name: string;
+	name: SAT_ProblemName;
 	init_asg: SAT_Assignment;
 	init_domains: SAT_Domain;
 	constraints: SAT_Constraint[];
 }
+
+export type SAT_ProblemGenerator = (seed: number) => SAT_Problem;
 
 export function show(o: any) {
 	return JSON.stringify(o);
@@ -504,9 +507,11 @@ export function csp_to_network(csp: SAT_Problem) {
 	return network;
 }
 
+export type SAT_ProblemName = "australia" | "4x4 sudoku" | "sorting" | "4 queens" | "simple problem";
+
 // setting up a simple problem
 export const SIMPLE_PROBLEM: SAT_Problem = {
-	name: 'simple-problem',
+	name: 'simple problem',
 	init_asg: {
 		a: undefined,
 		b: undefined,
@@ -526,6 +531,8 @@ export const SIMPLE_PROBLEM: SAT_Problem = {
 		{ vars: ['d', 'a'], op: '≠' }
 	]
 };
+
+export const simple_problem_generator: SAT_ProblemGenerator = (seed) => SIMPLE_PROBLEM;
 
 export const AUSTRALIA_PROBLEM: SAT_Problem = {
 	name: 'australia',
@@ -559,6 +566,8 @@ export const AUSTRALIA_PROBLEM: SAT_Problem = {
 		{ vars: ['Q', 'NSW'], op: '≠' }
 	]
 };
+
+export const australia_problem_generator: SAT_ProblemGenerator = (seed) => AUSTRALIA_PROBLEM;
 
 export const SUDOKU_CONSTRAINTS: SAT_Constraint[] = [
 		{ vars: ['F11', 'F12', 'F13', 'F14'], op: '≠' },
@@ -618,6 +627,34 @@ export const SUDOKU_PUZZLE: SAT_Problem = {
 	constraints: SUDOKU_CONSTRAINTS
 };
 
+export const sudoku_puzzle_generator: SAT_ProblemGenerator = (seed) => {
+  const rng = seedrandom(`${seed}`);
+  const puzzle: SAT_Problem = {
+    name: "4x4 sudoku",
+    init_asg: {},
+    init_domains: {},
+    constraints: SUDOKU_CONSTRAINTS
+  }
+
+  for (let i = 1; i <= 4; i++) {
+    for (let j = 1; j <= 4; j++) {
+      const name = `F${i}${j}`;
+
+      if (rng() > 0.9) {
+        // we place a number
+        const num = Math.ceil(rng() * 4);
+        puzzle.init_asg[name] = num;
+        puzzle.init_domains[name] = [num];
+      } else {
+        // we leave it free
+        puzzle.init_asg[name] = undefined;
+        puzzle.init_domains[name] = [1, 2, 3, 4];
+      }
+    }
+  }
+  return puzzle;
+};
+
 export const SORTING_LIST: SAT_Problem = {
 	name: 'sorting',
 	init_asg: {
@@ -644,8 +681,12 @@ export const SORTING_LIST: SAT_Problem = {
 	]
 };
 
-export const FOUR_ROOKS: SAT_Problem = {
-	name: 'four-rooks',
+export const sorting_list_generator: SAT_ProblemGenerator = (seed) => {
+  return SORTING_LIST;
+};
+
+export const FOUR_QUEENS: SAT_Problem = {
+	name: '4 queens',
 	init_asg: {
 		F11: undefined,
 		F12: undefined,
@@ -705,4 +746,8 @@ export const FOUR_ROOKS: SAT_Problem = {
 		{ vars: ['F21', 'F32', 'F43'], op: '+' },
 		{ vars: ['F31', 'F42'], op: '+' }
 	]
+};
+
+export const four_queens_generator: SAT_ProblemGenerator = (seed) => {
+  return FOUR_QUEENS;
 };

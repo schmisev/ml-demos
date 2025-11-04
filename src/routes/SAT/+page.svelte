@@ -1,8 +1,10 @@
 <script lang="ts">
 	import {
 		AUSTRALIA_PROBLEM,
+		australia_problem_generator,
 		csp_to_network,
-		FOUR_ROOKS,
+		FOUR_QUEENS,
+		four_queens_generator,
 		SAT_FirstVarMode,
 		SAT_InferenceMode,
 		SAT_Result,
@@ -10,8 +12,13 @@
 		SAT_ValueSelectionMode,
 		SAT_VarSelectionMode,
 		SIMPLE_PROBLEM,
+		simple_problem_generator,
 		SORTING_LIST,
-		SUDOKU_PUZZLE
+		sorting_list_generator,
+		SUDOKU_PUZZLE,
+
+		sudoku_puzzle_generator
+
 	} from '$lib/sat.svelte';
 	import AssignmentView from '$lib/sat/AssignmentView.svelte';
 	import AustraliaView from '$lib/sat/AustraliaView.svelte';
@@ -33,7 +40,9 @@
 		'aquamarine',
 		'beige'
 	];
-	let problem = $state.raw(AUSTRALIA_PROBLEM);
+  let generator = $state.raw(australia_problem_generator);
+  let last_seed = Math.random();
+  let problem = $state.raw(generator(last_seed));
 
 	let inference_mode = $state(SAT_InferenceMode.FORWARD_CHECKING);
 	let var_selection = $state(SAT_VarSelectionMode.MRV);
@@ -44,7 +53,7 @@
 		new SAT_Solver(problem, inference_mode, var_selection, first_var_selection, value_selection)
 	);
 
-	function reload() {
+	function reset() {
 		solver = new SAT_Solver(
 			problem,
 			inference_mode,
@@ -53,18 +62,24 @@
 			value_selection
 		);
 	}
+
+  function reload() {
+    last_seed = Math.random();
+    problem = generator(last_seed);
+    reset();
+  }
 </script>
 
-<div class="grid grid-cols-2">
+<div class="grid grid-cols-2 gap-2">
 	<div class="flex flex-col gap-2 p-2">
 		<div class="flex flex-row gap-5">
 			<h1>CSP | <a href="../">back</a></h1>
-			<select bind:value={problem} onchange={reload}>
-				<option value={AUSTRALIA_PROBLEM}>3-coloring Australia</option>
-				<option value={SIMPLE_PROBLEM}>Simple cycle</option>
-				<option value={SUDOKU_PUZZLE}>4x4 Sudoku</option>
-				<option value={SORTING_LIST}>Sorting a list</option>
-				<option value={FOUR_ROOKS}>4-Queens</option>
+			<select bind:value={generator} onchange={reload}>
+				<option value={australia_problem_generator}>3-coloring Australia</option>
+				<option value={simple_problem_generator}>Simple cycle</option>
+				<option value={sudoku_puzzle_generator}>4x4 Sudoku</option>
+				<option value={sorting_list_generator}>Sorting a list</option>
+				<option value={four_queens_generator}>4-Queens</option>
 			</select>
 		</div>
 
@@ -72,24 +87,25 @@
 
 		<div class="flex flex-row flex-wrap gap-2">
 			<button class="border" onclick={() => solver.step()}>step</button>
-			<button class="border" onclick={reload}>reset</button>
+			<button class="border" onclick={reset}>reset</button>
+      <button class="border" onclick={reload}>reload</button>
 
-			<select bind:value={inference_mode} onchange={reload}>
+			<select bind:value={inference_mode} onchange={reset}>
 				<option value={SAT_InferenceMode.NO_INFERENCE}>no inference</option>
 				<option value={SAT_InferenceMode.FORWARD_CHECKING}>forward checking</option>
 			</select>
 
-			<select bind:value={first_var_selection} onchange={reload}>
+			<select bind:value={first_var_selection} onchange={reset}>
 				<option value={SAT_FirstVarMode.ANY}>any</option>
 				<option value={SAT_FirstVarMode.DEGREE}>degree heuristic</option>
 			</select>
 
-			<select bind:value={var_selection} onchange={reload}>
+			<select bind:value={var_selection} onchange={reset}>
 				<option value={SAT_VarSelectionMode.ANY}>any</option>
 				<option value={SAT_VarSelectionMode.MRV}>minimum remaining values</option>
 			</select>
 
-			<select bind:value={value_selection} onchange={reload}>
+			<select bind:value={value_selection} onchange={reset}>
 				<option value={SAT_ValueSelectionMode.ANY}>any</option>
 				<option value={SAT_ValueSelectionMode.LEAST_CONSTRAINING}>least constraining values</option>
 			</select>
@@ -139,12 +155,12 @@
 						</div>
 					</div>
 					<div class="border-r-2 border-l-2 pr-2 pl-2">Steps: {solver.steps}</div>
-					<div>Try <b>{solver.current_variable}</b> &in; &lcub;</div>
+					<div>Try <b>{solver.current_variable}</b> &in; &lcub;
 					{#each solver.choice_values.toReversed() as value, i (value)}
 						{#if i !== 0}
-							<div>&rarr;</div>
+							<span>&rarr;</span>
 						{/if}
-						<div
+						<span
 							class="rounded-xs pr-2 pl-2"
 							style="background-color: {colormap[value] !== undefined
 								? colormap[value]
@@ -154,19 +170,20 @@
 								: 'unset'}"
 						>
 							{value}
-						</div>
+          </span>
 					{/each}
-					<div>&rcub;</div>
+					<span>&rcub;</span>
+          </div>
 				</div>
 			</div>
 		</div>
 
 		<div class="flex flex-col flex-wrap items-center">
-			{#if solver.csp === SUDOKU_PUZZLE}
+			{#if solver.csp.name === "4x4 sudoku"}
 				<SudokuView {colormap} asg={solver.current_asg || solver.csp.init_asg}></SudokuView>
-			{:else if solver.csp === FOUR_ROOKS}
+			{:else if solver.csp.name === "4 queens"}
 				<FourQueensView asg={solver.current_asg || solver.csp.init_asg} {colormap}></FourQueensView>
-			{:else if solver.csp === AUSTRALIA_PROBLEM}
+			{:else if solver.csp.name === "australia"}
 				<AustraliaView asg={solver.current_asg || solver.csp.init_asg} {colormap}></AustraliaView>
 			{:else}
 				<div class="light-border">
@@ -192,7 +209,7 @@
 				<h2>LIFO assignments</h2>
 				<div class="flex flex-col gap-2">
 					{#each solver.assignments as asg, i (asg)}
-						{#if solver.csp === FOUR_ROOKS}
+						{#if solver.csp === FOUR_QUEENS}
 							<div class="w-30">
 								<FourQueensView asg={solver.assignments.toReversed()[i]} {colormap}
 								></FourQueensView>
@@ -212,7 +229,7 @@
 			<h2>rejected</h2>
 			<div class="flex flex-col gap-2">
 				{#each solver.rejected as asg, i}
-					{#if solver.csp === FOUR_ROOKS}
+					{#if solver.csp === FOUR_QUEENS}
 						<div class="w-30">
 							<FourQueensView asg={solver.rejected.toReversed()[i]} {colormap}></FourQueensView>
 						</div>
