@@ -25,7 +25,7 @@
 	});
 </script>
 
-<div class="min-w-40 w-80 max-w-80 grid aspect-square grid-cols-4 grid-rows-4">
+<div class="w-full max-w-80 grid aspect-square grid-cols-4 grid-rows-4">
 	{#each grid as row, i}
 		{#each row as cell, j}
 			<div

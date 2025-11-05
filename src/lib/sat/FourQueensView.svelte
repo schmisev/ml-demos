@@ -5,29 +5,25 @@
 
 	let { asg, colormap }: { asg: SAT_Assignment; colormap: string[] } = $props();
 
+  let N = $derived(Object.keys(asg).length);
+  let L = $derived(Math.round(Math.sqrt(N)));
+
 	let grid = $derived.by(() => {
-		const inner_grid: (number | undefined)[][] = [
-			[undefined, undefined, undefined, undefined],
-			[undefined, undefined, undefined, undefined],
-			[undefined, undefined, undefined, undefined],
-			[undefined, undefined, undefined, undefined]
-		];
+		const inner_grid: (number | undefined)[][] = [...new Array(L)].map((v) => [...new Array(L).fill(undefined)]);
 
-		for (const variable in asg) {
-			const value = asg[variable];
-			if (value === undefined) continue;
+		for (let i = 0; i < L; i++) {
+      for (let j = 0; j < L; j++) {
+        inner_grid[i][j] = asg[`F${i+1}${j+1}`];
+      }
+    }
 
-			const [F, r, c] = variable.split('');
-			const ri = parseInt(r) - 1;
-			const ci = parseInt(c) - 1;
+    console.log(inner_grid);
 
-			inner_grid[ri][ci] = value;
-		}
 		return inner_grid;
 	});
 </script>
 
-<div class="min-w-40 max-w-80 border grid aspect-square w-full grid-cols-4 grid-rows-4">
+<div class="w-full max-w-80 border grid aspect-square w-full" style="grid-template-columns: repeat({L}, minmax(0, 1fr)); grid-template-rows: repeat({L}, minmax(0, 1fr));">
 	{#each grid as row, i}
 		{#each row as cell, j}
 			<div

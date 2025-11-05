@@ -1,5 +1,5 @@
 import { STANDARD_PHYSICS, type NetworkData } from './network';
-import seedrandom from "seedrandom";
+import seedrandom from 'seedrandom';
 
 export type SAT_Assignment = Record<string, number | undefined>;
 export type SAT_Domain = Record<string, number[]>;
@@ -97,7 +97,8 @@ export function show(o: any) {
 
 export enum SAT_InferenceMode {
 	NO_INFERENCE,
-	FORWARD_CHECKING
+	FORWARD_CHECKING,
+	ARC_CONSISTENCY
 }
 
 export enum SAT_VarSelectionMode {
@@ -186,6 +187,7 @@ export class SAT_Solver {
 		if (this.last_result !== SAT_Result.UNDECIDED) return;
 		this.last_result = this._step();
 		this.steps += 1;
+    return this.last_result;
 	}
 
 	_step() {
@@ -257,19 +259,118 @@ export class SAT_Solver {
 				return SAT_Result.UNDECIDED; // we do no inference
 			case SAT_InferenceMode.FORWARD_CHECKING:
 				return this.forward_checking(asg, dom, variable, value);
+			case SAT_InferenceMode.ARC_CONSISTENCY:
+				return this.arc_consistency(asg, dom, variable, value);
 		}
 	}
 
-	make_consistant(
-		asg: SAT_Assignment,  
+	arc_consistency(
+		asg: SAT_Assignment, // only here so we can set fixed values directly
+		dom: SAT_Domain,
+		init_var: string, // this is just the initially changed variable
+		set_value: number // not needed
+	) {
+		let changed_vars = [init_var];
+
+		function save_and_splice(variable: string, i: number) {
+			if (!changed_vars.includes(variable)) changed_vars.push(variable);
+			const v = dom[variable].splice(i, 1);
+
+			console.log('!!! removed:', v, 'from', variable);
+		}
+
+		function test_assign_stop(variable: string) {
+			if (dom[variable].length === 0) {
+				return true; // FAIL!
+			}
+			if (dom[variable].length === 1) {
+				asg[variable] = dom[variable][0];
+			}
+			return false;
+		}
+
+		while (changed_vars.length > 0) {
+			let changed_var = changed_vars.shift()!;
+
+			let var_dom = dom[changed_var];
+			let max_value = Math.max(...var_dom);
+			let min_value = Math.min(...var_dom);
+
+			for (const constraint of this.csp.constraints) {
+				if (!constraint.vars.includes(changed_var)) continue;
+				const variable_index = constraint.vars.indexOf(changed_var);
+
+				for (const [constrained_index, constrained_var] of constraint.vars.entries()) {
+					if (constrained_var === changed_var) continue;
+					switch (constraint.op) {
+						case '=':
+							// the domains have to be equal, but we only test one way
+							// i.e. we are masking dom[cvar] with var_dom
+							for (let i = 0; i < dom[constrained_var].length; ) {
+								if (!var_dom.includes(dom[constrained_var][i])) save_and_splice(constrained_var, i);
+								else i++;
+							}
+							if (test_assign_stop(constrained_var)) return SAT_Result.FAILURE;
+							break;
+						case '≠':
+							// we can exclude values ONLY if var_dom contains only 1 value
+							if (var_dom.length === 1) {
+								for (let i = 0; i < dom[constrained_var].length; ) {
+									if (dom[constrained_var][i] === var_dom[0]) save_and_splice(constrained_var, i);
+									else i++;
+								}
+							}
+							if (test_assign_stop(constrained_var)) return SAT_Result.FAILURE;
+							break;
+						case '<':
+							// we exclude either values greater than the MAX
+							// or lesser than the MIN depending on their position
+							for (let i = 0; i < var_dom.length; ) {
+								const cval = dom[constrained_var][i];
+								if (variable_index <= constrained_index) {
+									if (cval < min_value) save_and_splice(constrained_var, i);
+									else i++;
+								} else {
+									if (cval > max_value) save_and_splice(constrained_var, i);
+									else i++;
+								}
+							}
+							if (test_assign_stop(constrained_var)) return SAT_Result.FAILURE;
+							break;
+						case '⊻':
+							if (min_value > 0) {
+								for (let i = 0; i < dom[constrained_var].length; ) {
+									if (dom[constrained_var][i] > 0) save_and_splice(constrained_var, i);
+									else i++;
+								}
+							}
+							if (test_assign_stop(constrained_var)) return SAT_Result.FAILURE;
+							break;
+						case '+':
+							// we exclude all values that would overshoot one if added to the min_malue
+							for (let i = 0; i < dom[constrained_var].length; ) {
+								if (dom[constrained_var][i] + min_value > 1) save_and_splice(constrained_var, i);
+								else i++;
+							}
+							if (test_assign_stop(constrained_var)) return SAT_Result.FAILURE;
+							break;
+					}
+				}
+			}
+		}
+		return this.check_all_constraints(asg);
+	}
+
+	make_consistent(
+		asg: SAT_Assignment,
 		dom: SAT_Domain,
 		constraint: SAT_Constraint,
-		changed_variable: string,
+		changed_var: string,
 		set_value: number
 	) {
-		const variable_index = constraint.vars.indexOf(changed_variable);
+		const variable_index = constraint.vars.indexOf(changed_var);
 		for (const [ci, cvar] of constraint.vars.entries()) {
-			if (cvar === changed_variable) continue;
+			if (cvar === changed_var) continue;
 			switch (constraint.op) {
 				case '=':
 					// values must be equal
@@ -331,7 +432,7 @@ export class SAT_Solver {
 		for (const constraint of this.csp.constraints) {
 			if (constraint.vars.includes(changed_variable)) {
 				// the new variable is involved in the constraint
-				const ret = this.make_consistant(asg, dom, constraint, changed_variable, set_value);
+				const ret = this.make_consistent(asg, dom, constraint, changed_variable, set_value);
 				if (ret === SAT_Result.FAILURE) return ret;
 			}
 		}
@@ -507,7 +608,12 @@ export function csp_to_network(csp: SAT_Problem) {
 	return network;
 }
 
-export type SAT_ProblemName = "australia" | "4x4 sudoku" | "sorting" | "4 queens" | "simple problem";
+export type SAT_ProblemName =
+	| 'australia'
+	| '4x4 sudoku'
+	| 'sorting'
+	| 'N queens'
+	| 'simple problem';
 
 // setting up a simple problem
 export const SIMPLE_PROBLEM: SAT_Problem = {
@@ -570,21 +676,21 @@ export const AUSTRALIA_PROBLEM: SAT_Problem = {
 export const australia_problem_generator: SAT_ProblemGenerator = (seed) => AUSTRALIA_PROBLEM;
 
 export const SUDOKU_CONSTRAINTS: SAT_Constraint[] = [
-		{ vars: ['F11', 'F12', 'F13', 'F14'], op: '≠' },
-		{ vars: ['F21', 'F22', 'F23', 'F24'], op: '≠' },
-		{ vars: ['F31', 'F32', 'F33', 'F34'], op: '≠' },
-		{ vars: ['F41', 'F42', 'F43', 'F44'], op: '≠' },
+	{ vars: ['F11', 'F12', 'F13', 'F14'], op: '≠' },
+	{ vars: ['F21', 'F22', 'F23', 'F24'], op: '≠' },
+	{ vars: ['F31', 'F32', 'F33', 'F34'], op: '≠' },
+	{ vars: ['F41', 'F42', 'F43', 'F44'], op: '≠' },
 
-		{ vars: ['F11', 'F21', 'F31', 'F41'], op: '≠' },
-		{ vars: ['F12', 'F22', 'F32', 'F42'], op: '≠' },
-		{ vars: ['F13', 'F23', 'F33', 'F43'], op: '≠' },
-		{ vars: ['F14', 'F24', 'F34', 'F44'], op: '≠' },
+	{ vars: ['F11', 'F21', 'F31', 'F41'], op: '≠' },
+	{ vars: ['F12', 'F22', 'F32', 'F42'], op: '≠' },
+	{ vars: ['F13', 'F23', 'F33', 'F43'], op: '≠' },
+	{ vars: ['F14', 'F24', 'F34', 'F44'], op: '≠' },
 
-		{ vars: ['F11', 'F21', 'F12', 'F22'], op: '≠' },
-		{ vars: ['F31', 'F32', 'F41', 'F42'], op: '≠' },
-		{ vars: ['F13', 'F23', 'F14', 'F24'], op: '≠' },
-		{ vars: ['F33', 'F34', 'F43', 'F44'], op: '≠' }
-]
+	{ vars: ['F11', 'F21', 'F12', 'F22'], op: '≠' },
+	{ vars: ['F31', 'F32', 'F41', 'F42'], op: '≠' },
+	{ vars: ['F13', 'F23', 'F14', 'F24'], op: '≠' },
+	{ vars: ['F33', 'F34', 'F43', 'F44'], op: '≠' }
+];
 
 export const SUDOKU_PUZZLE: SAT_Problem = {
 	name: '4x4 sudoku',
@@ -628,31 +734,31 @@ export const SUDOKU_PUZZLE: SAT_Problem = {
 };
 
 export const sudoku_puzzle_generator: SAT_ProblemGenerator = (seed) => {
-  const rng = seedrandom(`${seed}`);
-  const puzzle: SAT_Problem = {
-    name: "4x4 sudoku",
-    init_asg: {},
-    init_domains: {},
-    constraints: SUDOKU_CONSTRAINTS
-  }
+	const rng = seedrandom(`${seed}`);
+	const puzzle: SAT_Problem = {
+		name: '4x4 sudoku',
+		init_asg: {},
+		init_domains: {},
+		constraints: SUDOKU_CONSTRAINTS
+	};
 
-  for (let i = 1; i <= 4; i++) {
-    for (let j = 1; j <= 4; j++) {
-      const name = `F${i}${j}`;
+	for (let i = 1; i <= 4; i++) {
+		for (let j = 1; j <= 4; j++) {
+			const name = `F${i}${j}`;
 
-      if (rng() > 0.9) {
-        // we place a number
-        const num = Math.ceil(rng() * 4);
-        puzzle.init_asg[name] = num;
-        puzzle.init_domains[name] = [num];
-      } else {
-        // we leave it free
-        puzzle.init_asg[name] = undefined;
-        puzzle.init_domains[name] = [1, 2, 3, 4];
-      }
-    }
-  }
-  return puzzle;
+			if (rng() > 0.9) {
+				// we place a number
+				const num = Math.ceil(rng() * 4);
+				puzzle.init_asg[name] = num;
+				puzzle.init_domains[name] = [num];
+			} else {
+				// we leave it free
+				puzzle.init_asg[name] = undefined;
+				puzzle.init_domains[name] = [1, 2, 3, 4];
+			}
+		}
+	}
+	return puzzle;
 };
 
 export const SORTING_LIST: SAT_Problem = {
@@ -682,11 +788,11 @@ export const SORTING_LIST: SAT_Problem = {
 };
 
 export const sorting_list_generator: SAT_ProblemGenerator = (seed) => {
-  return SORTING_LIST;
+	return SORTING_LIST;
 };
 
 export const FOUR_QUEENS: SAT_Problem = {
-	name: '4 queens',
+	name: 'N queens',
 	init_asg: {
 		F11: undefined,
 		F12: undefined,
@@ -748,6 +854,85 @@ export const FOUR_QUEENS: SAT_Problem = {
 	]
 };
 
-export const four_queens_generator: SAT_ProblemGenerator = (seed) => {
-  return FOUR_QUEENS;
+export const four_queens_generator: SAT_ProblemGenerator = (seed: number) => {
+  return n_queens_generator(seed, 4);
+}
+
+export const eight_queens_generator: SAT_ProblemGenerator = (seed: number) => {
+  return n_queens_generator(seed, 8);
+}
+
+function n_queens_generator(seed: number, n: number): SAT_Problem {
+	const problem: SAT_Problem = {
+		name: 'N queens',
+		init_domains: {},
+		init_asg: {},
+		constraints: []
+	};
+
+	const L = n;
+
+	// rows
+	for (let i = 0; i < L; i++) {
+		const only_one_per_row: SAT_Constraint = {
+			vars: [],
+			op: '⊻'
+		};
+
+		for (let j = 0; j < L; j++) {
+			const field = `F${i + 1}${j + 1}`;
+			problem.init_asg[field] = undefined;
+			problem.init_domains[field] = [0, 1];
+
+			only_one_per_row.vars.push(field);
+		}
+
+		problem.constraints.push(only_one_per_row);
+	}
+
+	// columns
+	for (let i = 0; i < L; i++) {
+		const only_one_per_column: SAT_Constraint = {
+			vars: [],
+			op: '⊻'
+		};
+
+		for (let j = 0; j < L; j++) {
+			const field = `F${j + 1}${i + 1}`;
+			only_one_per_column.vars.push(field);
+		}
+
+		problem.constraints.push(only_one_per_column);
+	}
+
+	// diagonals
+	for (let diag = 1; diag < 2 * L - 2; diag++) {
+		const left_top_diag: SAT_Constraint = {
+			vars: [],
+			op: '+'
+		};
+
+		const right_top_diag: SAT_Constraint = {
+			vars: [],
+			op: '+'
+		};
+
+		const offset = diag + 1 - L;
+
+		for (let i = 0; i < L; i++) {
+			for (let j = 0; j < L; j++) {
+				const field = `F${j + 1}${i + 1}`;
+
+        const local_offset = i-j;
+        const local_diag = i+j;
+
+        if (local_offset === offset) right_top_diag.vars.push(field);
+        if (local_diag === diag) left_top_diag.vars.push(field);
+			}
+		}
+
+		problem.constraints.push(right_top_diag, left_top_diag);
+	}
+
+	return problem;
 };

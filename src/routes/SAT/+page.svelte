@@ -3,6 +3,7 @@
 		AUSTRALIA_PROBLEM,
 		australia_problem_generator,
 		csp_to_network,
+		eight_queens_generator,
 		FOUR_QUEENS,
 		four_queens_generator,
 		SAT_FirstVarMode,
@@ -16,9 +17,7 @@
 		SORTING_LIST,
 		sorting_list_generator,
 		SUDOKU_PUZZLE,
-
 		sudoku_puzzle_generator
-
 	} from '$lib/sat.svelte';
 	import AssignmentView from '$lib/sat/AssignmentView.svelte';
 	import AustraliaView from '$lib/sat/AustraliaView.svelte';
@@ -28,6 +27,7 @@
 	import GraphView from '$lib/components/GraphView.svelte';
 	import { NETWORK_ROMANIA } from '$lib/network';
 	import ConstraintView from '$lib/components/ConstraintView.svelte';
+	import AssignmentViz from '$lib/components/AssignmentViz.svelte';
 
 	let show_graph = $state(false);
 	const colormap = [
@@ -40,9 +40,9 @@
 		'aquamarine',
 		'beige'
 	];
-  let generator = $state.raw(australia_problem_generator);
-  let last_seed = Math.random();
-  let problem = $state.raw(generator(last_seed));
+	let generator = $state.raw(australia_problem_generator);
+	let last_seed = Math.random();
+	let problem = $state.raw(generator(last_seed));
 
 	let inference_mode = $state(SAT_InferenceMode.FORWARD_CHECKING);
 	let var_selection = $state(SAT_VarSelectionMode.MRV);
@@ -63,11 +63,32 @@
 		);
 	}
 
-  function reload() {
-    last_seed = Math.random();
-    problem = generator(last_seed);
-    reset();
-  }
+	function reload() {
+		last_seed = Math.random();
+		problem = generator(last_seed);
+		reset();
+	}
+
+	function step() {
+		const res = solver.step();
+
+		if (res === SAT_Result.SUCCESS || res === SAT_Result.FAILURE) {
+			if (is_autostepping) autostep();
+		}
+	}
+
+	let is_autostepping = $state(false);
+	let autostep_timer: number | undefined = undefined;
+
+	function autostep() {
+		is_autostepping = !is_autostepping;
+
+		if (is_autostepping) {
+			autostep_timer = setInterval(step, 100);
+		} else if (autostep_timer !== undefined) {
+			clearInterval(autostep_timer);
+		}
+	}
 </script>
 
 <div class="grid grid-cols-2 gap-2">
@@ -80,19 +101,26 @@
 				<option value={sudoku_puzzle_generator}>4x4 Sudoku</option>
 				<option value={sorting_list_generator}>Sorting a list</option>
 				<option value={four_queens_generator}>4-Queens</option>
+				<option value={eight_queens_generator}>8-Queens</option>
 			</select>
 		</div>
 
 		<hr />
 
 		<div class="flex flex-row flex-wrap gap-2">
-			<button class="border" onclick={() => solver.step()}>step</button>
+			<button class="border" onclick={step}>step</button>
 			<button class="border" onclick={reset}>reset</button>
-      <button class="border" onclick={reload}>reload</button>
+			<button class="border" onclick={reload}>reload</button>
+			<button
+				class="border"
+				style="{is_autostepping ? 'background-color: lightcoral' : ''};"
+				onclick={autostep}>Autostep</button
+			>
 
 			<select bind:value={inference_mode} onchange={reset}>
 				<option value={SAT_InferenceMode.NO_INFERENCE}>no inference</option>
 				<option value={SAT_InferenceMode.FORWARD_CHECKING}>forward checking</option>
+				<option value={SAT_InferenceMode.ARC_CONSISTENCY}>arc consistency</option>
 			</select>
 
 			<select bind:value={first_var_selection} onchange={reset}>
@@ -121,7 +149,7 @@
 			{#if !show_graph}
 				<div class="flex flex-row">
 					<div class="flex flex-col gap-2">
-						<div class="flex flex-row flex-wrap items-start gap-2">
+						<div class="flex max-h-30 flex-row flex-wrap items-start gap-2 overflow-y-auto p-2">
 							{#each solver.csp.constraints as c}
 								<ConstraintView constraint={c}></ConstraintView>
 							{/each}
@@ -155,42 +183,31 @@
 						</div>
 					</div>
 					<div class="border-r-2 border-l-2 pr-2 pl-2">Steps: {solver.steps}</div>
-					<div>Try <b>{solver.current_variable}</b> &in; &lcub;
-					{#each solver.choice_values.toReversed() as value, i (value)}
-						{#if i !== 0}
-							<span>&rarr;</span>
-						{/if}
-						<span
-							class="rounded-xs pr-2 pl-2"
-							style="background-color: {colormap[value] !== undefined
-								? colormap[value]
-								: 'white'}; font-weight: {solver.assignments.length > 0 &&
-							solver.assignments.at(-1)![solver.current_variable] === value
-								? 'bold'
-								: 'unset'}"
-						>
-							{value}
-          </span>
-					{/each}
-					<span>&rcub;</span>
-          </div>
+					<div>
+						Try <b>{solver.current_variable}</b> &in; &lcub;
+						{#each solver.choice_values.toReversed() as value, i (value)}
+							{#if i !== 0}
+								<span>&rarr;</span>
+							{/if}
+							<span
+								class="rounded-xs pr-2 pl-2"
+								style="background-color: {colormap[value] !== undefined
+									? colormap[value]
+									: 'white'}; font-weight: {solver.assignments.length > 0 &&
+								solver.assignments.at(-1)![solver.current_variable] === value
+									? 'bold'
+									: 'unset'}"
+							>
+								{value}
+							</span>
+						{/each}
+						<span>&rcub;</span>
+					</div>
 				</div>
 			</div>
 		</div>
 
-		<div class="flex flex-col flex-wrap items-center">
-			{#if solver.csp.name === "4x4 sudoku"}
-				<SudokuView {colormap} asg={solver.current_asg || solver.csp.init_asg}></SudokuView>
-			{:else if solver.csp.name === "4 queens"}
-				<FourQueensView asg={solver.current_asg || solver.csp.init_asg} {colormap}></FourQueensView>
-			{:else if solver.csp.name === "australia"}
-				<AustraliaView asg={solver.current_asg || solver.csp.init_asg} {colormap}></AustraliaView>
-			{:else}
-				<div class="light-border">
-					<h2>no viz</h2>
-				</div>
-			{/if}
-		</div>
+		<AssignmentViz {solver} {colormap} in_list={false}></AssignmentViz>
 	</div>
 
 	<div class="grid grid-cols-2 gap-2">
@@ -198,10 +215,13 @@
 			<div class="flex flex-col gap-2">
 				<h2>current</h2>
 				{#if solver.current_asg && solver.current_dom}
-					<div class="flex flex-row gap-1">
-						<AssignmentView asg={solver.current_asg} {colormap}></AssignmentView>
-						<DomainView dom={solver.current_dom} {colormap}></DomainView>
-					</div>
+					<AssignmentViz
+							in_list={true}
+							asg={solver.current_asg}
+              dom={solver.current_dom}
+							{colormap}
+							{solver}
+						></AssignmentViz>
 				{/if}
 
 				<hr />
@@ -209,18 +229,13 @@
 				<h2>LIFO assignments</h2>
 				<div class="flex flex-col gap-2">
 					{#each solver.assignments as asg, i (asg)}
-						{#if solver.csp === FOUR_QUEENS}
-							<div class="w-30">
-								<FourQueensView asg={solver.assignments.toReversed()[i]} {colormap}
-								></FourQueensView>
-							</div>
-						{:else}
-							<div class="flex flex-row gap-1">
-								<AssignmentView asg={solver.assignments.toReversed()[i]} {colormap}
-								></AssignmentView>
-								<DomainView dom={solver.domains.toReversed()[i]} {colormap}></DomainView>
-							</div>
-						{/if}
+						<AssignmentViz
+							in_list={true}
+							asg={solver.assignments.toReversed()[i]}
+              dom={solver.rejected_domains.toReversed()[i]}
+							{colormap}
+							{solver}
+						></AssignmentViz>
 					{/each}
 				</div>
 			</div>
@@ -229,15 +244,14 @@
 			<h2>rejected</h2>
 			<div class="flex flex-col gap-2">
 				{#each solver.rejected as asg, i}
-					{#if solver.csp === FOUR_QUEENS}
-						<div class="w-30">
-							<FourQueensView asg={solver.rejected.toReversed()[i]} {colormap}></FourQueensView>
-						</div>
-					{:else}
-						<div class="flex flex-row gap-1">
-							<AssignmentView asg={solver.rejected.toReversed()[i]} {colormap}></AssignmentView>
-							<DomainView dom={solver.rejected_domains.toReversed()[i]} {colormap}></DomainView>
-						</div>
+					{#if i < 10}
+						<AssignmentViz
+							in_list={true}
+							asg={solver.rejected.toReversed()[i]}
+							dom={solver.rejected_domains.toReversed()[i]}
+							{colormap}
+							{solver}
+						></AssignmentViz>
 					{/if}
 				{/each}
 			</div>
