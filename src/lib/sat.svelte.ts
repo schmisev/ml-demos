@@ -261,7 +261,7 @@ export class SAT_Solver {
 	}
 
 	make_consistant(
-		asg: SAT_Assignment,
+		asg: SAT_Assignment,  
 		dom: SAT_Domain,
 		constraint: SAT_Constraint,
 		changed_variable: string,

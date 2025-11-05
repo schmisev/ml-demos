@@ -14,5 +14,5 @@
   <h3><a href="{resolve(`/linear-regression`)}">Linear regression</a></h3>
   <h2>Search algorithms</h2>
  <h3><a href="{resolve(`/search`)}">Graph search</a></h3>
-  <h3><a href="{resolve(`/SAT`)}">Constraint satisfyability problems</a></h3>
+  <h3><a href="{resolve(`/SAT`)}">CSPs</a></h3>
 </div>

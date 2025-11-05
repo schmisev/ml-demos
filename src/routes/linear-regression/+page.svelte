@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { generate_linear_2d_samples, type Dataset2D } from '$lib/linreg';
-	import { m_id, m_mat, m_vec, m_zeros, mmult, mprint, mscale, T, type Matrix } from '$lib/matrix';
-	import { xml } from 'd3';
+	import { m_id, m_mat, m_vec, m_zeros, m_mult, m_print, m_scale, T, type Matrix } from '$lib/matrix';
 	import type p5 from 'p5';
 	import { onMount } from 'svelte';
 	import { ssrImportKey } from 'vite/module-runner';
@@ -53,7 +52,7 @@
               [x2, x2, x2+step, x2+step]
             ])
 
-            const y = mmult(T(weights), X);
+            const y = m_mult(T(weights), X);
 
             sk.push();
             sk.fill("blue");

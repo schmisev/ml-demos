@@ -1,4 +1,5 @@
 import gamma from "@stdlib/math-base-special-gamma";
+import type { Vector2 } from "./vector";
 
 // place files you want to import through the `$lib` alias in this folder.
 export function randint(from: number, to: number): number {
