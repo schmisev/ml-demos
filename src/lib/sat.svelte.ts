@@ -610,7 +610,7 @@ export function csp_to_network(csp: SAT_Problem) {
 
 export type SAT_ProblemName =
 	| 'australia'
-	| '4x4 sudoku'
+	| 'NxN sudoku'
 	| 'sorting'
 	| 'N queens'
 	| 'simple problem';
@@ -693,7 +693,7 @@ export const SUDOKU_CONSTRAINTS: SAT_Constraint[] = [
 ];
 
 export const SUDOKU_PUZZLE: SAT_Problem = {
-	name: '4x4 sudoku',
+	name: 'NxN sudoku',
 	init_asg: {
 		F11: undefined,
 		F12: undefined,
@@ -733,31 +733,60 @@ export const SUDOKU_PUZZLE: SAT_Problem = {
 	constraints: SUDOKU_CONSTRAINTS
 };
 
-export const sudoku_puzzle_generator: SAT_ProblemGenerator = (seed) => {
+export function sudoku_puzzle_generator(seed: number, n: number): SAT_Problem {
 	const rng = seedrandom(`${seed}`);
 	const puzzle: SAT_Problem = {
-		name: '4x4 sudoku',
+		name: 'NxN sudoku',
 		init_asg: {},
 		init_domains: {},
-		constraints: SUDOKU_CONSTRAINTS
+		constraints: [],
 	};
 
-	for (let i = 1; i <= 4; i++) {
-		for (let j = 1; j <= 4; j++) {
-			const name = `F${i}${j}`;
+  const L = n;
+  const M = Math.round(Math.sqrt(L));
+
+  const row_constraints: Record<number, string[]> = {}
+  const col_constraints: Record<number, string[]> = {}
+  const box_constraints: Record<number, string[]> = {}
+
+	for (let i = 0; i < L; i++) {
+		for (let j = 0; j < L; j++) {
+			const name = `F${i+1}${j+1}`;
+
+      if (!row_constraints[j]) row_constraints[j] = [];
+      row_constraints[j].push(name);
+
+      if (!col_constraints[i]) col_constraints[i] = [];
+      col_constraints[i].push(name);
+
+      const box_num = Math.floor(i / M) * M + Math.floor(j / M);
+
+      if (!box_constraints[box_num]) box_constraints[box_num] = [];
+      box_constraints[box_num].push(name);
 
 			if (rng() > 0.9) {
 				// we place a number
-				const num = Math.ceil(rng() * 4);
+				const num = Math.ceil(rng() * L);
 				puzzle.init_asg[name] = num;
 				puzzle.init_domains[name] = [num];
 			} else {
 				// we leave it free
 				puzzle.init_asg[name] = undefined;
-				puzzle.init_domains[name] = [1, 2, 3, 4];
+				puzzle.init_domains[name] = [...Array(L)].map((v, i) => i+1);
 			}
 		}
 	}
+
+  for (const values of Object.values(row_constraints)) {
+    puzzle.constraints.push({op: "≠", vars: values})
+  }
+  for (const values of Object.values(col_constraints)) {
+    puzzle.constraints.push({op: "≠", vars: values})
+  }
+  for (const values of Object.values(box_constraints)) {
+    puzzle.constraints.push({op: "≠", vars: values})
+  }
+
 	return puzzle;
 };
 
@@ -854,15 +883,7 @@ export const FOUR_QUEENS: SAT_Problem = {
 	]
 };
 
-export const four_queens_generator: SAT_ProblemGenerator = (seed: number) => {
-  return n_queens_generator(seed, 4);
-}
-
-export const eight_queens_generator: SAT_ProblemGenerator = (seed: number) => {
-  return n_queens_generator(seed, 8);
-}
-
-function n_queens_generator(seed: number, n: number): SAT_Problem {
+export function n_queens_generator(seed: number, n: number): SAT_Problem {
 	const problem: SAT_Problem = {
 		name: 'N queens',
 		init_domains: {},

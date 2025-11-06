@@ -1,31 +1,19 @@
 <script lang="ts">
 	import {
-		AUSTRALIA_PROBLEM,
 		australia_problem_generator,
 		csp_to_network,
-		eight_queens_generator,
-		FOUR_QUEENS,
-		four_queens_generator,
+		n_queens_generator,
 		SAT_FirstVarMode,
 		SAT_InferenceMode,
 		SAT_Result,
 		SAT_Solver,
 		SAT_ValueSelectionMode,
 		SAT_VarSelectionMode,
-		SIMPLE_PROBLEM,
 		simple_problem_generator,
-		SORTING_LIST,
 		sorting_list_generator,
-		SUDOKU_PUZZLE,
 		sudoku_puzzle_generator
 	} from '$lib/sat.svelte';
-	import AssignmentView from '$lib/sat/AssignmentView.svelte';
-	import AustraliaView from '$lib/sat/AustraliaView.svelte';
-	import DomainView from '$lib/sat/DomainView.svelte';
-	import SudokuView from '$lib/sat/SudokuView.svelte';
-	import FourQueensView from '$lib/sat/FourQueensView.svelte';
 	import GraphView from '$lib/components/GraphView.svelte';
-	import { NETWORK_ROMANIA } from '$lib/network';
 	import ConstraintView from '$lib/components/ConstraintView.svelte';
 	import AssignmentViz from '$lib/components/AssignmentViz.svelte';
 
@@ -38,7 +26,11 @@
 		'lightgrey',
 		'pink',
 		'aquamarine',
-		'beige'
+		'beige',
+		'lightcoral',
+		'bisque',
+		'gainsboro',
+		'lavender'
 	];
 	let generator = $state.raw(australia_problem_generator);
 	let last_seed = Math.random();
@@ -95,13 +87,25 @@
 	<div class="flex flex-col gap-2 p-2">
 		<div class="flex flex-row gap-5">
 			<h1>CSP | <a href="../">back</a></h1>
-			<select bind:value={generator} onchange={reload}>
+			<select class="max-w-40" bind:value={generator} onchange={reload}>
+				<optgroup label="simple problems">
+					<option value={simple_problem_generator}>Simple cycle</option>
+					<option value={sorting_list_generator}>Sorting a list</option>
+				</optgroup>
 				<option value={australia_problem_generator}>3-coloring Australia</option>
-				<option value={simple_problem_generator}>Simple cycle</option>
-				<option value={sudoku_puzzle_generator}>4x4 Sudoku</option>
-				<option value={sorting_list_generator}>Sorting a list</option>
-				<option value={four_queens_generator}>4-Queens</option>
-				<option value={eight_queens_generator}>8-Queens</option>
+				<optgroup label="NxN sudokus">
+					<option value={(seed: number) => sudoku_puzzle_generator(seed, 4)}>4x4 Sudoku</option>
+					<option value={(seed: number) => sudoku_puzzle_generator(seed, 9)}>9x9 Sudoku</option>
+				</optgroup>
+				<optgroup label="N-queens">
+					<option value={(seed: number) => n_queens_generator(seed, 3)}
+						>3-Queens (impossible)</option
+					>
+					<option value={(seed: number) => n_queens_generator(seed, 4)}>4-Queens</option>
+					<option value={(seed: number) => n_queens_generator(seed, 6)}>6-Queens</option>
+					<option value={(seed: number) => n_queens_generator(seed, 7)}>7-Queens</option>
+					<option value={(seed: number) => n_queens_generator(seed, 8)}>8-Queens</option>
+				</optgroup>
 			</select>
 		</div>
 
@@ -185,7 +189,7 @@
 					<div class="border-r-2 border-l-2 pr-2 pl-2">Steps: {solver.steps}</div>
 					<div>
 						Try <b>{solver.current_variable}</b> &in; &lcub;
-						{#each solver.choice_values.toReversed() as value, i (value)}
+						{#each solver.choice_values.toReversed() as value, i}
 							{#if i !== 0}
 								<span>&rarr;</span>
 							{/if}
@@ -216,32 +220,34 @@
 				<h2>current</h2>
 				{#if solver.current_asg && solver.current_dom}
 					<AssignmentViz
-							in_list={true}
-							asg={solver.current_asg}
-              dom={solver.current_dom}
-							{colormap}
-							{solver}
-						></AssignmentViz>
+						in_list={true}
+						asg={solver.current_asg}
+						dom={solver.current_dom}
+						{colormap}
+						{solver}
+					></AssignmentViz>
 				{/if}
 
 				<hr />
 
-				<h2>LIFO assignments</h2>
+				<h2>LIFO assignments: {solver.assignments.length}</h2>
 				<div class="flex flex-col gap-2">
 					{#each solver.assignments as asg, i (asg)}
-						<AssignmentViz
-							in_list={true}
-							asg={solver.assignments.toReversed()[i]}
-              dom={solver.rejected_domains.toReversed()[i]}
-							{colormap}
-							{solver}
-						></AssignmentViz>
+						{#if i < 10}
+							<AssignmentViz
+								in_list={true}
+								asg={solver.assignments.toReversed()[i]}
+								dom={solver.rejected_domains.toReversed()[i]}
+								{colormap}
+								{solver}
+							></AssignmentViz>
+						{/if}
 					{/each}
 				</div>
 			</div>
 		</div>
 		<div class="flex flex-col gap-2">
-			<h2>rejected</h2>
+			<h2>rejected: {solver.rejected.length}</h2>
 			<div class="flex flex-col gap-2">
 				{#each solver.rejected as asg, i}
 					{#if i < 10}

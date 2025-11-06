@@ -26,7 +26,7 @@
 </script>
 
 <div class="flex flex-col flex-wrap items-center">
-  {#if solver.csp.name === "4x4 sudoku"}
+  {#if solver.csp.name === "NxN sudoku"}
     <SudokuView asg={used_asg} {colormap}></SudokuView>
   {:else if solver.csp.name === "N queens"}
     <FourQueensView asg={used_asg} {colormap}></FourQueensView>
