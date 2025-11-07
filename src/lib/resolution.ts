@@ -38,12 +38,14 @@ export interface BiCondExpr {
 	right: LogicExpr;
 }
 
-function format_expr(expr: LogicExpr): string {
+function format_expr(expr: LogicExpr | Term): string {
 	switch (expr.kind) {
+    case 'TERM':
+      return format_expr(expr.symbol);
 		case 'ATOMIC':
 			return `${expr.value ? '' : '¬'}${expr.name}`;
 		case 'NOT':
-			return `NOT ${format_expr(expr.symbol)}`;
+			return `¬ ${format_expr(expr.symbol)}`;
 		case 'AND':
 			return `(${expr.symbols.map((s) => format_expr(s)).join(' ∧ ')})`;
 		case 'OR':
@@ -102,6 +104,12 @@ function expand_expr(expr: LogicExpr): { changed: boolean; expr: LogicExpr } {
 				}
 			}
 			expr.symbols = new_symbols;
+
+      if (!changed && expr.kind === "OR") {
+        const repl = distribute_or_over_and(expr);
+        return { changed: false, expr: repl };
+      }
+
 			return { changed, expr };
 		}
 		case 'IMPL': {
@@ -133,38 +141,91 @@ function expand_expr(expr: LogicExpr): { changed: boolean; expr: LogicExpr } {
 	}
 }
 
-function expand_dependend_exprs(expr: LogicExpr | Term) {
-	switch (expr.kind) {
+function expand_again(changed: boolean, expr: LogicExpr | Term, depth: number) {
+  if (changed) {
+    console.log(("__").repeat(depth), format_expr(expr));
+    expand_dependend_exprs(expr, depth+1);
+  }
+}
+
+function expand_dependend_exprs(expr: LogicExpr | Term, depth: number) {
+  switch (expr.kind) {
 		case 'ATOMIC':
 			// cannot be simplified
 			break;
 		case 'AND':
 		case 'OR':
 			for (let i = 0; i < expr.symbols.length; i++) {
-				expand_dependend_exprs(expr.symbols[i]);
+				expand_dependend_exprs(expr.symbols[i], depth+1);
 				const ret = expand_expr(expr.symbols[i]);
         expr.symbols[i] = ret.expr;
-        if (ret.changed) expand_dependend_exprs(expr);
+        expand_again(ret.changed, expr, depth);
 			}
 			break;
 		case 'IMPL':
 		case 'BICOND':
-			expand_dependend_exprs(expr.left);
-			expand_dependend_exprs(expr.right);
+			expand_dependend_exprs(expr.left, depth+1);
+			expand_dependend_exprs(expr.right, depth+1);
       
       const ret_left = expand_expr(expr.left);
       const ret_right = expand_expr(expr.right);
 			
-      if (ret_left.changed || ret_right.changed) expand_dependend_exprs(expr);
+      expand_again(ret_left.changed || ret_right.changed, expr, depth);
 			break;
 		case 'NOT':
 		case 'TERM':
-			expand_dependend_exprs(expr.symbol);
+			expand_dependend_exprs(expr.symbol, depth+1);
 			const ret = expand_expr(expr.symbol);
       expr.symbol = ret.expr;
-      if (ret.changed) expand_dependend_exprs(expr);
+      expand_again(ret.changed, expr, depth);
 			break;
 	}
+}
+
+function is_clause(expr: OrExpr) {
+  for (const child_expr of expr.symbols) {
+    if (child_expr.kind === "AND") return false;
+  }
+  return true;
+}
+
+function distribute_or_over_and(expr: OrExpr) {
+  if (is_clause(expr)) return expr;
+
+  let left = wrap_in_and(expr.symbols[0]);
+  for (let i = 1; i < expr.symbols.length; i++) {
+    const raw = expr.symbols[i];
+    const right = wrap_in_and(raw);
+
+    const new_conj: AndExpr = {
+      kind: "AND",
+      symbols: []
+    }
+
+    for (const l_symbol of left.symbols) {
+      for (const r_symbol of right.symbols) {
+        new_conj.symbols.push({
+          kind: "OR",
+          symbols: [l_symbol, r_symbol]
+        })
+      }
+    }
+    
+    left = new_conj;
+  }
+
+  let ret: LogicExpr;
+  if (left.symbols.length === 1) {
+    ret = left.symbols[0];
+  } else {
+    ret = left;
+  }
+  return ret;
+}
+
+function wrap_in_and(expr: LogicExpr): AndExpr {
+  if (expr.kind === "AND") return expr;
+  return {kind: "AND", symbols: [expr]};
 }
 
 // testing
@@ -199,5 +260,5 @@ const test_expr: Term = {
 };
 
 console.log(format_expr(test_expr.symbol));
-expand_dependend_exprs(test_expr);
+expand_dependend_exprs(test_expr, 0);
 console.log(format_expr(test_expr.symbol));
