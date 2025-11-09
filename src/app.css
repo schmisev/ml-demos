@@ -51,3 +51,47 @@ button {
 	padding: 0.5rem 1rem;
 	border: 2px solid rgba(0, 0, 0, 0.2);
 }
+
+:root {
+  --start-angle: -6deg;
+  --wiggle-angle: 6deg;
+}
+
+@keyframes wiggle {
+  0%   { transform: rotate(var(--start-angle)) }
+  50%  { transform: rotate(var(--wiggle-angle)) }
+  100% { transform: rotate(var(--start-angle)) }
+}
+
+.wiggle {
+  display: inline-block;              /* preserve transform */
+  transform-origin: 50% 50%;
+  animation: wiggle 3000ms ease-in-out infinite;
+}
+
+@keyframes waft {
+  0%   { transform: skewX(10deg) scale(0.8) rotate(2deg) }
+  50%  { transform: skewX(-10deg) scale(1) rotate(-2deg) }
+  100% { transform: skewX(10deg) scale(0.8) rotate(2deg) }
+}
+
+.waft {
+  display: inline-block;              /* preserve transform */
+  transform-origin: 50% 50%;
+  animation: waft 3000ms ease-in-out infinite;
+}
+
+@keyframes jitter {
+  0%   { transform: translate(0, 0) rotate(0deg); }
+  25%  { transform: translate(1px, -1px) rotate(0.5deg); }
+  50%  { transform: translate(-1px, 1px) rotate(-0.5deg); }
+  75%  { transform: translate(1px, 1px) rotate(0.5deg); }
+  100% { transform: translate(0, 0) rotate(0deg); }
+}
+
+.jitter {
+  display: inline-block;
+  animation: jitter 400ms infinite linear;
+  transform-origin: center;
+}
+

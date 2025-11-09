@@ -7,6 +7,17 @@ export function vv(x?: number, y?: number) {
   return {x: x || 0, y: y || x || 0};
 }
 
+export function clamp(value: number, min: number, max: number) {
+  return Math.min(Math.max(value, min), max);
+}
+
+export function vclamp(v: Vector2, xmin: number, xmax: number, ymin: number, ymax: number) {
+  return {
+    x: clamp(v.x, xmin, xmax),
+    y: clamp(v.y, ymin, ymax),
+  }
+}
+
 export function vadd(a: Vector2, b: Vector2): Vector2 {
   return {x: a.x + b.x, y: a.y + b.y};
 }
