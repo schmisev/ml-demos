@@ -59,7 +59,7 @@ export function network_to_graph(network: NetworkData): GraphNode[] {
 }
 
 export const NETWORK_ROMANIA: NetworkData = {
-	physics: STANDARD_PHYSICS,
+	physics: {...STANDARD_PHYSICS, zoom: 0.4},
 	nodes: [
 		{ id: 0, name: 'Arad', meta: { coord: { lat: 46.1667, lon: 21.3167 } } },
 		{ id: 1, name: 'Zerind', meta: { coord: { lat: 46.6167, lon: 21.5167 } } },
@@ -110,7 +110,7 @@ export const NETWORK_ROMANIA: NetworkData = {
 };
 
 export const NETWORK_GERMANY: NetworkData = {
-	physics: {...STANDARD_PHYSICS, node_charge: 5000, spring_stiffness: 7.0, zoom: 0.2},
+	physics: {...STANDARD_PHYSICS, node_charge: 9000, zoom: 0.3},
 	nodes: [
 		{ id: 0, name: 'Berlin', meta: { coord: { lat: 52.5200, lon: 13.4050 } } },
 		{ id: 1, name: 'Hamburg', meta: { coord: { lat: 53.5511, lon: 9.9937 } } },
@@ -192,7 +192,7 @@ export const NETWORK_GERMANY: NetworkData = {
 };
 
 export const NETWORK_MUNICH: NetworkData = {
-	physics: {...STANDARD_PHYSICS, node_charge: 7000, spring_stiffness: 10.0, zoom: 0.2},
+	physics: {...STANDARD_PHYSICS, node_charge: 9000, zoom: 12},
 	nodes: [
 		{ id: 0, name: 'Munich Center', meta: { coord: { lat: 48.1372, lon: 11.5756 } } },
 		{ id: 1, name: 'Maxvorstadt', meta: { coord: { lat: 48.1500, lon: 11.5670 } } },
