@@ -19,6 +19,7 @@ interface SearchNode {
 	state: GraphNode;
 	action: GraphLink | null;
 	parent: SearchNode | null;
+  real_path_cost: number;
 	path_cost: number;
 	heuristic: number;
 	depth: number;
@@ -111,6 +112,10 @@ export abstract class Search {
 		return node.path_cost + node.heuristic;
 	}
 
+  real_total_cost(node: SearchNode): number {
+    return node.real_path_cost;
+  }
+
 	// w + h(x)
 	local_cost(link: GraphLink): number {
 		return this.weight(link) + this.heuristic(link.to.node, this.goal!.node);
@@ -135,6 +140,7 @@ export abstract class Search {
 				action: link,
 				parent: this.current,
 				path_cost: this.current.path_cost + this.weight(link),
+        real_path_cost: this.current.real_path_cost + link.weight,
 				depth: this.current.depth + 1,
 				heuristic: this.heuristic(link.to.node, this.goal!.node)
 			} satisfies SearchNode;
@@ -148,6 +154,7 @@ export abstract class Search {
 			action: null,
 			parent: null,
 			path_cost: 0,
+      real_path_cost: 0,
 			depth: 0,
 			heuristic: 0
 		};
@@ -347,7 +354,7 @@ export class BestFirstSearch extends Search {
 		for (const child of this.expand()) {
 			const state = child.state.node.id;
 			const reached_node = this.reached.get(state)!;
-			if (!reached_node || this.total_cost(child) < this.total_cost(reached_node)) {
+			if (!reached_node || this.real_total_cost(child) < this.real_total_cost(reached_node)) {
 				this.reached.set(state, child);
 				this.push_frontier(child);
 				this.frontier.sort((a, b) => this.total_cost(a) - this.total_cost(b));

@@ -36,7 +36,7 @@
 							<img class="drop-shadow-md w-full h-full object-contain" src={goldImg} alt="P" />
 						{/if}
 						{#if cell.Glitter}
-							<img class="w-full h-full object-contain" src={glitterImg} alt="G" />
+							<img class="w-full h-full object-contain glitter" src={glitterImg} alt="G" />
 						{/if}
 						{#if cell.Breeze}
 							<img class="w-full h-full object-contain wiggle" src={breezeImg} alt="B" />

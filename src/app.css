@@ -95,3 +95,15 @@ button {
   transform-origin: center;
 }
 
+@keyframes glitter {
+  0%   { transform: scale(0.8) rotate(2deg) }
+  30%  { transform: rotate(-2deg) }
+  70%  { transform: scale(1) }
+  100% { transform: scale(0.8) rotate(2deg) }
+}
+
+.glitter {
+  display: inline-block;              /* preserve transform */
+  transform-origin: 50% 50%;
+  animation: glitter 1000ms ease-in-out infinite;
+}

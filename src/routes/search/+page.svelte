@@ -1,7 +1,9 @@
 <script lang="ts">
 	import { get_mouse_on_canvas, rand, randint } from '$lib';
 	import {
+	NETWORK_GERMANY,
 		NETWORK_LEFT_HEAVY,
+		NETWORK_MUNICH,
 		NETWORK_ROMANIA,
 		network_to_graph,
 		type GraphNode,
@@ -377,6 +379,8 @@
       <select bind:value={chosen_dataset} onchange={(ev) => {load_data(chosen_dataset); random_restart()}}>
         <option value={NETWORK_LEFT_HEAVY}>binary tree</option>
         <option value={NETWORK_ROMANIA}>Romania</option>
+        <option value={NETWORK_GERMANY}>Germany</option>
+        <option value={NETWORK_MUNICH}>Munich</option>
       </select>
       <label>show undiscovered <input type="checkbox" bind:checked={show_undiscovered}></label>
 		</div>
@@ -489,7 +493,7 @@
 								</div>
 								<div class="flex flex-row items-center rounded-xl bg-gray-100 pl-4">
 									↑ <span class="text-xs"
-										>+{node.action?.weight || 0} = <b>{node.path_cost}</b></span
+										>+{node.action?.weight || 0} = <b>{node.real_path_cost}</b></span
 									>
 								</div>
 							{:else}
@@ -500,7 +504,7 @@
 								</div>
 								<div class="flex flex-row items-center rounded-xl bg-gray-100 pl-4">
 									↑ <span class="text-xs"
-										>+{node.action?.weight || 0} = <b>{node.path_cost}</b></span
+										>+{node.action?.weight || 0} = <b>{node.real_path_cost}</b></span
 									>
 								</div>
 							{/if}
