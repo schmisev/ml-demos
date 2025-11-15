@@ -124,6 +124,8 @@
 			<select bind:value={inference_mode} onchange={reset}>
 				<option value={SAT_InferenceMode.NO_INFERENCE}>no inference</option>
 				<option value={SAT_InferenceMode.FORWARD_CHECKING}>forward checking</option>
+        <option value={SAT_InferenceMode.FORWARD_CHECKING_WITH_DIRECT_ASSIGNMENT}>forward checking w/ direct assigment</option>
+        <option value={SAT_InferenceMode.RECURSIVE_FORWARD_CHECKING}>recursive forward checking</option>
 				<option value={SAT_InferenceMode.ARC_CONSISTENCY}>arc consistency</option>
 			</select>
       </label>

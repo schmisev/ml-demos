@@ -17,6 +17,12 @@ export enum SAT_Result {
 	SUCCESS = 'SUCCESS'
 }
 
+export enum SAT_ForwardCheckingMode {
+  CONSTRAIN_ONCE,
+  ASSIGN_DIRECTLY,
+  RECURSIVE
+}
+
 export type SAT_ArcMask = {
 	changed_var: string;
 	exclude_var?: string;
@@ -33,18 +39,18 @@ function copy_dom(dom: SAT_Domain): SAT_Domain {
 }
 
 function is_constraint_dead(asg: SAT_Assignment, constraint: SAT_Constraint): boolean {
-  for (const variable of constraint.vars) {
-    if (asg[variable] === undefined) return false;
-  }
-  return true;
+	for (const variable of constraint.vars) {
+		if (asg[variable] === undefined) return false;
+	}
+	return true;
 }
 
 function get_unassigned(asg: SAT_Assignment): Set<string> {
-  const unassigned = new Set<string>();
-  for (const v in asg) {
-    if (asg[v] == undefined) unassigned.add(v);
-  }
-  return unassigned;
+	const unassigned = new Set<string>();
+	for (const v in asg) {
+		if (asg[v] == undefined) unassigned.add(v);
+	}
+	return unassigned;
 }
 
 // checking values pairwise
@@ -115,17 +121,19 @@ export function show(o: any) {
 
 export enum SAT_InferenceMode {
 	NO_INFERENCE,
+  ONLY_CHECK_CONSTRAINTS,
 	FORWARD_CHECKING,
-  RECURSIVE_FORWARD_CHECKING,
+	RECURSIVE_FORWARD_CHECKING,
+  FORWARD_CHECKING_WITH_DIRECT_ASSIGNMENT,
 	ARC_CONSISTENCY
 }
 
 export enum SAT_VarSelectionMode {
 	ANY,
-  MRV,
-  DEGREE,
+	MRV,
+	DEGREE,
 	MRV_DEGREE,
-  DEGREE_MRV
+	DEGREE_MRV
 }
 
 export enum SAT_ValueSelectionMode {
@@ -133,7 +141,12 @@ export enum SAT_ValueSelectionMode {
 	LEAST_CONSTRAINING
 }
 
-export type SAT_VarSelector = (pick_from: Set<string>, asg: SAT_Assignment, dom: SAT_Domain, tiebreaker?: SAT_VarSelector) => string;
+export type SAT_VarSelector = (
+	pick_from: Set<string>,
+	asg: SAT_Assignment,
+	dom: SAT_Domain,
+	tiebreaker?: SAT_VarSelector
+) => string;
 
 export class SAT_Solver {
 	steps = $state(0);
@@ -179,8 +192,8 @@ export class SAT_Solver {
 		// calculate neigborhood
 		this.neighborhood = {};
 		for (const v1 in this.csp.init_asg) {
-      this.neighborhood[v1] = new Set();
-      for (const c of this.csp.constraints) {
+			this.neighborhood[v1] = new Set();
+			for (const c of this.csp.constraints) {
 				if (!c.vars.includes(v1)) continue;
 				for (const v2 of c.vars) {
 					if (v1 !== v2) this.neighborhood[v1].add(v2);
@@ -240,7 +253,7 @@ export class SAT_Solver {
 				break; // checkout more options
 		}
 
-    this.current_variable = this.select_unassigned_candidate(this.current_asg, this.current_dom);
+		this.current_variable = this.select_unassigned_candidate(this.current_asg, this.current_dom);
 
 		this.choice_values = this.order_domain_values(
 			this.current_variable,
@@ -281,10 +294,14 @@ export class SAT_Solver {
 		switch (this.inference_mode) {
 			case SAT_InferenceMode.NO_INFERENCE:
 				return SAT_Result.UNDECIDED; // we do no inference
+      case SAT_InferenceMode.ONLY_CHECK_CONSTRAINTS:
+        return this.check_all_constraints(asg);
 			case SAT_InferenceMode.FORWARD_CHECKING:
-				return this.forward_checking(asg, dom, variable, value);
-      case SAT_InferenceMode.RECURSIVE_FORWARD_CHECKING:
-        return this.forward_checking(asg, dom, variable, value);
+				return this.forward_checking(asg, dom, variable, value, SAT_ForwardCheckingMode.CONSTRAIN_ONCE);
+      case SAT_InferenceMode.FORWARD_CHECKING_WITH_DIRECT_ASSIGNMENT:
+				return this.forward_checking(asg, dom, variable, value, SAT_ForwardCheckingMode.ASSIGN_DIRECTLY);
+			case SAT_InferenceMode.RECURSIVE_FORWARD_CHECKING:
+				return this.forward_checking(asg, dom, variable, value, SAT_ForwardCheckingMode.RECURSIVE);
 			case SAT_InferenceMode.ARC_CONSISTENCY:
 				return this.arc_consistency(asg, dom, variable, value);
 		}
@@ -399,7 +416,7 @@ export class SAT_Solver {
 		dom: SAT_Domain,
 		constraint: SAT_Constraint,
 		changed_var: string,
-		set_value: number,
+		set_value: number
 	) {
 		const variable_index = constraint.vars.indexOf(changed_var);
 		for (const [ci, cvar] of constraint.vars.entries()) {
@@ -460,19 +477,102 @@ export class SAT_Solver {
 		asg: SAT_Assignment,
 		dom: SAT_Domain,
 		changed_variable: string,
-		set_value: number,
+		set_value: number, // not needed
+    mode: SAT_ForwardCheckingMode,
 	) {
-		for (const constraint of this.csp.constraints) {
-			if (constraint.vars.includes(changed_variable)) {
-				// the new variable is involved in the constraint
-				const ret = this.make_consistent(asg, dom, constraint, changed_variable, set_value);
-				if (ret === SAT_Result.FAILURE) return ret;
+		const candidates: string[] = [changed_variable];
+
+		function set_and_save(variable: string) {
+      if (asg[variable] === undefined && dom[variable].length === 1) {
+        switch (mode) {
+          case SAT_ForwardCheckingMode.CONSTRAIN_ONCE:
+            break; // does nothing
+          case SAT_ForwardCheckingMode.RECURSIVE:
+            if (!candidates.includes(variable)) {
+              candidates.push(variable);
+            }
+          case SAT_ForwardCheckingMode.ASSIGN_DIRECTLY:
+            asg[variable] = dom[variable][0];
+            break;
+          default:
+            const NEVER: never = mode;
+        }
+      }
+		}
+
+		while (candidates.length > 0) {
+			const current_variable = candidates.shift()!;
+			const current_value = asg[current_variable];
+
+			if (current_value === undefined) throw `Set undefined value?`;
+
+			for (const constraint of this.csp.constraints) {
+				if (constraint.vars.includes(current_variable)) {
+					// the new variable is involved in the constraint
+					const variable_index = constraint.vars.indexOf(current_variable);
+					for (const [ci, cvar] of constraint.vars.entries()) {
+						if (cvar === current_variable) continue;
+						switch (constraint.op) {
+							case '=':
+								// values must be equal
+								if (!dom[cvar].includes(current_value)) return SAT_Result.FAILURE;
+								dom[cvar] = [current_value];
+								set_and_save(cvar);
+								break;
+							case '≠':
+								// values must be unequal
+								if (asg[cvar] === current_value) {
+									console.log(constraint);
+									console.log(cvar, '=', asg[cvar], ';', current_variable, '=', current_value);
+									return SAT_Result.FAILURE;
+								}
+								cut_out_value(dom[cvar], current_value);
+								if (dom[cvar].length <= 0) return SAT_Result.FAILURE;
+								set_and_save(cvar);
+								break;
+							case '<':
+								// first value must be smaller or equal to second
+								if (variable_index <= ci) {
+									// cvar should be bigger than set value
+									for (let i = 0; i < dom[cvar].length; ) {
+										const cval = dom[cvar][i];
+										if (cval < current_value) dom[cvar].splice(i, 1);
+										else i++;
+									}
+								} else {
+									// cvar should be smaller than set value
+									for (let i = 0; i < dom[cvar].length; ) {
+										const cval = dom[cvar][i];
+										if (cval > current_value) dom[cvar].splice(i, 1);
+										else i++;
+									}
+								}
+								set_and_save(cvar);
+								break;
+							case '⊻':
+							case '+':
+								if (current_value > 0) {
+									// we can discard all values greater 0 from dom
+									for (let i = 0; i < dom[cvar].length; ) {
+										const cval = dom[cvar][i];
+										if (cval > 0) dom[cvar].splice(i, 1);
+										else i++;
+									}
+									if (dom[cvar].length <= 0) return SAT_Result.FAILURE;
+									set_and_save(cvar);
+								}
+								break;
+							default:
+								const NEVER: never = constraint.op;
+						}
+					}
+				}
 			}
 		}
 		return this.check_all_constraints(asg);
 	}
 
-  /*
+	/*
 	neighborhood_domain_size(variable: string, dom: SAT_Domain): number {
 		let n = 0;
 		for (const c of this.csp.constraints) {
@@ -487,21 +587,21 @@ export class SAT_Solver {
 	}
     */
 
-  neighborhood_real_domain_size(variable: string, dom: SAT_Domain): number {
-    let n = 0;
+	neighborhood_real_domain_size(variable: string, dom: SAT_Domain): number {
+		let n = 0;
 		for (const v of this.neighborhood[variable]) {
-      n += dom[v].length;
-    }
+			n += dom[v].length;
+		}
 		return n;
-  }
+	}
 
-  neighborhood_unset_degree(variable: string, asg: SAT_Assignment): number {
-    let n = 0;
-    for (const v of this.neighborhood[variable]) {
-      if (asg[v] === undefined) n++;
-    }
-    return n;
-  }
+	neighborhood_unset_degree(variable: string, asg: SAT_Assignment): number {
+		let n = 0;
+		for (const v of this.neighborhood[variable]) {
+			if (asg[v] === undefined) n++;
+		}
+		return n;
+	}
 
 	// SELECT NEXT CANDIDATE
 	select_unassigned_candidate(asg: SAT_Assignment, dom: SAT_Domain): string {
@@ -509,68 +609,91 @@ export class SAT_Solver {
 			case SAT_VarSelectionMode.ANY:
 				return this.select_any_unassigned_candidate(get_unassigned(asg), asg, dom);
 			case SAT_VarSelectionMode.MRV_DEGREE:
-				return this.select_MRV_candidate(get_unassigned(asg), asg, dom, this.select_highest_degree_candidate.bind(this));
-      case SAT_VarSelectionMode.DEGREE_MRV:
-        return this.select_highest_degree_candidate(get_unassigned(asg), asg, dom, this.select_MRV_candidate.bind(this));
-      case SAT_VarSelectionMode.MRV:
-        return this.select_MRV_candidate(get_unassigned(asg), asg, dom);
-      case SAT_VarSelectionMode.DEGREE:
-        return this.select_highest_degree_candidate(get_unassigned(asg), asg, dom);
+				return this.select_MRV_candidate(
+					get_unassigned(asg),
+					asg,
+					dom,
+					this.select_highest_degree_candidate.bind(this)
+				);
+			case SAT_VarSelectionMode.DEGREE_MRV:
+				return this.select_highest_degree_candidate(
+					get_unassigned(asg),
+					asg,
+					dom,
+					this.select_MRV_candidate.bind(this)
+				);
+			case SAT_VarSelectionMode.MRV:
+				return this.select_MRV_candidate(get_unassigned(asg), asg, dom);
+			case SAT_VarSelectionMode.DEGREE:
+				return this.select_highest_degree_candidate(get_unassigned(asg), asg, dom);
 		}
 	}
 
 	// SELECTION MECHANISMS
-	select_any_unassigned_candidate(pick_from: Set<string>, asg: SAT_Assignment, dom: SAT_Domain): string {
+	select_any_unassigned_candidate(
+		pick_from: Set<string>,
+		asg: SAT_Assignment,
+		dom: SAT_Domain
+	): string {
 		return [...pick_from][0];
 	}
 
-	select_highest_degree_candidate(pick_from: Set<string>, asg: SAT_Assignment, dom: SAT_Domain, tiebreaker?: SAT_VarSelector): string {
+	select_highest_degree_candidate(
+		pick_from: Set<string>,
+		asg: SAT_Assignment,
+		dom: SAT_Domain,
+		tiebreaker?: SAT_VarSelector
+	): string {
 		let candidates: Set<string> = new Set();
 		let number_of_constraints: number = 0;
-    // select from highest degree values
+		// select from highest degree values
 		for (const v of pick_from) {
 			let n = this.neighborhood_unset_degree(v, asg);
-      console.log(v, n);
 			if (n >= number_of_constraints) {
-        if (n > number_of_constraints) {
-          candidates.clear();
-        }
-        candidates.add(v);
-        number_of_constraints = n;
+				if (n > number_of_constraints) {
+					candidates.clear();
+				}
+				candidates.add(v);
+				number_of_constraints = n;
 			}
 		}
 
-    if (candidates.size == 1) return [...candidates][0]; // eject only value
+		if (candidates.size == 1) return [...candidates][0]; // eject only value
 		if (candidates.size > 1) {
-      if (tiebreaker) return tiebreaker(candidates, asg, dom);
-      else return this.select_any_unassigned_candidate(candidates, asg, dom);
-    }
-    
-    throw `No unassigned variables!`;
+			if (tiebreaker) return tiebreaker(candidates, asg, dom);
+			else return this.select_any_unassigned_candidate(candidates, asg, dom);
+		}
+
+		throw `No unassigned variables!`;
 	}
 
-	select_MRV_candidate(pick_from: Set<string>, asg: SAT_Assignment, dom: SAT_Domain, tiebreaker?: SAT_VarSelector): string {
+	select_MRV_candidate(
+		pick_from: Set<string>,
+		asg: SAT_Assignment,
+		dom: SAT_Domain,
+		tiebreaker?: SAT_VarSelector
+	): string {
 		let candidates: Set<string> = new Set();
 		let remaining_values = Infinity;
 		// select for minimum remaining values
 		for (const v of pick_from) {
 			const r = dom[v].length;
 			if (asg[v] === undefined && r <= remaining_values) {
-        if (r < remaining_values) {
-          candidates.clear();
-        }
-        candidates.add(v);
-        remaining_values = r;
+				if (r < remaining_values) {
+					candidates.clear();
+				}
+				candidates.add(v);
+				remaining_values = r;
 			}
 		}
 
 		if (candidates.size == 1) return [...candidates][0]; // eject only value
 		if (candidates.size > 1) {
-      if (tiebreaker) return tiebreaker(candidates, asg, dom);
-      else return this.select_any_unassigned_candidate(candidates, asg, dom);
-    }
-    
-    throw `No unassigned variables!`;
+			if (tiebreaker) return tiebreaker(candidates, asg, dom);
+			else return this.select_any_unassigned_candidate(candidates, asg, dom);
+		}
+
+		throw `No unassigned variables!`;
 	}
 
 	// ORDERING DOMAIN VALUES
@@ -597,7 +720,9 @@ export class SAT_Solver {
 		for (const value of dom[variable]) {
 			const new_dom = copy_dom(dom);
 			const new_asg = { ...asg };
-			this.forward_checking(new_asg, new_dom, variable, value);
+			new_asg[variable] = value;
+			new_dom[variable] = [value];
+			this.forward_checking(new_asg, new_dom, variable, value, SAT_ForwardCheckingMode.CONSTRAIN_ONCE);
 			const size = this.neighborhood_real_domain_size(variable, new_dom);
 			dom_sizes_for_value[value] = size;
 		}

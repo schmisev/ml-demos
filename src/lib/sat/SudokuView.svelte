@@ -17,8 +17,6 @@
 			}
 		}
 
-		console.log(asg_grid);
-
 		return asg_grid;
 	});
 </script>
