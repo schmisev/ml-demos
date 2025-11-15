@@ -64,7 +64,7 @@ export class LogicContext {
 		if (expr.kind === 'TERM') return this.convert_to_CNF(expr.symbol);
 
 		const new_clauses: Set<number>[] = [];
-		if (expr.kind !== 'AND') throw `Couldn't convert ${this.format_expr(expr)} to CNF!`;
+		if (expr.kind !== 'AND') throw `Couldn't convert ${this.format(expr)} to CNF!`;
 
 		for (const symbol of expr.symbols) {
 			let add_clause: Set<number>;
@@ -115,9 +115,12 @@ export class LogicContext {
 		return expr;
 	}
 
-	PL_resolution(KB: LogicExpr, alpha: LogicExpr): { result: boolean; cnf: CNF } {
-		const cnf = this.convert_to_CNF(this.expand_dependend_exprs(term(and(KB, not(alpha)))));
+  resolution(KB: LogicExpr, alpha: LogicExpr) {
+    const cnf = this.convert_to_CNF(this.expand_dependend_exprs(term(and(KB, not(alpha)))));
+    return this.CNF_resolution(cnf);
+  }
 
+	CNF_resolution(cnf: CNF): { result: boolean; cnf: CNF } {
 		const clauses = [...cnf.clauses];
 		let new_clauses: Set<number>[] = [];
 
@@ -128,7 +131,7 @@ export class LogicContext {
 					const Ci = clauses[i];
 					const Cj = clauses[j];
 
-					const resolvents = PL_resolve(Ci, Cj);
+					const resolvents = single_resolve(Ci, Cj);
 
 					for (const res of resolvents) {
 						// the resolvent has not been here before
@@ -156,36 +159,59 @@ export class LogicContext {
 		}
 	}
 
-	format_expr(expr: LogicExpr | CNF): string {
+	format(expr: LogicExpr | CNF): string {
 		switch (expr.kind) {
 			case 'TERM':
-				return `${this.format_expr(expr.symbol)}`;
+				return `${this.format(expr.symbol)}`;
 			case 'LITERAL':
 				return `${this.resolve_name(expr.value)}`;
 			case 'NOT':
-				return `¬ ${this.format_expr(expr.symbol)}`;
+				return `¬ ${this.format(expr.symbol)}`;
 			case 'AND':
-        if (expr.symbols.length === 1) return this.format_expr(expr.symbols[0]);
-				return `(${expr.symbols.map((s) => this.format_expr(s)).join(' ∧ ')})`;
+        if (expr.symbols.length === 1) return this.format(expr.symbols[0]);
+				return `(${expr.symbols.map((s) => this.format(s)).join(' ∧ ')})`;
 			case 'OR':
-        if (expr.symbols.length === 1) return this.format_expr(expr.symbols[0]);
-				return `(${expr.symbols.map((s) => this.format_expr(s)).join(' ∨ ')})`;
+        if (expr.symbols.length === 1) return this.format(expr.symbols[0]);
+				return `(${expr.symbols.map((s) => this.format(s)).join(' ∨ ')})`;
 			case 'IMPL':
-				return `(${this.format_expr(expr.left)} ⇒ ${this.format_expr(expr.right)})`;
+				return `(${this.format(expr.left)} ⇒ ${this.format(expr.right)})`;
 			case 'BICOND':
-				return `(${this.format_expr(expr.left)} ⇔ ${this.format_expr(expr.right)})`;
+				return `(${this.format(expr.left)} ⇔ ${this.format(expr.right)})`;
 			case 'CNF':
 				return `[${expr.clauses.map((s) => '[' + [...s].map((v) => this.resolve_name(v)).join(' ∨ ') + ']').join(', ')}]`;
 		}
 	}
 
+  short_format(expr: LogicExpr | CNF): string {
+		switch (expr.kind) {
+			case 'TERM':
+				return `${this.short_format(expr.symbol)}`;
+			case 'LITERAL':
+				return `${this.resolve_name(expr.value)}`;
+			case 'NOT':
+				return `¬ ${this.short_format(expr.symbol)}`;
+			case 'AND':
+        if (expr.symbols.length === 1) return this.short_format(expr.symbols[0]);
+				return `(${expr.symbols.map((s) => this.short_format(s)).join(', ')})`;
+			case 'OR':
+        if (expr.symbols.length === 1) return this.short_format(expr.symbols[0]);
+				return `(${expr.symbols.map((s) => this.short_format(s)).join('|')})`;
+			case 'IMPL':
+				return `(${this.short_format(expr.left)} ⇒ ${this.short_format(expr.right)})`;
+			case 'BICOND':
+				return `(${this.short_format(expr.left)} ⇔ ${this.short_format(expr.right)})`;
+			case 'CNF':
+				return `[${expr.clauses.map((s) => '[' + [...s].map((v) => this.resolve_name(v)).join('|') + ']').join(', ')}]`;
+		}
+	}
+
 	format_each_expr(expr: Set<LogicExpr> | Array<LogicExpr>) {
-		return [...expr].map((s) => this.format_expr(s)).join(', ');
+		return [...expr].map((s) => this.format(s)).join(', ');
 	}
 
 	expand_again(changed: boolean, expr: LogicExpr | Term, depth: number) {
 		if (changed) {
-			console.log('..'.repeat(depth) + this.format_expr(expr));
+			console.log('..'.repeat(depth) + this.format(expr));
 			this.expand_dependend_exprs(expr, depth + 1);
 		}
 	}
@@ -310,7 +336,6 @@ function expand_expr(expr: LogicExpr): { changed: boolean; expr: LogicExpr } {
 		}
 		case 'AND':
 		case 'OR': {
-			// TODO: distributive property
 			// combine with included ORs
 			let changed = false;
 			const new_symbols: LogicExpr[] = [];
@@ -419,7 +444,7 @@ function are_equal(at_a: Literal, at_b: Literal) {
 	return at_a.value === at_b.value;
 }
 
-function PL_resolve(Ci: Set<number>, Cj: Set<number>) {
+function single_resolve(Ci: Set<number>, Cj: Set<number>) {
 	const all_resolvents: Set<number>[] = [];
 
 	for (let Si of Ci) {

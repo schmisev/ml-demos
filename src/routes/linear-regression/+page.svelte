@@ -18,7 +18,6 @@
 	});
 
 	let canvas_container: HTMLDivElement;
-
 	let data_model: p5.Geometry;
   let data_surface: p5.Geometry;
 

@@ -1,5 +1,4 @@
 import { rand, randint } from '$lib';
-import { LogicContext, type LogicExpr } from './resolution';
 import * as PL from './resolution';
 import { vadd, vclamp, type Vector2 } from './vector';
 
@@ -14,7 +13,7 @@ export interface WumpusCell {
 
 export interface KnowledgeCell extends WumpusCell {
 	discovered: boolean;
-	rules: LogicExpr;
+	rules: PL.LogicExpr;
 	state: PL.AndExpr;
 }
 
@@ -23,18 +22,33 @@ export type WumpusProp = keyof WumpusCell;
 export class WumpusWorld {
 	size = $state(5);
 	grid = $state<KnowledgeCell[][]>([]);
-	ctx = $state(new LogicContext());
+	ctx = $state(new PL.LogicContext());
 
 	hero: Vector2 = $state({ x: 0, y: 0 });
 	hero_kb: PL.AndExpr = $state({ kind: 'AND', symbols: [] });
-	hero_kb_text: string = $derived(this.ctx.format_expr(this.hero_kb));
+	hero_kb_text: string = $derived(this.ctx.short_format(this.hero_kb));
+
+  treasure_collected: boolean = $state(false);
+  fell_in_hole: boolean = $state(false);
+  died_to_wumpus: boolean = $state(false);
+
+  get is_dead(): boolean {
+    return this.fell_in_hole || this.died_to_wumpus;
+  }
+
+  set is_dead(v: boolean) {
+    if (!v) {
+      this.fell_in_hole = v;
+      this.died_to_wumpus = v;
+    }
+  }
 
 	local_cell = $derived(this.get_cell(this.hero.x, this.hero.y)!);
-	local_rule = $derived(this.ctx.format_expr(this.local_cell.rules));
-	local_state = $derived(this.ctx.format_expr(this.local_cell.state));
+	local_rule = $derived(this.ctx.format(this.local_cell.rules));
+	local_state = $derived(this.ctx.format(this.local_cell.state));
 
 	local_cnf = $derived(
-		this.ctx.format_expr(
+		this.ctx.format(
 			this.ctx.expand_to_CNF(PL.and(this.local_cell.rules, this.hero_kb))
 		)
 	);
@@ -94,17 +108,20 @@ export class WumpusWorld {
 		for (let x = 0; x < size; x++) {
 			for (let y = 0; y < size; y++) {
 				const cell = this.get_cell(x, y)!;
-				const rules: LogicExpr[] = [];
-				const state: LogicExpr[] = [];
+				const rules: PL.LogicExpr[] = [];
+				const state: PL.LogicExpr[] = [];
 
 				rules.push(this.create_adjacent_rule("B", "P", x, y)); // breezes
-        rules.push(this.create_adjacent_rule("G", "T", x, y)); // breezes
-        rules.push(this.create_adjacent_rule("S", "W", x, y)); // breezes
+        rules.push(this.create_adjacent_rule("G", "T", x, y)); // glimmers
+        rules.push(this.create_adjacent_rule("S", "W", x, y)); // stenches
 
 				// included info
 				state.push(this.ctx.lit(`B${x}${y}`, !cell.Breeze));
 				state.push(this.ctx.lit(`S${x}${y}`, !cell.Stench));
 				state.push(this.ctx.lit(`G${x}${y}`, !cell.Glitter));
+        state.push(this.ctx.lit(`P${x}${y}`, !cell.Pit));
+				state.push(this.ctx.lit(`W${x}${y}`, !cell.Wumpus));
+				state.push(this.ctx.lit(`T${x}${y}`, !cell.Treasure));
 
 				this.grid[x][y].rules = PL.and(...rules);
 				this.grid[x][y].state = PL.and(...state);
@@ -142,12 +159,25 @@ export class WumpusWorld {
   observe() {
     const cell = this.get_cell(this.hero.x, this.hero.y)!;
     cell.discovered = true;
-    this.hero_kb.symbols.push(...this.local_cell.state.symbols)
 
+    if (cell.Wumpus) this.died_to_wumpus = true;
+    if (cell.Pit) this.fell_in_hole = true;
+    if (cell.Treasure) this.treasure_collected = true;
+
+    this.hero_kb.symbols.push(...this.local_cell.state.symbols)
     this.hero_kb = this.ctx.expand_to_AND(this.hero_kb);
   }
 
+  leave() {
+    const cell = this.get_cell(this.hero.x, this.hero.y)!;
+    
+    if (cell.Treasure) { cell.Treasure = false; };
+  }
+
 	move(x: -1 | 0 | 1, y: -1 | 0 | 1) {
+    if (this.is_dead) return; // no more moves
+
+    this.leave();
 		this.hero = vclamp(vadd(this.hero, { x, y }), 0, this.size - 1, 0, this.size - 1);
     this.observe();
 	}

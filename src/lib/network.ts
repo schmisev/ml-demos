@@ -31,6 +31,7 @@ export const STANDARD_PHYSICS: NetworkPhysics = {
 
 export type MetaInfo = {
 	coord?: { lon: number; lat: number };
+  max_vel?: number;
 };
 
 export type GraphNode = { node: NetworkNode; links: GraphLink[] };
@@ -68,11 +69,11 @@ export const NETWORK_ROMANIA: NetworkData = {
 		{ id: 4, name: 'Timișoara', meta: { coord: { lat: 45.7489, lon: 21.2087 } } },
 		{ id: 5, name: 'Lugoj', meta: { coord: { lat: 45.6886, lon: 21.9031 } } },
 		{ id: 6, name: 'Mehadia', meta: { coord: { lat: 44.9, lon: 22.3667 } } },
-		{ id: 7, name: 'Dobreta', meta: { coord: { lat: 44.6369, lon: 22.6597 } } },
+		{ id: 7, name: 'Turnu Severin', meta: { coord: { lat: 44.6369, lon: 22.6597 } } },
 		{ id: 8, name: 'Craiova', meta: { coord: { lat: 44.3167, lon: 23.8 } } },
 		{ id: 9, name: 'Râmnicu Vâlcea', meta: { coord: { lat: 45.1, lon: 24.3667 } } },
 		{ id: 10, name: 'Pitești', meta: { coord: { lat: 44.8565, lon: 24.8692 } } },
-		{ id: 11, name: 'Bucharest', meta: { coord: { lat: 44.4325, lon: 26.1039 } } },
+		{ id: 11, name: 'București', meta: { coord: { lat: 44.4325, lon: 26.1039 } } },
 		{ id: 12, name: 'Făgăraș', meta: { coord: { lat: 45.8411, lon: 24.9739 } } },
 		{ id: 13, name: 'Giurgiu', meta: { coord: { lat: 43.9, lon: 25.9667 } } },
 		{ id: 14, name: 'Urziceni', meta: { coord: { lat: 44.7167, lon: 26.6333 } } },
@@ -264,6 +265,9 @@ export const NETWORK_MUNICH: NetworkData = {
 		{ id: 39, source: 20, target: 17, weight: 5 }
 	]
 };
+
+
+
 
 export const NETWORK_LEFT_HEAVY: NetworkData = (() => {
 	const network: NetworkData = {

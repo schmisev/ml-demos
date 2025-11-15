@@ -50,6 +50,7 @@ button {
 .light-border {
 	padding: 0.5rem 1rem;
 	border: 2px solid rgba(0, 0, 0, 0.2);
+  background-color: rgba(0, 0, 0, 0.1);
 }
 
 :root {

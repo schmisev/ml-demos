@@ -3,7 +3,6 @@
 		australia_problem_generator,
 		csp_to_network,
 		n_queens_generator,
-		SAT_FirstVarMode,
 		SAT_InferenceMode,
 		SAT_Result,
 		SAT_Solver,
@@ -37,12 +36,12 @@
 	let problem = $state.raw(generator(last_seed));
 
 	let inference_mode = $state(SAT_InferenceMode.FORWARD_CHECKING);
-	let var_selection = $state(SAT_VarSelectionMode.MRV);
-	let first_var_selection = $state(SAT_FirstVarMode.DEGREE);
+	let var_selection = $state(SAT_VarSelectionMode.MRV_DEGREE);
 	let value_selection = $state(SAT_ValueSelectionMode.LEAST_CONSTRAINING);
+  let arc_preprocessing = $state(false);
 
 	let solver = $state(
-		new SAT_Solver(problem, inference_mode, var_selection, first_var_selection, value_selection)
+		new SAT_Solver(problem, inference_mode, var_selection, value_selection, arc_preprocessing)
 	);
 
 	function reset() {
@@ -50,8 +49,8 @@
 			problem,
 			inference_mode,
 			var_selection,
-			first_var_selection,
-			value_selection
+			value_selection,
+      arc_preprocessing
 		);
 	}
 
@@ -112,35 +111,43 @@
 		<hr />
 
 		<div class="flex flex-row flex-wrap gap-2">
-			<button class="border" onclick={step}>step</button>
-			<button class="border" onclick={reset}>reset</button>
+			<button class="border" onclick={step}>{solver.arc_preprocessing && solver.steps === 0 ? "preprocess" : "step"}</button>
+			<button class="border negative" onclick={reset}>reset</button>
 			<button class="border" onclick={reload}>reload</button>
 			<button
 				class="border"
 				style="{is_autostepping ? 'background-color: lightcoral' : ''};"
-				onclick={autostep}>Autostep</button
+				onclick={autostep}>autostep</button
 			>
 
+      <label>inference:
 			<select bind:value={inference_mode} onchange={reset}>
 				<option value={SAT_InferenceMode.NO_INFERENCE}>no inference</option>
 				<option value={SAT_InferenceMode.FORWARD_CHECKING}>forward checking</option>
 				<option value={SAT_InferenceMode.ARC_CONSISTENCY}>arc consistency</option>
 			</select>
+      </label>
 
-			<select bind:value={first_var_selection} onchange={reset}>
-				<option value={SAT_FirstVarMode.ANY}>any</option>
-				<option value={SAT_FirstVarMode.DEGREE}>degree heuristic</option>
-			</select>
-
+      <label>variable selection:
 			<select bind:value={var_selection} onchange={reset}>
 				<option value={SAT_VarSelectionMode.ANY}>any</option>
-				<option value={SAT_VarSelectionMode.MRV}>minimum remaining values</option>
+				<option value={SAT_VarSelectionMode.MRV}>MRV → any</option>
+        <option value={SAT_VarSelectionMode.DEGREE}>degree → any</option>
+        <option value={SAT_VarSelectionMode.MRV_DEGREE}>MRV → degree → any</option>
+        <option value={SAT_VarSelectionMode.DEGREE_MRV}>degree → MRV → any</option>
 			</select>
+      </label>
 
+      <label>value selection:
 			<select bind:value={value_selection} onchange={reset}>
 				<option value={SAT_ValueSelectionMode.ANY}>any</option>
 				<option value={SAT_ValueSelectionMode.LEAST_CONSTRAINING}>least constraining values</option>
 			</select>
+      </label>
+
+      <label>arc consistency preprocessing
+        <input onchange={reset} type="checkbox" bind:checked={arc_preprocessing}>
+      </label>
 		</div>
 
 		<hr />

@@ -16,6 +16,7 @@
 	} from '$lib/network';
 	import {
 		AStarSearch,
+		AStarSearchStraightLineMinutes,
 		BestFirstGreedySearch,
 		BestFirstSearch,
 		BreadthFirstSearch,
@@ -406,6 +407,7 @@
 					<option value={BestFirstSearch}>best first (Dijkstra)</option>
           <option value={BestFirstGreedySearch}>greedy best first</option>
 					<option value={AStarSearch}>A* geo distance</option>
+          <option value={AStarSearchStraightLineMinutes}>A* straight line minutes</option>
 				</optgroup>
 				<optgroup label="Depth first">
 					<option value={DepthFirstSearch}>naive depth first</option>

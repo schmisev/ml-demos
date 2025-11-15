@@ -28,6 +28,11 @@ export function geo_distance(a: NetworkNode, b: NetworkNode) {
   return R * C / 1000;
 }
 
+export function straight_line_minutes(a: NetworkNode, b: NetworkNode) {
+  if (!a.meta || !a.meta.max_vel || !b.meta || !b.meta.max_vel) return 0;
+  return 60 * 2 * geo_distance(a, b) / (a.meta.max_vel + b.meta.max_vel); // 60 * km / (km / h) = min
+}
+
 export function link_weight(l: GraphLink) {
   return l.weight;
 }
