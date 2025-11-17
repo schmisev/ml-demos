@@ -47,3 +47,19 @@ export function get_mouse_on_canvas(cvs: HTMLCanvasElement, ev: PointerEvent): V
     y: (ev.clientY - rect.top) * scaleY     // been adjusted to be relative to element
   }
 }
+
+export function get_keys<T>(record: Record<string, T>): string[] {
+  return Object.keys(record);
+}
+
+export function get_values<T>(record: Record<string, T>): T[] {
+  return Object.values(record);
+}
+
+export function get_entries<T>(record: Record<string, T>): [string, T][] {
+  return Object.entries(record);
+}
+
+export function is_in<T>(key: string | number, record: Record<string, T>): boolean {
+  return (record[key] !== undefined);
+}

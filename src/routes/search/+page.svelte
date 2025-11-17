@@ -1,6 +1,7 @@
 <script lang="ts">
-	import { get_mouse_on_canvas, rand, randint } from '$lib';
+	import { get_entries, get_mouse_on_canvas, get_values, rand, randint } from '$lib';
 	import {
+	NETWORK_COLLATZ,
 	NETWORK_GERMANY,
 		NETWORK_LEFT_HEAVY,
 		NETWORK_MUNICH,
@@ -57,7 +58,7 @@
 
   let physics: NetworkPhysics;
   let raw_data: NetworkData = NETWORK_ROMANIA;
-	let nodes_2d: Network2DNode[];
+	let nodes_2d: Record<string, Network2DNode>;
 	let links: NetworkLink[];
   let graph: GraphNode[] = $state(network_to_graph(raw_data));
 
@@ -66,16 +67,19 @@
   function load_data(dataset: NetworkData): void {
     raw_data = dataset;
     physics = dataset.physics;
-    nodes_2d = raw_data.nodes.map((n) => {
-      return {
-        node: n,
+    nodes_2d = {};
+
+    for (const [k, v] of get_entries(raw_data.nodes)) {
+      nodes_2d[k] = {
+        node: v,
         pos: vv(rand(w / 4, (3 * w) / 4), rand(h / 4, (3 * h) / 4)),
         vel: vv(0, 0),
         grabbed: false,
         hovered: false,
         discovered: false
       };
-    });
+    }
+
     links = raw_data.links.map((v) => v);
     graph = network_to_graph(raw_data);
   }
@@ -90,7 +94,7 @@
 	}
 
 	function undiscover() {
-		for (const node of nodes_2d) {
+		for (const node of get_values(nodes_2d)) {
 			node.discovered = false;
 		}
 	}
@@ -152,8 +156,8 @@
 		graph_canvas.height = h;
 		const ctx = graph_canvas.getContext('2d')!;
 
-		function isInNode(mouse: Vector2, node: Network2DNode) {
-			return vlendiff(mouse, node.pos) < physics.node_radius * 2;
+		function is_in_node(mouse: Vector2, node: Network2DNode) {
+			return vlendiff(mouse, node.pos) < physics.node_radius + 1;
 		}
 
 		function run() {
@@ -166,9 +170,10 @@
 				}
 				last_time = timestamp;
 				// do sim
-				const forces: { x: number; y: number }[] = nodes_2d.map((n) => {
-					return { x: 0, y: 0 };
-				});
+				const forces: Record<string, { x: number; y: number }> = {}
+        for (const [k, v] of get_entries(nodes_2d)) {
+          forces[k] = { x: 0, y: 0 };
+        }
 
 				for (const link of links) {
 					const dv = vsub(nodes_2d[link.source].pos, nodes_2d[link.target].pos);
@@ -179,7 +184,7 @@
 					vaddto(forces[link.target], vscale(dv, -dL / vlen(dv)));
 				}
 
-				for (const [i, node_1] of nodes_2d.entries()) {
+				for (const [i, node_1] of get_entries(nodes_2d)) {
           // check if discovered
           if (!node_1.discovered && search_algo.discovered.has(node_1.node.id)) {
             node_1.discovered = true;
@@ -192,7 +197,7 @@
 					vaddto(forces[i], vscale(dc, physics.center_pull));
 
 					// force between points
-					for (const [j, node_2] of nodes_2d.entries()) {
+					for (const [j, node_2] of get_entries(nodes_2d)) {
 						if (i < j) {
 							const dv = vsub(node_1.pos, node_2.pos);
 							const L = vlen(dv);
@@ -205,9 +210,9 @@
 				}
 
         let already_hovered = false;
-				for (const [i, node_1] of nodes_2d.entries()) {
+				for (const [i, node_1] of get_entries(nodes_2d)) {
 					// grabbing
-					if (!already_hovered && isInNode(mouse, node_1)) {
+					if (!already_hovered && is_in_node(mouse, node_1)) {
 						if (mouse_just_down) node_1.grabbed = true;
 						node_1.hovered = true;
             already_hovered = true;
@@ -262,7 +267,7 @@
 				ctx.shadowColor = 'rgba(0, 0, 0, 0.2)';
 
 				// draw nodes
-				for (const node of nodes_2d) {
+				for (const [i, node] of get_entries(nodes_2d).toReversed()) {
 					ctx.fillStyle = 'white';
 					// discover nodes
 					const in_frontier = search_algo.is_in_frontier(node.node.id);
@@ -335,7 +340,7 @@
 				ctx.textBaseline = 'middle';
 
 				ctx.save();
-				for (const node of nodes_2d) {
+				for (const [i, node] of get_entries(nodes_2d)) {
           if (show_undiscovered || node.discovered) {
 					  ctx.fillText(node.node.name, node.pos.x, node.pos.y - physics.node_radius * 2);
           }
@@ -379,6 +384,7 @@
 			>
       <select bind:value={chosen_dataset} onchange={(ev) => {load_data(chosen_dataset); random_restart()}}>
         <option value={NETWORK_LEFT_HEAVY}>binary tree</option>
+        <option value={NETWORK_COLLATZ}>Collatz graph</option>
         <option value={NETWORK_ROMANIA}>Romania</option>
         <option value={NETWORK_GERMANY}>Germany</option>
         <option value={NETWORK_MUNICH}>Munich</option>
