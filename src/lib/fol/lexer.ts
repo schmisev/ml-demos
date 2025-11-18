@@ -8,6 +8,7 @@ export enum TokenType {
   MINUS,
   MULTIPLY,
   DIVIDE,
+  POW,
   GREATER,
   GREATER_EQUALS,
   LESSER,
@@ -58,6 +59,15 @@ function is_ident(c: string, first_char: boolean) {
   return false;
 }
 
+// error reporting
+function unexpected_token(tk: Token, expected?: TokenType) {
+  throw `Unexpected Token: ${JSON.stringify(tk)}` + expected !== undefined ? `, expected kind ${expected}` : "";
+}
+
+function unexpected_character(c: string) {
+  throw `Unexpected Character: __${c}__`;
+}
+
 export function tokenize(src: string): Token[] {
   const tokens: Token[] = [];
   const chars = src.split("");
@@ -103,30 +113,33 @@ export function tokenize(src: string): Token[] {
 
   while (chars.length > 0) {
     switch (at()) {
-      case "=": { read(); push_token(TokenType.EQUALS); next(); }
-      case "~": { read(); push_token(TokenType.NOT); next(); }
-      case "+": { read(); push_token(TokenType.PLUS); next(); }
-      case "-": { read(); push_token(TokenType.MINUS); next(); }
-      case "*": { read(); push_token(TokenType.MULTIPLY); next(); }
-      case "/": { read(); push_token(TokenType.DIVIDE); next(); }
-      case "{": { read(); push_token(TokenType.LEFT_CURLY); next(); }
-      case "}": { read(); push_token(TokenType.RIGHT_CURLY); next(); }
-      case "(": { read(); push_token(TokenType.LEFT_PAREN); next(); }
-      case ")": { read(); push_token(TokenType.RIGHT_PAREN); next(); }
-      case "[": { read(); push_token(TokenType.LEFT_BRACKET); next(); }
-      case "]": { read(); push_token(TokenType.RIGHT_BRACKET); next(); }
-      case ",": { read(); push_token(TokenType.EXPR_SEPERATOR); next(); }
+      case "=": { read(); push_token(TokenType.EQUALS); next(); break;}
+      case "^": { read(); push_token(TokenType.POW); next(); break;}
+      case "~": { read(); push_token(TokenType.NOT); next(); break;}
+      case "+": { read(); push_token(TokenType.PLUS); next(); break;}
+      case "-": { read(); push_token(TokenType.MINUS); next(); break;}
+      case "*": { read(); push_token(TokenType.MULTIPLY); next(); break;}
+      case "/": { read(); push_token(TokenType.DIVIDE); next(); break;}
+      case "{": { read(); push_token(TokenType.LEFT_CURLY); next(); break;}
+      case "}": { read(); push_token(TokenType.RIGHT_CURLY); next(); break;}
+      case "(": { read(); push_token(TokenType.LEFT_PAREN); next(); break;}
+      case ")": { read(); push_token(TokenType.RIGHT_PAREN); next(); break;}
+      case "[": { read(); push_token(TokenType.LEFT_BRACKET); next(); break;}
+      case "]": { read(); push_token(TokenType.RIGHT_BRACKET); next(); break;}
+      case ",": { read(); push_token(TokenType.EXPR_SEPERATOR); next(); break;}
       case "<": {
         read();
         if (is_more() && at() === "=") { read(); push_token(TokenType.LESSER_EQUALS); }
         else push_token(TokenType.LESSER);
         next();
+        break;
       }
       case ">": {
         read();
         if (is_more() && at() === "=") { read(); push_token(TokenType.GREATER_EQUALS); }
         else push_token(TokenType.GREATER);
         next();
+        break;
       }
       default: {
         if (" \r".includes(at())) {
@@ -154,8 +167,9 @@ export function tokenize(src: string): Token[] {
           }
           next();
         } else {
-          throw `Unrecognized character: __${at()}__`;
+          unexpected_character(at());
         }
+        break;
       }
     }
   }
@@ -219,7 +233,7 @@ export interface BinaryPredicate {
   right: Term,
 }
 
-export type Term = Variable | NumericLiteral;
+export type Term = Variable | NumericLiteral | Function | BinaryOp | UnaryOp;
 
 export interface Variable {
   kind: NodeType.VARIABLE;
@@ -265,7 +279,7 @@ function parse(src: string): Sequence {
 
   function expect(kind: TokenType) {
     const tk = eat();
-    if (tk.kind !== kind) throw `Expected ${kind}, got ${JSON.stringify(tk)}`;
+    if (tk.kind !== kind) unexpected_token(tk, kind);
     return tk;
   }
 
@@ -348,34 +362,151 @@ function parse(src: string): Sequence {
     
   }
 
-  function parse_atomic_predicate(): Sentence {
-    switch (at().kind) {
-      case TokenType.IDENTIFIER:
-      case TokenType.NUMBER:
-      case TokenType.LEFT_PAREN:
-        eat(); // eat curly
-        return parse_sentence()
-        expect(TokenType.RIGHT_PAREN);
-      case TokenType.LEFT_BRACKET:
-        eat(); // eat curly
-        return parse_sentence()
-        expect(TokenType.RIGHT_BRACKET);
-      case TokenType.LEFT_CURLY:
-      case TokenType.RIGHT_CURLY:
-        throw `{} not yet implemented`;
-        
+  function parse_impl_predicate(): Sentence {
+
+  }
+
+  function parse_or_predicate(): Sentence {
+
+  }
+
+  function parse_and_predicate(): Sentence {
+
+  }
+
+  function parse_not_predicate(): Sentence {
+    if (at().kind === TokenType.NOT) {
+      eat();
+
     }
   }
 
-  const seq: Sequence = parse_sequence();
+  function parse_term(): Term {
+    
+  }
 
+  function parse_additive_term(): Term {
+    let left = parse_multiplicative_term();
+
+    if ([TokenType.PLUS, TokenType.MINUS].includes(at().kind)) {
+      const op = eat();
+      const right = parse_unary_term();
+
+      left = {
+        kind: NodeType.BINARY_OP,
+        op,
+        left,
+        right,
+      }
+    }
+
+    return left;
+  }
+
+  function parse_multiplicative_term(): Term {
+    let left = parse_unary_term();
+
+    if ([TokenType.MULTIPLY, TokenType.DIVIDE].includes(at().kind)) {
+      const op = eat();
+      const right = parse_unary_term();
+
+      left = {
+        kind: NodeType.BINARY_OP,
+        op,
+        left,
+        right,
+      }
+    }
+
+    return left;
+  }
+
+  function parse_unary_term(): Term {
+    if ([TokenType.MINUS, TokenType.PLUS].includes(at().kind)) {
+      const op = eat();
+      return {
+        kind: NodeType.UNARY_OP,
+        op,
+        right: parse_unary_term()
+      }
+    }
+
+    return parse_exponential_term();
+  }
+
+  function parse_exponential_term(): Term {
+    let left = parse_function_term();
+		while (at().type == TokenType.POW) {
+			const operator = eat();
+			const right = parse_exponential_term();
+
+			left = {
+				kind: NodeType.BINARY_OP,
+				left,
+				right,
+				operator,
+			};
+		}
+
+		return left;
+  }
+
+  function parse_function_term(): Term {
+    const ident = parse_primary_term();
+    if (ident.kind !== NodeType.VARIABLE) return ident;
+
+    if (at().kind === TokenType.LEFT_PAREN) {
+      eat();
+      while (at().kind != TokenType.RIGHT_PAREN) {
+        const arg = parse_term();
+        
+      }
+    }
+  }
+
+  function parse_primary_term(): Term {
+    switch (at().kind) {
+      case TokenType.NUMBER: {
+        const tk = eat();
+        return {
+          kind: NodeType.NUMBER,
+          tk,
+          value: parseFloat(tk.content)
+        }
+      }
+      case TokenType.IDENTIFIER: {
+        const tk = eat();
+        return {
+          kind: NodeType.VARIABLE,
+          tk,
+          name: tk.content,
+        }
+      }
+      case TokenType.LEFT_PAREN: {
+        eat();
+        const term = parse_term();
+        expect(TokenType.RIGHT_PAREN);
+        return term;
+      }
+      case TokenType.LEFT_BRACKET: {
+        eat();
+        const term = parse_term();
+        expect(TokenType.RIGHT_BRACKET);
+        return term;
+      }
+      default:
+        throw unexpected_token(at());
+    }
+  }
+
+  // start parsing
+  const seq: Sequence = parse_sequence();
   return seq;
 }
 
 // testing
 const src = 
-`x in {1, 2, 3, 4}
-forall x x > 2
+`forall x (x > 20)
 `
 
 console.log(tokenize(src));
