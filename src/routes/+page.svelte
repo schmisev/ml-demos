@@ -12,6 +12,8 @@
   <h3><a href="{resolve(`/football-goals`)}">Football goals</a></h3>
   <h2>Linear classification & regression</h2>
   <h3><a href="{resolve(`/linear-classification`)}">Linear classification</a> (WIP)</h3>
+  <h2>Optimization</h2>
+  <h3><a href="{resolve(`/grad-descent`)}">Gradient descent</a> (WIP)</h3>
   <h2>Search algorithms</h2>
   <h3><a href="{resolve(`/search`)}">Graph search</a></h3>
   <h3><a href="{resolve(`/SAT`)}">CSPs</a></h3>

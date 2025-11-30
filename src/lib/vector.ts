@@ -4,7 +4,7 @@ export type Vector2 = {
 }
 
 export function vv(x?: number, y?: number) {
-  return {x: x || 0, y: y || x || 0};
+  return {x: x || 0, y: y !== undefined ? y : (x || 0)};
 }
 
 export function clamp(value: number, min: number, max: number) {
@@ -62,7 +62,7 @@ export function vdiff(a: Vector2, b: Vector2): Vector2 {
 }
 
 export function vmul(a: Vector2, b: Vector2): Vector2 {
-  return {x: a.x * b.x, y: a.y + b.y};
+  return {x: a.x * b.x, y: a.y * b.y};
 }
 
 export function vdiv(a: Vector2, b: Vector2): Vector2 {
