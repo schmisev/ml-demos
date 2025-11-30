@@ -73,6 +73,10 @@ export function vscale(v: Vector2, s: number): Vector2 {
   return {x: v.x * s, y: v.y * s};
 }
 
+export function viscale(v: Vector2, s: number): Vector2 {
+  return {x: v.x / s, y: v.y / s};
+}
+
 export function vscaleby(v: Vector2, s: number): void {
   v.x *= s;
   v.y *= s;
@@ -84,4 +88,8 @@ export function vlendiff2(a: Vector2, b: Vector2) {
 
 export function vlendiff(a: Vector2, b: Vector2) {
   return vlen(vsub(a, b));
+}
+
+export function vsqrt(a: Vector2) {
+  return {x: Math.sqrt(a.x), y: Math.sqrt(a.y)};
 }

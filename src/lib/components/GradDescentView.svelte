@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { GradientDescenter, type ObjectiveFunction, type ObjectiveGradient } from '$lib/grad-descent';
+	import { Descenter, GradientDescenter, MomentumGradientDescenter, type ObjectiveFunction, type ObjectiveGradient } from '$lib/grad-descent.svelte';
 	import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 	import { onMount } from 'svelte';
 	import * as three from 'three';
@@ -8,15 +8,11 @@
 	let {
 		w,
 		h,
-		obj_fn,
-		obj_grad,
-    init_point,
+    descenter,
 	}: {
 		w: number;
 		h: number;
-		obj_fn: ObjectiveFunction;
-		obj_grad: ObjectiveGradient;
-    init_point: Vector2,
+    descenter: Descenter;
 	} = $props();
 
   let squeeze_z = 0.2;
@@ -31,10 +27,8 @@
   let route: three.Group;
   let points: Vector2[];
 
-  let descenter = new GradientDescenter(obj_fn, obj_grad, init_point, 0.2, 0.5, 0.1, 100);
-
-  function map_onto_fn(v: Vector2): [number, number, number] {
-    return [v.x, obj_fn(v) * squeeze_z, v.y];
+  function map_onto_fn(fn: ObjectiveFunction, v: Vector2): [number, number, number] {
+    return [v.x, descenter.fn(v) * squeeze_z, v.y];
   }
 
   function view_to_xy(v: three.Vector3): Vector2 {
@@ -60,9 +54,9 @@
     }
 	});
 
-  function update_route() {
+  export function update_route() {
     scene.remove(route);
-    route = create_route(obj_fn, descenter.step_points);
+    route = create_route(descenter.fn, descenter.step_points);
     scene.add(route);
   }
 
@@ -75,7 +69,7 @@
 		for (let i = 0; i < positions.count; i++) {
 			const x = positions.getX(i);
 			const y = positions.getZ(i);
-      positions.setXYZ(i, ...map_onto_fn({x, y}));
+      positions.setXYZ(i, ...map_onto_fn(fn, {x, y}));
 		}
 
 		positions.needsUpdate = true;
@@ -96,11 +90,11 @@
     const group = new three.Group();
 
     for (const p of points) {
-      const material = new three.MeshPhongMaterial({color: 0xFFEEEE});
+      const material = new three.MeshPhongMaterial({color: 0xFF0000});
 
       const geometry = new three.SphereGeometry(0.1);
       const mesh = new three.Mesh(geometry, material);
-      mesh.position.set(...map_onto_fn(p));
+      mesh.position.set(...map_onto_fn(fn, p));
 
       group.add(mesh);
     }
@@ -112,19 +106,21 @@
 		const ASPECT_RATIO = w / h;
 
 		camera = new three.PerspectiveCamera(75, ASPECT_RATIO, 0.1, 1000);
-		camera.position.z = 5;
+		camera.position.y = 15;
+    camera.position.x = -6;
+    camera.position.z = -6;
 
 		scene = new three.Scene();
 		scene.background = new three.Color(0xddefef);
 		
     const dirLight = new three.DirectionalLight(0xffffff, 1.0);
-    dirLight.position.set(5, 10, 7);
+    dirLight.position.set(3, 10, 0);
     scene.add(dirLight);
 
-    const ambient = new three.AmbientLight(0xffffff, 0.3);
+    const ambient = new three.AmbientLight(0xffffff, 0.7);
     scene.add(ambient);
 
-    mesh = create_function_surface(obj_fn, 10, 150);
+    mesh = create_function_surface(descenter.fn, 12, 150);
     scene.add(mesh);
 
 		renderer = new three.WebGLRenderer();
@@ -140,10 +136,10 @@
     const mat_box = new three.MeshPhongMaterial({color: 0xFF5555});
 
     start_point = new three.Mesh( geo_box, mat_box );
-    start_point.position.set(...map_onto_fn(init_point))
+    start_point.position.set(...map_onto_fn(descenter.fn, descenter.init_point))
     scene.add(start_point);
 
-    descenter.clear(init_point);
+    descenter.clear(descenter.init_point);
 	}
 
 	function animate() {
@@ -153,10 +149,3 @@
 </script>
 
 <div bind:this={container}></div>
-
-<div>
-  <button class="border" onclick={() => {
-    descenter.step();
-    update_route();
-  }}>step!</button>
-</div>
