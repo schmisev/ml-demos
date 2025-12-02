@@ -17,7 +17,7 @@ export type ObjectiveFunction = (v: Vector2) => number;
 export type ObjectiveGradient = (v: Vector2) => Vector2;
 
 export abstract class Descenter {
-	tau: number = $state(0.5); // learning rate
+	tau: number = $state(0.1); // learning rate
 	gamma: number = $state(0.5);
 	epsilon: number = $state(1e-8);
 	beta_1: number = $state(0.9);
@@ -126,19 +126,21 @@ export class MomentumGradientDescenter extends Descenter {
 
 export class AdamGradientDescenter extends Descenter {
 	_step(): Vector2 {
-		this.m_curr = viscale(
-			vadd(vscale(this.m_last, this.beta_1), vscale(this.g, 1 - this.beta_1)),
-			1 // TODO: bias fix!
+    this.m_curr = vadd(vscale(this.m_last, this.beta_1), vscale(this.g, 1 - this.beta_1))
+		const m_hat = viscale(
+			this.m_curr,
+			1 - this.beta_1 ** (this.t+1)
 		);
 
-		this.v_curr = viscale(
-			vadd(vscale(this.v_last, this.beta_2), vscale(vmul(this.g, this.g), 1 - this.beta_2)),
-			1
+		this.v_curr = vadd(vscale(this.v_last, this.beta_2), vscale(vmul(this.g, this.g), 1 - this.beta_2))
+    const v_hat = viscale(
+			this.v_curr,
+			1 - this.beta_2 ** (this.t+1)
 		);
 
 		this.p_curr = vsub(
 			this.p_curr,
-			vscale(vdiv(this.m_curr, vsqrt(vadd(this.v_curr, vv(this.epsilon)))), this.tau)
+			vscale(vdiv(m_hat, vsqrt(vadd(v_hat, vv(this.epsilon)))), this.tau)
 		);
 
 		return this.p_curr;

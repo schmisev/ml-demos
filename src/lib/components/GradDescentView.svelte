@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Descenter, GradientDescenter, MomentumGradientDescenter, type ObjectiveFunction, type ObjectiveGradient } from '$lib/grad-descent.svelte';
+	import { Descenter, type ObjectiveFunction } from '$lib/grad-descent.svelte';
 	import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 	import { onMount } from 'svelte';
 	import * as three from 'three';
@@ -9,13 +9,13 @@
 		w,
 		h,
     descenter,
+    squeeze_z = 0.1,
 	}: {
 		w: number;
 		h: number;
     descenter: Descenter;
+    squeeze_z: number;
 	} = $props();
-
-  let squeeze_z = 0.2;
 
 	let container: HTMLDivElement;
 	let mesh: three.Mesh;
@@ -25,7 +25,6 @@
 	let controls: OrbitControls;
   let start_point: three.Mesh;
   let route: three.Group;
-  let points: Vector2[];
 
   function map_onto_fn(fn: ObjectiveFunction, v: Vector2): [number, number, number] {
     return [v.x, descenter.fn(v) * squeeze_z, v.y];
