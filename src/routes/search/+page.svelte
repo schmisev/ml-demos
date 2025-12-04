@@ -35,14 +35,14 @@
 		vaddto,
 		vdiff,
 		vlen,
-		vlendiff,
-		vlendiff2,
+		vdist,
+		vdist2,
 		vscale,
 		vscaleby,
 		vset,
 		vsub,
 		vv,
-		type Vector2
+		type Vec2D
 	} from '$lib/vector';
 	import { onMount } from 'svelte';
 
@@ -133,7 +133,7 @@
 	}
 
 	onMount(() => {
-		let mouse: Vector2 = vv();
+		let mouse: Vec2D = vv();
 		let mouse_just_down: boolean = false;
 		let mouse_down: boolean = false;
 
@@ -156,8 +156,8 @@
 		graph_canvas.height = h;
 		const ctx = graph_canvas.getContext('2d')!;
 
-		function is_in_node(mouse: Vector2, node: Network2DNode) {
-			return vlendiff(mouse, node.pos) < physics.node_radius + 1;
+		function is_in_node(mouse: Vec2D, node: Network2DNode) {
+			return vdist(mouse, node.pos) < physics.node_radius + 1;
 		}
 
 		function run() {
@@ -170,9 +170,9 @@
 				}
 				last_time = timestamp;
 				// do sim
-				const forces: Record<string, { x: number; y: number }> = {}
+				const forces: Record<string, Vec2D> = {}
         for (const [k, v] of get_entries(nodes_2d)) {
-          forces[k] = { x: 0, y: 0 };
+          forces[k] = { x1: 0, x2: 0 };
         }
 
 				for (const link of links) {
@@ -253,8 +253,8 @@
             }
 
             ctx.beginPath();
-            ctx.moveTo(n1.pos.x, n1.pos.y);
-            ctx.lineTo(n2.pos.x, n2.pos.y);
+            ctx.moveTo(n1.pos.x1, n1.pos.x2);
+            ctx.lineTo(n2.pos.x1, n2.pos.x2);
             ctx.stroke();
           }
           ctx.restore();
@@ -291,8 +291,8 @@
 					if (show_undiscovered || node.discovered) {
 						ctx.beginPath();
 						ctx.ellipse(
-							node.pos.x,
-							node.pos.y,
+							node.pos.x1,
+							node.pos.x2,
 							physics.node_radius,
 							physics.node_radius,
 							0,
@@ -305,8 +305,8 @@
 						if (node.grabbed) {
 							ctx.beginPath();
 							ctx.ellipse(
-								node.pos.x,
-								node.pos.y,
+								node.pos.x1,
+								node.pos.x2,
 								physics.node_radius * 2,
 								physics.node_radius * 2,
 								0,
@@ -321,8 +321,8 @@
 							ctx.beginPath();
 							ctx.fillStyle = 'yellow';
 							ctx.ellipse(
-								node.pos.x,
-								node.pos.y,
+								node.pos.x1,
+								node.pos.x2,
 								physics.node_radius,
 								physics.node_radius,
 								0,
@@ -342,7 +342,7 @@
 				ctx.save();
 				for (const [i, node] of get_entries(nodes_2d)) {
           if (show_undiscovered || node.discovered) {
-					  ctx.fillText(node.node.name, node.pos.x, node.pos.y - physics.node_radius * 2);
+					  ctx.fillText(node.node.name, node.pos.x1, node.pos.x2 - physics.node_radius * 2);
           }
 				}
 

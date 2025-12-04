@@ -3,7 +3,7 @@
 	import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 	import { onMount } from 'svelte';
 	import * as three from 'three';
-	import { vv, type Vector2 } from '$lib/vector';
+	import { vv, type Vec2D } from '$lib/vector';
 
 	let {
 		w,
@@ -26,12 +26,12 @@
   let start_point: three.Mesh;
   let route: three.Group;
 
-  function map_onto_fn(fn: ObjectiveFunction, v: Vector2): [number, number, number] {
-    return [v.x, descenter.fn(v) * squeeze_z, v.y];
+  function map_onto_fn(fn: ObjectiveFunction, v: Vec2D): [number, number, number] {
+    return [v.x1, fn(v) * squeeze_z, v.x2];
   }
 
-  function view_to_xy(v: three.Vector3): Vector2 {
-    return {x: v.x, y: v.z};
+  function view_to_xy(v: three.Vector3): Vec2D {
+    return {x1: v.x, x2: v.z};
   }
 
 	onMount(() => {
@@ -68,7 +68,7 @@
 		for (let i = 0; i < positions.count; i++) {
 			const x = positions.getX(i);
 			const y = positions.getZ(i);
-      positions.setXYZ(i, ...map_onto_fn(fn, {x, y}));
+      positions.setXYZ(i, ...map_onto_fn(fn, {x1: x, x2: y}));
 		}
 
 		positions.needsUpdate = true;
@@ -85,7 +85,7 @@
     return new three.Mesh(geometry, material);
 	}
 
-  function create_route(fn: ObjectiveFunction, points: Vector2[]) {
+  function create_route(fn: ObjectiveFunction, points: Vec2D[]) {
     const group = new three.Group();
 
     for (const p of points) {

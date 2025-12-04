@@ -1,8 +1,8 @@
 import { rand, rand_gauss } from '$lib';
-import type { Vector2 } from './vector';
+import type { Vec2D } from './vector';
 
 export type Sample2D = {
-	X: Vector2;
+	X: Vec2D;
 	y: number;
 };
 
@@ -37,7 +37,7 @@ export function generate_linear_2d_samples(
     if (y < y_min) y_min = y;
 
 		return {
-			X: { x: x1, y: x2 },
+			X: { x1: x1, x2: x2 },
 			y: y
 		} satisfies Sample2D;
 	});

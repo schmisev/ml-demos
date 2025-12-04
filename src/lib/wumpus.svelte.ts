@@ -1,6 +1,6 @@
 import { rand, randint } from '$lib';
 import * as PL from './resolution';
-import { vadd, vclamp, type Vector2 } from './vector';
+import { vadd, vclamp, type Vec2D } from './vector';
 
 export interface WumpusCell {
 	Stench: boolean; // stench
@@ -24,7 +24,7 @@ export class WumpusWorld {
 	grid = $state<KnowledgeCell[][]>([]);
 	ctx = $state(new PL.LogicContext());
 
-	hero: Vector2 = $state({ x: 0, y: 0 });
+	hero: Vec2D = $state({ x: 0, y: 0 });
 	hero_kb: PL.AndExpr = $state({ kind: 'AND', symbols: [] });
 	hero_kb_text: string = $derived(this.ctx.short_format(this.hero_kb));
 
@@ -43,7 +43,7 @@ export class WumpusWorld {
     }
   }
 
-	local_cell = $derived(this.get_cell(this.hero.x, this.hero.y)!);
+	local_cell = $derived(this.get_cell(this.hero.x1, this.hero.x2)!);
 	local_rule = $derived(this.ctx.format(this.local_cell.rules));
 	local_state = $derived(this.ctx.format(this.local_cell.state));
 
@@ -53,7 +53,7 @@ export class WumpusWorld {
 		)
 	);
 
-  test_literals: string[] = $derived(this.get_adjacent_literals(this.hero.x, this.hero.y));
+  test_literals: string[] = $derived(this.get_adjacent_literals(this.hero.x1, this.hero.x2));
 
 	constructor(size: number) {
 		this.size = size;
@@ -136,8 +136,8 @@ export class WumpusWorld {
 			const cell = this.get_cell(x, y)!;
 
 			if (cell.Wumpus || cell.Treasure || cell.Pit || cell.Breeze || cell.Stench) continue;
-			this.hero.x = x;
-			this.hero.y = y;
+			this.hero.x1 = x;
+			this.hero.x2 = y;
 		}
 
     // observe first cell
@@ -157,7 +157,7 @@ export class WumpusWorld {
   }
 
   observe() {
-    const cell = this.get_cell(this.hero.x, this.hero.y)!;
+    const cell = this.get_cell(this.hero.x1, this.hero.x2)!;
     cell.discovered = true;
 
     if (cell.Wumpus) this.died_to_wumpus = true;
@@ -169,7 +169,7 @@ export class WumpusWorld {
   }
 
   leave() {
-    const cell = this.get_cell(this.hero.x, this.hero.y)!;
+    const cell = this.get_cell(this.hero.x1, this.hero.x2)!;
     
     if (cell.Treasure) { cell.Treasure = false; };
   }
@@ -178,7 +178,7 @@ export class WumpusWorld {
     if (this.is_dead) return; // no more moves
 
     this.leave();
-		this.hero = vclamp(vadd(this.hero, { x, y }), 0, this.size - 1, 0, this.size - 1);
+		this.hero = vclamp(vadd(this.hero, { x1: x, x2: y }), 0, this.size - 1, 0, this.size - 1);
     this.observe();
 	}
 

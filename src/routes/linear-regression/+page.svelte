@@ -35,7 +35,7 @@
 						255 * ((sample.y - data.y_min) / data.delta),
 						255 * (1 - (sample.y - data.y_min) / data.delta)
 					);
-					sk.translate(sample.X.x * L, sample.X.y * W, sample.y);
+					sk.translate(sample.X.x1 * L, sample.X.x2 * W, sample.y);
 					sk.box(5, 5, 5);
 					sk.pop();
 				}

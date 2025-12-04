@@ -9,7 +9,7 @@
 		type NetworkPhysics
 	} from '$lib/network';
 	import { Search } from '$lib/search.svelte';
-	import { vaddto, vlen, vlendiff, vscale, vscaleby, vsub, vv, type Vector2 } from '$lib/vector';
+	import { vaddto, vlen, vdist, vscale, vscaleby, vsub, vv, type Vec2D } from '$lib/vector';
 	import { onMount } from 'svelte';
 
 	let {
@@ -56,7 +56,7 @@
 	}
 
 	onMount(() => {
-		let mouse: Vector2 = vv();
+		let mouse: Vec2D = vv();
 		let mouse_just_down: boolean = false;
 		let mouse_down: boolean = false;
 
@@ -79,8 +79,8 @@
 		graph_canvas.height = h;
 		const ctx = graph_canvas.getContext('2d')!;
 
-		function isInNode(mouse: Vector2, node: Network2DNode) {
-			return vlendiff(mouse, node.pos) < physics.node_radius * 2;
+		function isInNode(mouse: Vec2D, node: Network2DNode) {
+			return vdist(mouse, node.pos) < physics.node_radius * 2;
 		}
 
 		function run() {

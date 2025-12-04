@@ -1,11 +1,12 @@
 import { get_entries, get_values, is_in } from "$lib";
+import type { Vec2D } from "./vector";
 
 export type NetworkNode = { id: number; name: string; meta?: MetaInfo };
 export type NetworkLink = { id: number; source: number; target: number; weight: number };
 export type Network2DNode = {
 	node: NetworkNode;
-	pos: { x: number; y: number };
-	vel: { x: number; y: number };
+	pos: Vec2D;
+	vel: Vec2D;
 	grabbed: boolean;
 	hovered: boolean;
 	discovered: boolean;

@@ -32,6 +32,14 @@ a {
 	&.negative {
 		background-color: lightcoral;
 	}
+
+  &.positive {
+    background-color: lightgreen;
+  }
+
+  &.inactive {
+    background-color: lightgray;
+  }
 }
 
 button {

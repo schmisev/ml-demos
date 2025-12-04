@@ -49,7 +49,7 @@
 						{/if}
 					</div>
 
-					{#if x === world.hero.x && y === world.hero.y}
+					{#if x === world.hero.x1 && y === world.hero.x2}
 						{#if world.is_dead}
 							<div class="absolute flex h-full w-full flex-col items-center justify-center">
 								<img

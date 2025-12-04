@@ -486,19 +486,3 @@ export function clause_is_in_list(list: Set<number>[], clause: Set<number>) {
 export function copy_expr<E extends LogicExpr>(expr: E): E {
 	return JSON.parse(JSON.stringify(expr)) as E;
 }
-
-
-// superman
-const ctx = new LogicContext();
-
-const KB = and(
-  impl(and(ctx.lit("A"), ctx.lit("W")), ctx.lit("P")),
-  impl(ctx.not("A"), ctx.lit("I")),
-  impl(ctx.not("W"), ctx.lit("M")),
-  not(ctx.lit("P")),
-  impl(ctx.lit("E"), and(ctx.not("I"), ctx.not("M")))
-)
-
-console.log(ctx.format(KB));
-
-console.log(ctx.resolution(KB, not(ctx.lit("E"))))
