@@ -1,18 +1,18 @@
-type Operators = 'in' | 'relu' | '^' | '+' | '*' | '-' | '/' | '~';
+type ValueType = 'in' | 'const' | 'relu' | '^' | '+' | '*' | '-' | '/' | '~';
 
 class Value {
 	data: number;
 	grad: number;
 	children: Value[];
-	op: string;
+	type: ValueType;
 	label?: string;
 
-	constructor(data: number, op: Operators = 'in', children: Value[] = [], label?: string) {
+	constructor(data: number, type: ValueType = 'in', children: Value[] = [], label?: string) {
 		this.data = data;
 		this.grad = 0;
 		this.children = children;
 		this.label = label;
-		this.op = op;
+		this.type = type;
 	}
 
 	backward() {
@@ -24,40 +24,22 @@ class Value {
 		return; // this does nothing
 	}
 
-	toString(terse = false): string {
-		if (terse)
-			return `${this.label || 'val'}${
-				this.children.length > 0
-					? this.children.length == 1
-						? `(${this.op}${this.children[0].toString(terse)})`
-						: '(' + this.children.map((v) => v.toString(terse)).join(' ' + this.op + ' ') + ')'
-					: ''
-			}`;
-
-		return `${this.label || 'val'}(${this.data} ← ${
-			this.children.length > 0
-				? this.children.length == 1
-					? `${this.op}${this.children[0].toString()}`
-					: this.children.map((v) => v.toString()).join(' ' + this.op + ' ')
-				: this.op
-		} [${this.grad}])`;
-	}
-
 	toExpr(): string {
 		if (this.label) return this.label;
 		if (this.children.length > 1)
-			return '(' + this.children.map((v) => v.toExpr()).join(this.op) + ')';
-		if (this.children.length == 1) return this.op + this.children[0].toExpr();
+			return '(' + this.children.map((v) => v.toExpr()).join(this.type) + ')';
+		if (this.children.length == 1) return this.type + this.children[0].toExpr();
 		return '???';
 	}
 
 	listVals(depth = 0, index = 0): string {
-		const val = `${this.toExpr()} = ${this.data} -------- grad = ${this.grad} \n`;
+		const val = `${this.toExpr()} = ${this.data.toFixed(4)} \t grad = ${this.grad.toFixed(4)} \n`;
 		const deps = [...this.children].map((v, i) => v.listVals(++depth, i)).join('');
 		return val + deps;
 	}
 
-	add(other: Value, label?: string) {
+	add(other: Value | number, label?: string) {
+    if (typeof other === "number") other = new Constant(other);
 		return new AddNode(this.data + other.data, '+', [this, other], label);
 	}
 
@@ -91,6 +73,20 @@ class Input extends Value {
 	constructor(data: number, label?: string) {
 		super(data, 'in', [], label);
 	}
+}
+
+class Constant extends Value {
+  constructor(data: number, label?: string) {
+		super(data, 'const', [], label);
+	}
+
+  toExpr(): string {
+    return "" + this.data;
+  }
+
+  listVals(depth?: number, index?: number): string {
+    return "";
+  }
 }
 
 class AddNode extends Value {
@@ -247,20 +243,69 @@ function forward_pass(topo: Value[]) {
 	}
 }
 
+class AutogradFunction {
+  result: Value;
+  topo: Value[];
+  inputs: Input[];
+  
+  constructor(result: Value, inputs: Input[]) {
+    this.result = result;
+    this.topo = topological_ordering(result);
+    this.inputs = inputs;
+  }
+
+  read_x(): number[] {
+    return this.inputs.map(i => i.data);
+  }
+
+  set_x(...args: number[]) {
+    for (let i = 0; i < this.inputs.length; i++) {
+      this.inputs[i].data = args[i];
+    }
+  }
+
+  shift_x(shift: number[], rate = 1.0) {
+    for (let i = 0; i < this.inputs.length; i++) {
+      this.inputs[i].data -= shift[i] * rate;
+    }
+  }
+
+  read_y(): number {
+    return this.result.data;
+  }
+
+  read_grad_x(): number[] {
+    return this.inputs.map(i => i.grad);
+  }
+
+  // calculate the value of the function
+  fn(...args: number[]): number {
+    for (let i = 0; i < this.inputs.length; i++) {
+      this.inputs[i].data = args[i];
+    }
+    forward_pass(this.topo);
+    return this.result.data;
+  }
+
+  grad(...args: number[]): number[] {
+    this.fn(...args);
+    this.result.grad = 1.0;
+    backpropagation(this.topo);
+    return this.inputs.map(i => i.grad);
+  }
+}
+
 // testing
 const a = new Input(2.0, 'a');
 const b = new Input(-3.0, 'b');
-const f = a.pow(2).add(b.pow(2));
+const f = a.pow(2).add(b.add(-2).pow(2));
 
-const topo = topological_ordering(f);
+const F = new AutogradFunction(f, [a, b])
+
 const tau = 0.1;
 
-for (let epoch = 0; epoch < 100; epoch++) {
-	f.grad = 1.0;
-  backpropagation(topo);
-	if (epoch % 5 === 0) console.log(f.listVals());
-	// do gradient descent
-	a.data -= a.grad * tau;
-	b.data -= b.grad * tau;
-	forward_pass(topo);
+for (let epoch = 0; epoch < 50; epoch++) {
+	const grad = F.grad(...F.read_x());
+  console.log(F.result.listVals())
+  F.shift_x(grad,  tau);
 }
