@@ -3,7 +3,7 @@
 	import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 	import { onMount } from 'svelte';
 	import * as three from 'three';
-	import { vv, type Vec2D } from '$lib/vector';
+	import { vlen, vv, type Vec2D } from '$lib/vector';
 
 	let {
 		w,
@@ -24,6 +24,7 @@
 	let scene: three.Scene;
 	let controls: OrbitControls;
   let start_point: three.Mesh;
+  let grad_arrow: three.ArrowHelper;
   let route: three.Group;
 
   function map_onto_fn(fn: ObjectiveFunction, v: Vec2D): [number, number, number] {
@@ -57,6 +58,19 @@
     scene.remove(route);
     route = create_route(descenter.fn, descenter.step_points);
     scene.add(route);
+
+    scene.remove(grad_arrow);
+    grad_arrow = create_grad_arrow();
+    scene.add(grad_arrow);
+  }
+
+  function create_grad_arrow(): three.ArrowHelper {
+    return new three.ArrowHelper(
+      new three.Vector3(-descenter.grad_curr.x1, 0, -descenter.grad_curr.x2),
+      new three.Vector3(...map_onto_fn(descenter.fn, descenter.p_curr)),
+      Math.log(vlen(descenter.grad_curr)+1),
+      0xffff00,
+    )
   }
 
 	function create_function_surface(fn: ObjectiveFunction, size = 10, segments = 100) {
@@ -88,15 +102,28 @@
   function create_route(fn: ObjectiveFunction, points: Vec2D[]) {
     const group = new three.Group();
 
+    const material = new three.MeshPhongMaterial({color: 0xFF0000});
+    const line_material = new three.LineBasicMaterial({color: 0xFF0000})
+
+    const stops: three.Vector3[] = [];
+
     for (const p of points) {
-      const material = new three.MeshPhongMaterial({color: 0xFF0000});
+      
 
       const geometry = new three.SphereGeometry(0.1);
       const mesh = new three.Mesh(geometry, material);
-      mesh.position.set(...map_onto_fn(fn, p));
+      const coords = map_onto_fn(fn, p);
+      mesh.position.set(...coords);
 
       group.add(mesh);
+
+      // line
+      stops.push(new three.Vector3(coords[0], coords[1]+0.1, coords[2]));
     }
+
+    const line_geometry = new three.BufferGeometry().setFromPoints(stops);
+    const line = new three.Line(line_geometry, line_material);
+    group.add(line);
 
     return group;
   }
@@ -116,11 +143,18 @@
     dirLight.position.set(3, 10, 0);
     scene.add(dirLight);
 
+    const dirLight2 = new three.DirectionalLight(0xffffff, 1.0);
+    dirLight.position.set(3, -10, 0);
+    scene.add(dirLight2);
+
     const ambient = new three.AmbientLight(0xffffff, 0.7);
     scene.add(ambient);
 
     mesh = create_function_surface(descenter.fn, 12, 150);
     scene.add(mesh);
+
+    const axes = new three.AxesHelper(5);
+    scene.add(axes);
 
 		renderer = new three.WebGLRenderer();
 		renderer.setPixelRatio(1);
@@ -139,6 +173,9 @@
     scene.add(start_point);
 
     descenter.clear(descenter.init_point);
+
+    grad_arrow = create_grad_arrow();
+    scene.add(grad_arrow);
 	}
 
 	function animate() {

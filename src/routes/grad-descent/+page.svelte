@@ -1,6 +1,5 @@
 <script lang="ts">
 	import * as ag from '$lib/autograd';
-  import {Math} from 'mathjax-svelte';
 	import GradDescentView from '$lib/components/GradDescentView.svelte';
 	import VectorView from '$lib/components/VectorView.svelte';
 	import {
@@ -11,9 +10,8 @@
 		type ObjectiveFunction,
 		type ObjectiveGradient
 	} from '$lib/grad-descent.svelte';
+	import { tex } from '$lib/mathjax';
 	import type { Vec2D } from '$lib/vector';
-
-
 
 	let view: GradDescentView;
 	let chosen_descenter: new (
@@ -25,14 +23,14 @@
 
 	const x1 = new ag.Input(3, 'x_1');
 	const x2 = new ag.Input(-1, 'x_2');
-	const obj_autograd_fn = $state(new ag.Function2D(
-    x1.pow(2).mul(0.5).add(x2.pow(2)).add(x1.mul(2)).add(x2.sin().mul(7)).add(0.3),
-		x1,
+	const obj_autograd = $state(new ag.Function2D(
+    x1.sub(1).pow(2).mul(0.5).add(x2.pow(2)).add(x1.mul(2)).add(x1.sin().mul(7)),
+    x1,
 		x2
 	));
 
-	const obj_fn: ObjectiveFunction = obj_autograd_fn.get_bound_fn2d();
-	const obj_grad: ObjectiveGradient = obj_autograd_fn.get_bound_grad2d();
+	const obj_fn: ObjectiveFunction = obj_autograd.get_bound_fn2d();
+	const obj_grad: ObjectiveGradient = obj_autograd.get_bound_grad2d();
 
 	let descenter = $state(
 		new MomentumGradientDescenter(obj_fn, obj_grad, { x1: x1.data, x2: x2.data }, 100)
@@ -148,23 +146,23 @@
 		<button class:negative={is_autostepping} class="border" onclick={autostep}>Autostep</button>
 	</div>
 
-  <div>
-    Objective function: <Math t={obj_autograd_fn.y.toExpr(true)}></Math>
+  <div class="flex flex-row items-center gap-2">
+    <div>Objective function: </div> {@html tex("f(x_1, x_2) = " + obj_autograd.result.toExpr(true))}
   </div>
 
 	<div class="flex flex-row gap-4">
 		<div class="flex flex-row items-center gap-1">t = {descenter.t}</div>
 		<div class="flex flex-row items-center gap-1">
-			&theta;<sub>t</sub> = <VectorView vec={descenter.p_curr}></VectorView>
+			{@html tex(`\\mathbf{x}_{${descenter.t}} =`)} <VectorView vec={descenter.p_curr}></VectorView>
 		</div>
 		<div class="flex flex-row items-center gap-1">
-			&nabla;f( &theta;<sub>t</sub> ) = <VectorView vec={descenter.grad_curr}></VectorView>
+			{@html tex(`\\nabla_{\\mathbf{x}} f(\\mathbf{x}_{${descenter.t}}) =`)} <VectorView vec={descenter.grad_curr}></VectorView>
 		</div>
 		<div class="flex flex-row items-center gap-1">
-			m<sub>t</sub> = <VectorView vec={descenter.m_curr}></VectorView>
+			{@html tex(`\\mathbf{m}_{${descenter.t-1}} =`)} <VectorView vec={descenter.m_curr}></VectorView>
 		</div>
 		<div class="flex flex-row items-center gap-1">
-			v<sub>t</sub> = <VectorView vec={descenter.v_curr}></VectorView>
+			{@html tex(`\\mathbf{v}_{${descenter.t-1}} =`)}  <VectorView vec={descenter.v_curr}></VectorView>
 		</div>
 	</div>
 </div>

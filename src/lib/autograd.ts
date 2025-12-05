@@ -8,7 +8,7 @@ abstract class Value {
 	children: Value[];
 	type: ValueType;
 	label?: string;
-  abstract op_precendence: number;
+  abstract prec: number;
 
 	constructor(data: number, type: ValueType = 'in', children: Value[] = [], label?: string) {
 		this.data = data;
@@ -27,12 +27,60 @@ abstract class Value {
 		return; // this does nothing
 	}
 
-	toExpr(mathjax = false): string {
-		if (this.label) return this.label;
-		if (this.children.length > 1)
-			return this.children.map((v) => v.op_precendence < this.op_precendence ? "(" + v.toExpr(mathjax) + ")" : v.toExpr(mathjax)).join(this.type);
-		if (this.children.length == 1) return this.type + this.children[0].toExpr(mathjax);
-		return '???';
+	toExpr(mathjax = false, precedence: number = 0): string {
+    if (!mathjax) {
+      if (this.label) return this.label;
+      if (this.children.length >= 1)
+        return this.children.map((v) => (v.prec < this.prec) ? "(" + v.toExpr(mathjax) + ")" : v.toExpr(mathjax)).join(this.type);
+      if (this.children.length == 1)
+        return this.type + this.children[0].toExpr();
+      return '???';
+    }
+
+    let out = "";
+
+    switch (this.type) {
+      case "in":
+        out = this.label || `in(${this.data})`; break;
+      case "const":
+        out = "" + this.data; break;
+      case "relu":
+      case "sigmoid":
+        out = `\\sigma(${this.children[0].toExpr(mathjax, this.prec)})`; break;
+      case "cos":
+      case "sin":
+      case "exp":
+        out = `\\${this.type}(${this.children[0].toExpr(mathjax, this.prec)})`; break;
+      case "^": {
+        const [base, expo] = this.children;
+        out = `${base.toExpr(mathjax, this.prec)}^{${expo.toExpr(mathjax, this.prec)}}`; break;
+      }
+      case "+": {
+        const [A, B] = this.children;
+        out = `${A.toExpr(mathjax, this.prec)}+${B.toExpr(mathjax, this.prec)}`; break;
+      }
+      case "*":{
+        const [A, B] = this.children;
+        out = `${A.toExpr(mathjax, this.prec)} \\cdot ${B.toExpr(mathjax, this.prec)}`; break;
+      }
+      case "-":
+        {
+        const [A, B] = this.children;
+        out = `${A.toExpr(mathjax, this.prec)} - ${B.toExpr(mathjax, this.prec)}`; break;
+      }
+      case "/": {
+        const [A, B] = this.children;
+        out = `\\frac{${A.toExpr(mathjax, this.prec)}}{${B.toExpr(mathjax, this.prec)}}`; break;
+      }
+      case "~":
+        out = `-${this.children[0].toExpr(mathjax, this.prec)}`; break;
+    }
+		
+    if (precedence > this.prec) {
+      return "(" + out + ")"
+    } else {
+      return out;
+    }
 	}
 
 	listVals(depth = 0, index = 0): string {
@@ -65,8 +113,9 @@ abstract class Value {
 		return new NegNode(this, label);
 	}
 
-  pow(expo: number, label?: string) {
-    return new PowNode(this, expo, label);
+  pow(other: Value | number, label?: string) {
+    if (typeof other === "number") other = new Constant(other);
+    return new PowNode(this, other, label);
   }
 
 	relu(label?: string) {
@@ -92,7 +141,7 @@ abstract class Value {
 
 // convenience class
 export class Input extends Value {
-  op_precendence: number = 100;
+  prec: number = 100;
   
 	constructor(data: number, label?: string) {
 		super(data, 'in', [], label);
@@ -100,23 +149,15 @@ export class Input extends Value {
 }
 
 export class Constant extends Value {
-  op_precendence: number = 100;
+  prec: number = 100;
 
   constructor(data: number, label?: string) {
 		super(data, 'const', [], label);
 	}
-
-  toExpr(): string {
-    return "" + this.data;
-  }
-
-  listVals(depth?: number, index?: number): string {
-    return "";
-  }
 }
 
 class AddNode extends Value {
-  op_precendence: number = 5;
+  prec: number = 5;
 
   constructor(a: Value, b: Value, label?: string) {
     super(a.data + b.data, "+", [a, b], label);
@@ -139,16 +180,16 @@ class AddNode extends Value {
 }
 
 class SubNode extends Value {
-  op_precendence: number = 6;
+  prec: number = 6;
 
   constructor(a: Value, b: Value, label?: string) {
     super(a.data - b.data, "-", [a, b], label);
   }
 
-	// f = A-B
-	// df/dA = 1
-	// df/dB = -1
 	backward(): void {
+    // f = A-B
+    // df/dA = 1
+    // df/dB = -1
 		const [A, B] = this.children;
 		A.grad += 1.0 * this.grad;
 		B.grad += -1.0 * this.grad; // TODO: check if this is right?
@@ -162,7 +203,7 @@ class SubNode extends Value {
 }
 
 class MulNode extends Value {
-  op_precendence: number = 10;
+  prec: number = 10;
 
   constructor(a: Value, b: Value, label?: string) {
     super(a.data * b.data, "*", [a, b], label);
@@ -182,19 +223,10 @@ class MulNode extends Value {
 		const [A, B] = this.children;
 		this.data = A.data * B.data;
 	}
-
-  toExpr(mathjax?: boolean): string {
-    const [A, B] = this.children;
-    if (mathjax) {
-      return `${A.toExpr(mathjax)} \\cdot ${B.toExpr(mathjax)}`
-    }
-
-    return `${A.toExpr(mathjax)} * ${B.toExpr(mathjax)}`
-  }
 }
 
 class DivNode extends Value {
-  op_precendence: number = 11;
+  prec: number = 11;
 
   constructor(a: Value, b: Value, label?: string) {
     super(a.data / b.data, "/", [a, b], label);
@@ -214,19 +246,10 @@ class DivNode extends Value {
 		const [A, B] = this.children;
 		this.data = A.data / B.data;
 	}
-
-  toExpr(mathjax?: boolean): string {
-    const [A, B] = this.children;
-    if (mathjax) {
-      return `\\frac{${A.toExpr(mathjax)}}{${B.toExpr(mathjax)}}`
-    }
-
-    return `${A.toExpr(mathjax)}/${B.toExpr(mathjax)}`
-  }
 }
 
 class NegNode extends Value {
-  op_precendence: number = 1;
+  prec: number = 1;
 
   constructor(x: Value, label?: string) {
     super(-x.data, "~", [x], label);
@@ -244,49 +267,33 @@ class NegNode extends Value {
 		const [A] = this.children;
 		this.data = -A.data;
 	}
-
-  toExpr(mathjax?: boolean): string {
-    return "-" + this.children[0].toExpr(mathjax);
-  }
 }
 
 class PowNode extends Value {
-  op_precendence: number = 15;
-
-  expo: number;
+  prec: number = 15;
   
-  constructor(base: Value, expo: number, label?: string) {
-    super(base.data ** expo, "^", [base], label);
-    this.expo = expo;
+  constructor(base: Value, expo: Value, label?: string) {
+    super(base.data ** expo.data, "^", [base, expo], label);
   }
 
 	backward(): void {
-		// f = A^exp
-		// df/dA = exp * A^(exp-1)
-		const [A] = this.children;
-		A.grad += this.expo * A.data ** (this.expo-1);
+		// f = A^B
+		// df/dA = B * A^(B-1)
+    // df/dB = A^B * log(A)
+		const [A, B] = this.children;
+		A.grad += B.data * A.data ** (B.data-1) * this.grad;
+    B.grad += A.data ** B.data * Math.log(A.data);
 	}
 
 	forward(): void {
 		super.forward();
-		const [A] = this.children;
-		this.data = A.data ** this.expo;
+		const [A, B] = this.children;
+		this.data = A.data ** B.data;
 	}
-
-  toExpr(mathjax = false): string {
-    if (mathjax) return `${this.children[0].toExpr()}^{${this.expo}}`
-
-    return `${this.children[0].toExpr()}^${this.expo}`
-  }
 }
 
 class SimpleFunctionNode extends Value {
-  op_precendence: number = 20;
-
-  toExpr(mathjax = false): string {
-    if (mathjax) return `\\${this.type}(${this.children.map(v => v.toExpr()).join(", ")})`
-    return `${this.type}(${this.children.map(v => v.toExpr()).join(", ")})`
-  }
+  prec: number = 20;
 }
 
 class ExpNode extends SimpleFunctionNode {
@@ -368,7 +375,7 @@ class CosNode extends SimpleFunctionNode {
 }
 
 function sigmoid(x: number) {
-  return 1 / (1- Math.exp(-x))
+  return 1 / (1 + Math.exp(-x))
 }
 
 class SigmoidNode extends SimpleFunctionNode {
@@ -385,25 +392,27 @@ class SigmoidNode extends SimpleFunctionNode {
 
   forward(): void {
     const [A] = this.children;
-    this.data = sigmoid(this.data);
+    this.data = sigmoid(A.data);
   }
 }
 
 function topological_ordering(from: Value) {
 	const visited = new Set<Value>();
-	const frontier: Value[] = [from];
 	const topo: Value[] = [];
 
-	while (frontier.length > 0) {
-		const node = frontier.shift()!;
-		if (!visited.has(node)) {
-			visited.add(node);
-			frontier.push(...node.children);
-			topo.push(node);
-		}
-	}
+  function rec_topo(from: Value) {
+    if (!visited.has(from)) {
+      visited.add(from);
+      for (const child of from.children) {
+        rec_topo(child);
+      }
+      topo.push(from);
+    }
+  }
 
-	return topo.toReversed();
+  rec_topo(from);
+
+	return topo;
 }
 
 function backpropagation(topo: Value[]) {
