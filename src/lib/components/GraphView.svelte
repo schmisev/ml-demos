@@ -34,7 +34,7 @@
 
 	$effect(() => {
 		physics = dataset.physics;
-		nodes_2d = dataset.nodes.map((n) => {
+		nodes_2d = Object.values(dataset.nodes).map((n) => {
 			return {
 				node: n,
 				pos: vv(rand(w / 4, (3 * w) / 4), rand(h / 4, (3 * h) / 4)),
@@ -93,8 +93,8 @@
 				}
 				last_time = timestamp;
 				// do sim
-				const forces: { x: number; y: number }[] = nodes_2d.map((n) => {
-					return { x: 0, y: 0 };
+				const forces: Vec2D[] = nodes_2d.map((n) => {
+					return { x1: 0, x2: 0 };
 				});
 
 				for (const link of links) {
@@ -175,8 +175,8 @@
 						}
 
 						ctx.beginPath();
-						ctx.moveTo(n1.pos.x, n1.pos.y);
-						ctx.lineTo(n2.pos.x, n2.pos.y);
+						ctx.moveTo(n1.pos.x1, n1.pos.x2);
+						ctx.lineTo(n2.pos.x1, n2.pos.x2);
 						ctx.stroke();
 					}
 					ctx.restore();
@@ -215,8 +215,8 @@
 					if (show_undiscovered || node.discovered) {
 						ctx.beginPath();
 						ctx.ellipse(
-							node.pos.x,
-							node.pos.y,
+							node.pos.x1,
+							node.pos.x2,
 							physics.node_radius,
 							physics.node_radius,
 							0,
@@ -229,8 +229,8 @@
 						if (node.grabbed) {
 							ctx.beginPath();
 							ctx.ellipse(
-								node.pos.x,
-								node.pos.y,
+								node.pos.x1,
+								node.pos.x2,
 								physics.node_radius * 2,
 								physics.node_radius * 2,
 								0,
@@ -245,8 +245,8 @@
 							ctx.beginPath();
 							ctx.fillStyle = 'yellow';
 							ctx.ellipse(
-								node.pos.x,
-								node.pos.y,
+								node.pos.x1,
+								node.pos.x2,
 								physics.node_radius,
 								physics.node_radius,
 								0,
@@ -266,7 +266,7 @@
 				ctx.save();
 				for (const node of nodes_2d) {
 					if (show_undiscovered || node.discovered) {
-						ctx.fillText(node.node.name, node.pos.x, node.pos.y - physics.node_radius * 2);
+						ctx.fillText(node.node.name, node.pos.x1, node.pos.x2 - physics.node_radius * 2);
 					}
 				}
 

@@ -1,17 +1,17 @@
 import type { Vec2D } from "./vector";
 
-type ValueType = 'in' | 'const' | 'relu' | 'sigmoid' | 'cos' | 'sin' | 'exp' | '^' | '+' | '*' | '-' | '/' | '~';
+type ValueType = 'in' | 'const' | 'relu' | 'sum' | 'sigmoid' | 'abs' | 'cos' | 'sin' | 'exp' | '^' | '+' | '*' | '-' | '/' | '~';
 
 abstract class Value {
-	data: number;
+	value: number;
 	grad: number;
 	children: Value[];
 	type: ValueType;
 	label?: string;
   abstract prec: number;
 
-	constructor(data: number, type: ValueType = 'in', children: Value[] = [], label?: string) {
-		this.data = data;
+	constructor(value: number, type: ValueType = 'in', children: Value[] = [], label?: string) {
+		this.value = value;
 		this.grad = 0;
 		this.children = children;
 		this.label = label;
@@ -30,20 +30,20 @@ abstract class Value {
 	toExpr(mathjax = false, precedence: number = 0): string {
     if (!mathjax) {
       if (this.label) return this.label;
-      if (this.children.length >= 1)
-        return this.children.map((v) => (v.prec < this.prec) ? "(" + v.toExpr(mathjax) + ")" : v.toExpr(mathjax)).join(this.type);
+      if (this.children.length > 1)
+        return this.children.map((v) => (v.prec < this.prec) ? "(" + v.toExpr() + ")" : v.toExpr()).join(this.type);
       if (this.children.length == 1)
-        return this.type + this.children[0].toExpr();
-      return '???';
+        return this.type + "(" + this.children[0].toExpr() + ")";
+      if (this.type === "const") return "" + this.value;
     }
 
     let out = "";
 
     switch (this.type) {
       case "in":
-        out = this.label || `in(${this.data})`; break;
+        out = this.label || `in(${this.value})`; break;
       case "const":
-        out = "" + this.data; break;
+        out = "" + this.value; break;
       case "relu":
       case "sigmoid":
         out = `\\sigma(${this.children[0].toExpr(mathjax, this.prec)})`; break;
@@ -51,6 +51,10 @@ abstract class Value {
       case "sin":
       case "exp":
         out = `\\${this.type}(${this.children[0].toExpr(mathjax, this.prec)})`; break;
+      case "abs":
+        out = `|${this.children[0].toExpr(mathjax, this.prec)}|`; break;
+      case "sum":
+        out = `\\Sigma[${this.children.map(v => v.toExpr(mathjax, this.prec)).join(", ")}]`; break;
       case "^": {
         const [base, expo] = this.children;
         out = `${base.toExpr(mathjax, this.prec)}^{${expo.toExpr(mathjax, this.prec)}}`; break;
@@ -61,10 +65,13 @@ abstract class Value {
       }
       case "*":{
         const [A, B] = this.children;
+        if (B.type === "const") {
+          out = `${B.toExpr(mathjax, this.prec)}${A.toExpr(mathjax, this.prec)}`;
+          break;
+        }
         out = `${A.toExpr(mathjax, this.prec)} \\cdot ${B.toExpr(mathjax, this.prec)}`; break;
       }
-      case "-":
-        {
+      case "-": {
         const [A, B] = this.children;
         out = `${A.toExpr(mathjax, this.prec)} - ${B.toExpr(mathjax, this.prec)}`; break;
       }
@@ -84,7 +91,7 @@ abstract class Value {
 	}
 
 	listVals(depth = 0, index = 0): string {
-		const val = `${this.toExpr()} = ${this.data.toFixed(4)} \t grad = ${this.grad.toFixed(4)} \n`;
+		const val = `${this.toExpr()} = ${this.value.toFixed(4)} \t grad = ${this.grad.toFixed(4)} \n`;
 		const deps = this.children.map((v, i) => v.listVals(++depth, i)).join('');
 		return val + deps;
 	}
@@ -137,6 +144,10 @@ abstract class Value {
   exp(label?: string) {
     return new ExpNode(this, label);
   }
+
+  abs(label?: string) {
+    return new AbsNode(this, label);
+  }
 }
 
 // convenience class
@@ -156,11 +167,46 @@ export class Constant extends Value {
 	}
 }
 
+function sum_over_values(vals: Value[]) {
+  let out = 0;
+  for (const v of vals) {
+    out += v.value;
+  }
+  return out;
+}
+
+//
+class SumNode extends Value {
+  prec: number = 5;
+
+  constructor(vals: Value[], label?: string) {
+    super(sum_over_values(vals), "sum", vals, label);
+  }
+
+  backward(): void {
+    const vals = this.children;
+    for (const v of vals) {
+      v.grad += 1.0 * this.grad;
+    }
+  }
+
+  forward(): void {
+    super.forward();
+    const vals = this.children;
+    this.value = sum_over_values(vals);
+  }
+}
+
+export function sum(vals: Value[], label?: string) {
+  return new SumNode(vals, label);
+}
+
+// calc classes
 class AddNode extends Value {
   prec: number = 5;
 
   constructor(a: Value, b: Value, label?: string) {
-    super(a.data + b.data, "+", [a, b], label);
+    super(a.value + b.value, "+", [a, b], label);
   }
 
 	// f = A+B
@@ -175,7 +221,7 @@ class AddNode extends Value {
 	forward(): void {
 		super.forward();
 		const [A, B] = this.children;
-		this.data = A.data + B.data;
+		this.value = A.value + B.value;
 	}
 }
 
@@ -183,7 +229,7 @@ class SubNode extends Value {
   prec: number = 6;
 
   constructor(a: Value, b: Value, label?: string) {
-    super(a.data - b.data, "-", [a, b], label);
+    super(a.value - b.value, "-", [a, b], label);
   }
 
 	backward(): void {
@@ -198,7 +244,7 @@ class SubNode extends Value {
 	forward(): void {
 		super.forward();
 		const [A, B] = this.children;
-		this.data = A.data - B.data;
+		this.value = A.value - B.value;
 	}
 }
 
@@ -206,7 +252,7 @@ class MulNode extends Value {
   prec: number = 10;
 
   constructor(a: Value, b: Value, label?: string) {
-    super(a.data * b.data, "*", [a, b], label);
+    super(a.value * b.value, "*", [a, b], label);
   }
 
 	backward(): void {
@@ -214,14 +260,14 @@ class MulNode extends Value {
 		// df/dA = B
 		// df/dB = A
 		const [A, B] = this.children;
-		A.grad += B.data * this.grad;
-		B.grad += A.data * this.grad;
+		A.grad += B.value * this.grad;
+		B.grad += A.value * this.grad;
 	}
 
 	forward(): void {
 		super.forward();
 		const [A, B] = this.children;
-		this.data = A.data * B.data;
+		this.value = A.value * B.value;
 	}
 }
 
@@ -229,7 +275,7 @@ class DivNode extends Value {
   prec: number = 11;
 
   constructor(a: Value, b: Value, label?: string) {
-    super(a.data / b.data, "/", [a, b], label);
+    super(a.value / b.value, "/", [a, b], label);
   }
 
 	backward(): void {
@@ -237,14 +283,14 @@ class DivNode extends Value {
 		// df/dA = 1/B
 		// df/dB = -A/B^2
 		const [A, B] = this.children;
-		A.grad += this.grad / B.data;
-		B.grad += (-A.data / B.data ** 2) * this.grad;
+		A.grad += this.grad / B.value;
+		B.grad += (-A.value / B.value ** 2) * this.grad;
 	}
 
 	forward(): void {
 		super.forward();
 		const [A, B] = this.children;
-		this.data = A.data / B.data;
+		this.value = A.value / B.value;
 	}
 }
 
@@ -252,7 +298,7 @@ class NegNode extends Value {
   prec: number = 1;
 
   constructor(x: Value, label?: string) {
-    super(-x.data, "~", [x], label);
+    super(-x.value, "~", [x], label);
   }
 
 	backward(): void {
@@ -265,7 +311,7 @@ class NegNode extends Value {
 	forward(): void {
 		super.forward();
 		const [A] = this.children;
-		this.data = -A.data;
+		this.value = -A.value;
 	}
 }
 
@@ -273,7 +319,7 @@ class PowNode extends Value {
   prec: number = 15;
   
   constructor(base: Value, expo: Value, label?: string) {
-    super(base.data ** expo.data, "^", [base, expo], label);
+    super(base.value ** expo.value, "^", [base, expo], label);
   }
 
 	backward(): void {
@@ -281,14 +327,14 @@ class PowNode extends Value {
 		// df/dA = B * A^(B-1)
     // df/dB = A^B * log(A)
 		const [A, B] = this.children;
-		A.grad += B.data * A.data ** (B.data-1) * this.grad;
-    B.grad += A.data ** B.data * Math.log(A.data);
+		A.grad += B.value * A.value ** (B.value-1) * this.grad;
+    B.grad += A.value ** B.value * Math.log(A.value);
 	}
 
 	forward(): void {
 		super.forward();
 		const [A, B] = this.children;
-		this.data = A.data ** B.data;
+		this.value = A.value ** B.value;
 	}
 }
 
@@ -299,78 +345,97 @@ class SimpleFunctionNode extends Value {
 class ExpNode extends SimpleFunctionNode {
 
   constructor(x: Value, label?: string) {
-    super(Math.exp(x.data), "exp", [x], label);
+    super(Math.exp(x.value), "exp", [x], label);
   }
 
   backward(): void {
     // f = exp(A)
     // df/dA = exp(A) = f
     const [A] = this.children;
-    A.grad = this.grad * this.data;
+    A.grad = this.grad * this.value;
   }
 
   forward(): void {
     super.forward();
     const [A] = this.children;
-    this.data = Math.exp(A.data);
+    this.value = Math.exp(A.value);
   }
 }
 
 class ReLUNode extends SimpleFunctionNode {
   constructor(x: Value, label?: string) {
-    super(x.data > 0 ? x.data : 0, "relu", [x], label);
+    super(x.value > 0 ? x.value : 0, "relu", [x], label);
   }
 
 	backward(): void {
 		// f = relu(A)
 		// df/dA = {1 if A>0 else 0}
 		const [A] = this.children;
-		if (A.data > 0) A.grad += 1.0 * this.grad;
+		if (A.value > 0) A.grad += 1.0 * this.grad;
 		else A.grad += 0.0;
 	}
 
 	forward(): void {
 		super.forward();
 		const [A] = this.children;
-		this.data = A.data > 0 ? A.data : 0;
+		this.value = A.value > 0 ? A.value : 0;
 	}
 }
 
 class SinNode extends SimpleFunctionNode {
   constructor(x: Value, label?: string) {
-    super(Math.sin(x.data), "sin", [x], label);
+    super(Math.sin(x.value), "sin", [x], label);
   }
 
   backward(): void {
     // f = sin(A)
     // df/dA = cos(A)
     const [A] = this.children;
-    A.grad += Math.cos(A.data) * this.grad;
+    A.grad += Math.cos(A.value) * this.grad;
   }
 
   forward(): void {
     super.forward();
     const [A] = this.children;
-    this.data = Math.sin(A.data);
+    this.value = Math.sin(A.value);
   }
 }
 
 class CosNode extends SimpleFunctionNode {
   constructor(x: Value, label?: string) {
-    super(Math.exp(x.data), "cos", [x], label);
+    super(Math.exp(x.value), "cos", [x], label);
   }
 
   backward(): void {
     // f = cos(A)
     // df/dA = -sin(A)
     const [A] = this.children;
-    A.grad += -Math.sin(A.data) * this.grad;
+    A.grad += -Math.sin(A.value) * this.grad;
   }
 
   forward(): void {
     super.forward();
     const [A] = this.children;
-    this.data = Math.cos(A.data);
+    this.value = Math.cos(A.value);
+  }
+}
+
+class AbsNode extends SimpleFunctionNode {
+  constructor(x: Value, label?: string) {
+    super(Math.exp(x.value), "abs", [x], label);
+  }
+
+  backward(): void {
+    // f = |A|
+    // df/dA = [-1, 0, 1]
+    const [A] = this.children;
+    A.grad += A.value > 0 ? 1 : A.value == 0 ? 0 : -1;
+  }
+
+  forward(): void {
+    super.forward();
+    const [A] = this.children;
+    this.value = Math.abs(A.value);
   }
 }
 
@@ -380,19 +445,19 @@ function sigmoid(x: number) {
 
 class SigmoidNode extends SimpleFunctionNode {
   constructor(x: Value, label?: string) {
-    super(sigmoid(x.data), "sigmoid", [x], label);
+    super(sigmoid(x.value), "sigmoid", [x], label);
   }
 
   backward(): void {
     // f = sigmoid(A)
     // df/dA = signmoid(A) * sigmoid(-A)
     const [A] = this.children;
-    A.grad += sigmoid(-A.data) * sigmoid(A.data) * this.grad;
+    A.grad += sigmoid(-A.value) * sigmoid(A.value) * this.grad;
   }
 
   forward(): void {
     const [A] = this.children;
-    this.data = sigmoid(A.data);
+    this.value = sigmoid(A.value);
   }
 }
 
@@ -439,23 +504,23 @@ export class Function {
   }
 
   read_x(): number[] {
-    return this.inputs.map(i => i.data);
+    return this.inputs.map(i => i.value);
   }
 
   set_x(...args: number[]) {
     for (let i = 0; i < this.inputs.length; i++) {
-      this.inputs[i].data = args[i];
+      this.inputs[i].value = args[i];
     }
   }
 
   descend_by(shift: number[], rate = 1.0) {
     for (let i = 0; i < this.inputs.length; i++) {
-      this.inputs[i].data -= shift[i] * rate;
+      this.inputs[i].value -= shift[i] * rate;
     }
   }
 
   read_y(): number {
-    return this.result.data;
+    return this.result.value;
   }
 
   read_grad_x(): number[] {
@@ -466,7 +531,7 @@ export class Function {
   fn(...args: number[]): number {
     this.set_x(...args);
     forward_pass(this.topo);
-    return this.result.data;
+    return this.result.value;
   }
 
   grad(...args: number[]): number[] {

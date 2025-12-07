@@ -9,7 +9,7 @@
 		w,
 		h,
     descenter,
-    squeeze_z = 0.1,
+    squeeze_z = 0.2,
 	}: {
 		w: number;
 		h: number;
@@ -70,6 +70,8 @@
       new three.Vector3(...map_onto_fn(descenter.fn, descenter.p_curr)),
       Math.log(vlen(descenter.grad_curr)+1),
       0xffff00,
+      undefined,
+      0.3
     )
   }
 
@@ -88,12 +90,10 @@
 		positions.needsUpdate = true;
 		geometry.computeVertexNormals();
 
-		const material = new three.MeshStandardMaterial({
+		const material = new three.MeshMatcapMaterial({
 			color: 0x88DDFF,
 			wireframe: false,
 			side: three.DoubleSide,
-      metalness: 0.1,
-      roughness: 0.5
 		});
 
     return new three.Mesh(geometry, material);
@@ -102,16 +102,17 @@
   function create_route(fn: ObjectiveFunction, points: Vec2D[]) {
     const group = new three.Group();
 
-    const material = new three.MeshPhongMaterial({color: 0xFF0000});
+    const material = new three.MeshBasicMaterial({color: 0xFF0000});
+    const material_2 = new three.MeshBasicMaterial({color: 0xFFFF00});
     const line_material = new three.LineBasicMaterial({color: 0xFF0000})
 
     const stops: three.Vector3[] = [];
 
-    for (const p of points) {
+    for (const [i, p] of points.entries()) {
+      const is_last = i === points.length-1;
       
-
-      const geometry = new three.SphereGeometry(0.1);
-      const mesh = new three.Mesh(geometry, material);
+      const geometry = new three.SphereGeometry(is_last ? 0.15 : 0.1);
+      const mesh = new three.Mesh(geometry, is_last ? material_2 : material);
       const coords = map_onto_fn(fn, p);
       mesh.position.set(...coords);
 
@@ -137,7 +138,7 @@
     camera.position.z = -6;
 
 		scene = new three.Scene();
-		scene.background = new three.Color(0xddefef);
+		scene.background = new three.Color(0x000022);
 		
     const dirLight = new three.DirectionalLight(0xffffff, 1.0);
     dirLight.position.set(3, 10, 0);
@@ -153,10 +154,12 @@
     mesh = create_function_surface(descenter.fn, 12, 150);
     scene.add(mesh);
 
-    const axes = new three.AxesHelper(5);
+    const axes = new three.AxesHelper(50);
     scene.add(axes);
 
-		renderer = new three.WebGLRenderer();
+		renderer = new three.WebGLRenderer({
+      antialias: true
+    });
 		renderer.setPixelRatio(1);
 		renderer.setSize(w, h);
 		renderer.setAnimationLoop(animate);
@@ -166,7 +169,7 @@
 		controls = new OrbitControls(camera, renderer.domElement);
 
     const geo_box = new three.SphereGeometry(0.2);
-    const mat_box = new three.MeshPhongMaterial({color: 0xFF5555});
+    const mat_box = new three.MeshBasicMaterial({color: 0xFF5555});
 
     start_point = new three.Mesh( geo_box, mat_box );
     start_point.position.set(...map_onto_fn(descenter.fn, descenter.init_point))

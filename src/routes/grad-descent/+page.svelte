@@ -13,6 +13,39 @@
 	import { tex } from '$lib/mathjax';
 	import type { Vec2D } from '$lib/vector';
 
+	// example functions
+	let available_functions: ag.Function2D[] = [
+		(() => {
+			const x1 = new ag.Input(-3, 'x_1');
+			const x2 = new ag.Input(2, 'x_2');
+			return new ag.Function2D(x1.pow(2).add(x2.pow(2)), x1, x2);
+		})(),
+		(() => {
+			const x1 = new ag.Input(-3, 'x_1');
+			const x2 = new ag.Input(2, 'x_2');
+			return new ag.Function2D(
+				x1.sub(2).pow(2).mul(0.5).add(x2.pow(2)).add(x1.mul(2)).add(x2.sin().mul(7)),
+				x1,
+				x2
+			);
+		})(),
+		(() => {
+			const x1 = new ag.Input(-3, 'x_1');
+			const x2 = new ag.Input(2, 'x_2');
+			return new ag.Function2D(x1.sin().mul(7).add(x2).add(x2.cos().mul(5)), x1, x2);
+		})(),
+    (() => {
+			const x1 = new ag.Input(-3, 'x_1');
+			const x2 = new ag.Input(2, 'x_2');
+			return new ag.Function2D(x1.abs().add(x2.abs()).mul(3), x1, x2);
+		})(),
+    (() => {
+			const x1 = new ag.Input(-3, 'x_1');
+			const x2 = new ag.Input(2, 'x_2');
+			return new ag.Function2D(ag.sum([x1, x2]), x1, x2);
+		})(),
+	];
+
 	let view: GradDescentView;
 	let chosen_descenter: new (
 		fn: ObjectiveFunction,
@@ -21,30 +54,31 @@
 		max_steps: number
 	) => Descenter = $state(GradientDescenter);
 
-	const x1 = new ag.Input(3, 'x_1');
-	const x2 = new ag.Input(-1, 'x_2');
-	const obj_autograd = $state(new ag.Function2D(
-    x1.sub(1).pow(2).mul(0.5).add(x2.pow(2)).add(x1.mul(2)).add(x1.sin().mul(7)),
-    x1,
-		x2
-	));
+	let chosen_autograd = $derived(Object.values(available_functions)[0]);
+	let obj_fn: ObjectiveFunction = $derived(chosen_autograd.get_bound_fn2d());
+	let obj_grad: ObjectiveGradient = $derived(chosen_autograd.get_bound_grad2d());
 
-	const obj_fn: ObjectiveFunction = obj_autograd.get_bound_fn2d();
-	const obj_grad: ObjectiveGradient = obj_autograd.get_bound_grad2d();
-
-	let descenter = $state(
-		new MomentumGradientDescenter(obj_fn, obj_grad, { x1: x1.data, x2: x2.data }, 100)
+	let descenter = $derived(
+		new chosen_descenter(
+			obj_fn,
+			obj_grad,
+			{ x1: chosen_autograd.x1.value, x2: chosen_autograd.x2.value },
+			100
+		)
 	);
 
+	// buttons
 	function reset() {
 		descenter.clear(descenter.init_point);
 		view.update_route();
+		stop_autostep();
 	}
 
 	function reload() {
 		descenter = new chosen_descenter(obj_fn, obj_grad, descenter.init_point, 1000);
 		descenter.clear(descenter.init_point);
 		view.update_route();
+		stop_autostep();
 	}
 
 	function step() {
@@ -52,6 +86,7 @@
 		view.update_route();
 	}
 
+	// autostepping
 	let is_autostepping = $state(false);
 	let autostep_timer: number | undefined = undefined;
 
@@ -64,12 +99,30 @@
 			clearInterval(autostep_timer);
 		}
 	}
+
+	function stop_autostep() {
+		is_autostepping = false;
+		if (autostep_timer) clearInterval(autostep_timer);
+	}
 </script>
 
 <div class="flex flex-col gap-2 p-2">
 	<h2>Gradient descent | <a href="..">back</a></h2>
 
 	<div>Double-click the function surface to start a new gradient descent from that point!</div>
+
+  <div class="flex flex-row gap-4 items-center">
+	<label>
+		Function:
+		<select bind:value={chosen_autograd} onchange={reload}>
+			{#each Object.entries(available_functions) as [name, fn]}
+				<option value={fn}>{@html fn.result.toExpr()}</option>
+			{/each}
+		</select>
+	</label>
+
+  {@html tex('f(x_1, x_2) = ' + chosen_autograd.result.toExpr(true))}</div>
+
 
 	<label
 		>Method:
@@ -99,7 +152,10 @@
 					onchange={reset}
 				/></label
 			>
-			<div class="border flex flex-col gap-2" class:inactive={chosen_descenter !== MomentumGradientDescenter}>
+			<div
+				class="flex flex-col gap-2 border"
+				class:inactive={chosen_descenter !== MomentumGradientDescenter}
+			>
 				<div class="light-border">Momentum-based parameters</div>
 				<label
 					>Momentum boost <b>&gamma;</b> =
@@ -145,24 +201,23 @@
 		<button class="border" onclick={step}>Step</button>
 		<button class:negative={is_autostepping} class="border" onclick={autostep}>Autostep</button>
 	</div>
-
-  <div class="flex flex-row items-center gap-2">
-    <div>Objective function: </div> {@html tex("f(x_1, x_2) = " + obj_autograd.result.toExpr(true))}
-  </div>
-
 	<div class="flex flex-row gap-4">
-		<div class="flex flex-row items-center gap-1">t = {descenter.t}</div>
+		<div class="flex flex-row items-center gap-1">{@html tex(`\\mathbf{t} = ${descenter.t}`)}</div>
 		<div class="flex flex-row items-center gap-1">
-			{@html tex(`\\mathbf{x}_{${descenter.t}} =`)} <VectorView vec={descenter.p_curr}></VectorView>
+			{@html tex(`\\mathbf{x}_{${descenter.t}} =`)}
+			<VectorView vec={descenter.p_curr}></VectorView>
 		</div>
 		<div class="flex flex-row items-center gap-1">
-			{@html tex(`\\nabla_{\\mathbf{x}} f(\\mathbf{x}_{${descenter.t}}) =`)} <VectorView vec={descenter.grad_curr}></VectorView>
+			{@html tex(`\\nabla_{\\mathbf{x}} f(\\mathbf{x}_{${descenter.t}}) =`)}
+			<VectorView vec={descenter.grad_curr}></VectorView>
 		</div>
 		<div class="flex flex-row items-center gap-1">
-			{@html tex(`\\mathbf{m}_{${descenter.t-1}} =`)} <VectorView vec={descenter.m_curr}></VectorView>
+			{@html tex(`\\mathbf{m}_{${descenter.t - 1}} =`)}
+			<VectorView vec={descenter.m_curr}></VectorView>
 		</div>
 		<div class="flex flex-row items-center gap-1">
-			{@html tex(`\\mathbf{v}_{${descenter.t-1}} =`)}  <VectorView vec={descenter.v_curr}></VectorView>
+			{@html tex(`\\mathbf{v}_{${descenter.t - 1}} =`)}
+			<VectorView vec={descenter.v_curr}></VectorView>
 		</div>
 	</div>
 </div>
