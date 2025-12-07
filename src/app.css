@@ -116,3 +116,29 @@ button {
   transform-origin: 50% 50%;
   animation: glitter 1000ms ease-in-out infinite;
 }
+
+table, th, td {
+  border-collapse: collapse;
+}
+
+th, td {
+  border: 1px solid black;
+  padding: 0 0.2rem;
+
+  &.h1 {
+    background-color: rgba(0, 0, 0, 1.0);
+    color: white;
+  }
+
+  &.h2 {
+    background-color: rgba(0, 0, 0, 0.3);
+  }
+
+  &.h3 {
+    background-color: rgba(0, 0, 0, 0.1);
+  }
+
+  &.bare {
+    border: none;
+  }
+}

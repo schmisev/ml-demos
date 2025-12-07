@@ -10,6 +10,8 @@
   <h2>Probabilistic Inference</h2>
   <h3><a href="{resolve(`/coin-toss`)}">Coin flips</a></h3>
   <h3><a href="{resolve(`/football-goals`)}">Football goals</a></h3>
+  <h2>Bayesian Networks</h2>
+  <h3><a href="{resolve(`/bayesian-networks`)}">Direct sampling (Monte Carlo)</a></h3>
   <h2>Linear classification & regression</h2>
   <h3><a href="{resolve(`/linear-classification`)}">Linear classification</a> (WIP)</h3>
   <h2>Optimization</h2>

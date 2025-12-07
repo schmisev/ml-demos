@@ -34,6 +34,7 @@
 		"vite": "^7.1.7"
 	},
 	"dependencies": {
+		"@friendofsvelte/mermaid": "^0.0.4",
 		"@stdlib/math-base-special-gamma": "^0.3.0",
 		"@types/mathjax": "^0.0.40",
 		"@types/p5": "^1.7.7",

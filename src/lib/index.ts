@@ -63,3 +63,8 @@ export function get_entries<T>(record: Record<string, T>): [string, T][] {
 export function is_in<T>(key: string | number, record: Record<string, T>): boolean {
   return (record[key] !== undefined);
 }
+
+export function assert(expr: boolean) {
+  if (!expr) throw `Assertion failed!`
+  return;
+}
