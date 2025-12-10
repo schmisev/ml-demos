@@ -3,6 +3,9 @@ export enum BN {
 	FALSE = 1
 }
 
+export type BN_LinkedQuery = Record<string, {node: BN_Node, value: number}>;
+export type BN_StrippedQuery = Record<string, number>;
+
 type BN_ProbMatrix = number[] | BN_ProbMatrix[];
 
 function value_combinations(domain_a: number | number[][], domain_b: number) {
@@ -98,11 +101,11 @@ export class BN_Node {
 	}
 
   format_last(): string {
-    return this.format_label(this._last_drawn);
+    return this.format_value(this._last_drawn);
   }
 
 	format_variable(include_values = false): string {
-		return include_values ? `${this.name}=${this.format_label(this._last_drawn)}` : this.name;
+		return include_values ? `${this.name}=${this.format_value(this._last_drawn)}` : this.name;
 	}
 
 	format_cond_prob(): string {
@@ -117,7 +120,7 @@ export class BN_Node {
 		out += this.deps.map((v) => v.name).join('\t| ') + '\t| ' + this.format_expr() + '\n';
 		for (const c of combs) {
 			out +=
-				c.map((v, i) => this.deps[i].format_label(v)).join('\t| ') +
+				c.map((v, i) => this.deps[i].format_value(v)).join('\t| ') +
 				'\t| ' +
 				deep_index(c, this.prob_matrix).join(' ') +
 				'\n';
@@ -139,21 +142,24 @@ export class BN_Node {
     }
 
     for (let v = 0; v < this.domain_size; v++) {
-      out += `<th class="h2">` + this.name + "=" + this.format_label(v) + "</th>";
+      out += `<th class="h2">` + this.name + "=" + this.format_value(v) + "</th>";
     }
 
     out += "</tr>"
 
     for (const c of combs) {
       out += "<tr>"
+
+      let active_comb = true;
       for (const [i, v] of c.entries()) {
         const d = this.deps[i];
-        out += `<td class="h3">` + d.format_label(v) + "</td>";
+        if (d._last_drawn !== v) active_comb = false;
+        out += `<td class="h3">` + d.format_value(v) + "</td>";
       }
 
       const probs = full_index(c, this.prob_matrix);
       for (let v = 0; v < this.domain_size; v++) {
-        out += "<td>" + (probs[v] !== undefined ? probs[v] : 1 - probs.reduce((a, b) => a+b)).toFixed(2) + "</td>";
+        out += `<td class="${active_comb && v === this._last_drawn ? 'picked' : ''} ${active_comb ? 'active' : ''}">` + (probs[v] !== undefined ? probs[v] : 1 - probs.reduce((a, b) => a+b)).toFixed(2) + "</td>";
       }
       out += "</tr>"
     }
@@ -164,7 +170,7 @@ export class BN_Node {
 		return out;
 	}
 
-	format_label(value: number) {
+	format_value(value: number) {
     if (value < 0) return "?"
 		if (value >= this.domain_labels.length) return '' + value;
 		return this.domain_labels[value];
@@ -190,7 +196,7 @@ export class BN_Node {
 	}
 
 	random_draw_and_format(): string {
-		return this.name + ' = ' + this.format_label(this.random_draw());
+		return this.name + ' = ' + this.format_value(this.random_draw());
 	}
 
   materialize_domain(): number[] {
@@ -221,7 +227,7 @@ export class BN_Graph {
     }
   }
 
-	query(query: Record<string, number>, early_out = true): boolean {
+	query(query: BN_StrippedQuery, early_out = true): boolean {
 		let mismatch = false;
     for (const node of this.topo) {
 			const v = node.random_draw();
@@ -237,6 +243,16 @@ export class BN_Graph {
     if (mismatch) return false;
 		return true;
 	}
+
+  get_linked_query(): BN_LinkedQuery {
+    const query: Record<string, {node: BN_Node, value: number}> = {};
+    for (const node of this.topo) {
+      query[node.name] = {
+        node, value: node._last_drawn
+      }
+    }
+    return query;
+  }
 
   /**
    * Formats Graph for use in Mermaid diagrams
@@ -255,6 +271,27 @@ export class BN_Graph {
 
     return preamble + "\n" + nodes.join("\n") + "\n" + conns.join("\n") + "\n";
   }
+}
+
+export function strip_linked_query(query: BN_LinkedQuery): BN_StrippedQuery {
+  let stripped_query: BN_StrippedQuery = {};
+  for (const name in query) {
+    stripped_query[name] = query[name].value;
+  }
+  return stripped_query;
+}
+
+export function format_linked_query(query: BN_LinkedQuery): string {
+  return `P(${Object.values(query).filter(v => v.value >= 0).map(v => {
+    const formatted_value = v.node.format_value(v.value);
+
+    switch (formatted_value) {
+      case "T": return v.node.name.toLocaleLowerCase();
+      case "F": return "¬" + v.node.name.toLocaleLowerCase();
+    }
+
+    return formatted_value;
+  })})`
 }
 
 function topological_ordering(from: BN_Node[]) {

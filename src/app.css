@@ -141,4 +141,14 @@ th, td {
   &.bare {
     border: none;
   }
+
+  &.active {
+    background-color: lightgreen;
+  }
+
+  &.picked {
+    background-color: orange;
+    outline: 2px solid red;
+    outline-offset: -2px;
+  }
 }

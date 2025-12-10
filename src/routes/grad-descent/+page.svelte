@@ -44,6 +44,11 @@
 			const x2 = new ag.Input(2, 'x_2');
 			return new ag.Function2D(ag.sum([x1, x2]), x1, x2);
 		})(),
+    (() => {
+			const x1 = new ag.Input(-3, 'x_1');
+			const x2 = new ag.Input(2, 'x_2');
+			return new ag.Function2D(x1.abs().add(1).log().mul(10).add(x2.exp()), x1, x2);
+		})(),
 	];
 
 	let view: GradDescentView;

@@ -1,6 +1,6 @@
 import type { Vec2D } from "./vector";
 
-type ValueType = 'in' | 'const' | 'relu' | 'sum' | 'sigmoid' | 'abs' | 'cos' | 'sin' | 'exp' | '^' | '+' | '*' | '-' | '/' | '~';
+type ValueType = 'in' | 'const' | 'relu' | 'sum' | 'sigmoid' | 'abs' | 'cos' | 'sin' | 'exp' | '^' | '+' | '*' | '-' | '/' | '~' | 'log';
 
 abstract class Value {
 	value: number;
@@ -50,6 +50,7 @@ abstract class Value {
       case "cos":
       case "sin":
       case "exp":
+      case "log":
         out = `\\${this.type}(${this.children[0].toExpr(mathjax, this.prec)})`; break;
       case "abs":
         out = `|${this.children[0].toExpr(mathjax, this.prec)}|`; break;
@@ -81,6 +82,8 @@ abstract class Value {
       }
       case "~":
         out = `-${this.children[0].toExpr(mathjax, this.prec)}`; break;
+      default:
+        const NEVER: never = this.type;
     }
 		
     if (precedence > this.prec) {
@@ -147,6 +150,10 @@ abstract class Value {
 
   abs(label?: string) {
     return new AbsNode(this, label);
+  }
+
+  log(label?: string) {
+    return new LogNode(this, label);
   }
 }
 
@@ -343,7 +350,6 @@ class SimpleFunctionNode extends Value {
 }
 
 class ExpNode extends SimpleFunctionNode {
-
   constructor(x: Value, label?: string) {
     super(Math.exp(x.value), "exp", [x], label);
   }
@@ -359,6 +365,25 @@ class ExpNode extends SimpleFunctionNode {
     super.forward();
     const [A] = this.children;
     this.value = Math.exp(A.value);
+  }
+}
+
+class LogNode extends SimpleFunctionNode {
+  constructor(x: Value, label?: string) {
+    super(Math.log(x.value), "log", [x], label);
+  }
+
+  backward(): void {
+    // f = log(A)
+    // df/dA = 1/A
+    const [A] = this.children;
+    A.grad = this.grad / A.value;
+  }
+
+  forward(): void {
+    super.forward();
+    const [A] = this.children;
+    this.value = Math.log(A.value);
   }
 }
 
