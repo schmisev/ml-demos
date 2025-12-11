@@ -1,12 +1,12 @@
 <script lang="ts">
-	import { BURGLAR_BN_GRAPH, CLOUDY_BN_GRAPH, format_linked_query, strip_linked_query, TOOTHACHE_BN_GRAPH, type BN_LinkedQuery } from '$lib/bayesian-networks';
+	import { BN_Graph, BURGLAR_BN_GRAPH, CLOUDY_BN_GRAPH, format_linked_query, strip_linked_query, TOOTHACHE_BN_GRAPH, type BN_LinkedQuery } from '$lib/bayesian-networks';
 	import ChartView from '$lib/components/ChartView.svelte';
 	import { tex } from '$lib/mathjax';
 	import { Mermaid } from '@friendofsvelte/mermaid';
 
   let early_out = $state(true);
   let chosen_graph_generator = $state(CLOUDY_BN_GRAPH);
-	let chosen_graph = $derived(chosen_graph_generator());
+	let chosen_graph = $state(chosen_graph_generator());
 	let query_settings = $derived(
 		chosen_graph.topo.map((v) => {
 			return { node: v, name: v.name, values: v.materialize_domain() };
@@ -26,6 +26,7 @@
   }
 
   function reload() {
+    chosen_graph = chosen_graph_generator();
     fill_query();
     reset();
     update_diagram();
