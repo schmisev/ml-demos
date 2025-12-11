@@ -5,6 +5,7 @@ export enum BN {
 
 export type BN_LinkedQuery = Record<string, {node: BN_Node, value: number}>;
 export type BN_StrippedQuery = Record<string, number>;
+export type BN_QuerySettings = { node: BN_Node; name: string; values: number[]; }[];
 
 type BN_ProbMatrix = number[] | BN_ProbMatrix[];
 
@@ -176,6 +177,18 @@ export class BN_Node {
 		return this.domain_labels[value];
 	}
 
+  set_value(v: number, p: number) {
+    this._last_drawn = v;
+    this._last_cond_prob = p;
+  }
+
+  get_cond_prob_for_value(v: number) {
+    const prev = this.deps.map((d) => d._last_drawn);
+    const probs = full_index(prev, this.prob_matrix);
+    const p = (v >= probs.length) ? 1 - probs.reduce((a, b) => a+b) : probs[v];
+    return p;
+  }
+
 	random_draw(): number {
 		// draw a random __value__
 		const prev = this.deps.map((d) => d._last_drawn);
@@ -185,13 +198,11 @@ export class BN_Node {
 		for (const [v, p] of probs.entries()) {
 			accum += p;
 			if (pi < accum) {
-				this._last_cond_prob = p;
-				this._last_drawn = v;
+				this.set_value(v, p);
 				return v;
 			}
 		}
-		this._last_cond_prob = 1 - probs.reduce((a, b) => a + b);
-		this._last_drawn = probs.length;
+    this.set_value(probs.length, 1 - probs.reduce((a, b) => a + b));
 		return probs.length; // NOT case!
 	}
 
@@ -227,21 +238,35 @@ export class BN_Graph {
     }
   }
 
-	query(query: BN_StrippedQuery, early_out = true): boolean {
-		let mismatch = false;
+	query(query: BN_StrippedQuery, evidence: BN_StrippedQuery): { fulfilled: boolean, weight: number } {
+		let w = 1; // weight variable
+    let mismatch = false;
+
     for (const node of this.topo) {
-			const v = node.random_draw();
-			if (node.name in query) {
-				if (query[node.name] >= 0 && v !== query[node.name]) mismatch = true; // we drew a wrong value
-        if (early_out && mismatch) return false;
+      // check evidence
+      let v;
+      if (node.name in evidence && evidence[node.name] >= 0 /*shouldn't be needed anymore*/) {
+        v = evidence[node.name]; // we use the value from the evidence & multiply by the cond. prob.
+        delete evidence[node.name]; // can be removed from query
+        const p = node.get_cond_prob_for_value(v)
+        w *= p;
+        node.set_value(v, p);
+      } else {
+        v = node.random_draw();
+      }
+
+      // check the query
+			if (node.name in query && query[node.name] >= 0 /*shouldn't be needed anymore*/) {
+				if (v !== query[node.name]) mismatch = true; // we drew a wrong value
+        delete query[node.name]; // can be removed from query, since it's only visited once
 			} else {
 				// console.warn("Malformed query:", query);
 				// return false; // query is malformed and thus impossible
 			}
 		}
 
-    if (mismatch) return false;
-		return true;
+    if (mismatch) return { fulfilled: false, weight: w };
+		return { fulfilled: true, weight: w };
 	}
 
   get_linked_query(): BN_LinkedQuery {
@@ -252,6 +277,12 @@ export class BN_Graph {
       }
     }
     return query;
+  }
+
+  get_query_settings(): BN_QuerySettings {
+    return this.topo.map((v) => {
+			return { node: v, name: v.name, values: v.materialize_domain() };
+		})
   }
 
   /**
@@ -276,13 +307,14 @@ export class BN_Graph {
 export function strip_linked_query(query: BN_LinkedQuery): BN_StrippedQuery {
   let stripped_query: BN_StrippedQuery = {};
   for (const name in query) {
+    if (query[name].value < 0) continue;
     stripped_query[name] = query[name].value;
   }
   return stripped_query;
 }
 
-export function format_linked_query(query: BN_LinkedQuery): string {
-  return `P(${Object.values(query).filter(v => v.value >= 0).map(v => {
+export function format_linked_query_variables(query: BN_LinkedQuery): string {
+  return `${Object.values(query).filter(v => v.value >= 0).map(v => {
     const formatted_value = v.node.format_value(v.value);
 
     switch (formatted_value) {
@@ -291,7 +323,13 @@ export function format_linked_query(query: BN_LinkedQuery): string {
     }
 
     return formatted_value;
-  })})`
+  })}`
+}
+
+export function format_linked_query(query: BN_LinkedQuery, evidence: BN_LinkedQuery) {
+  const evidence_str = format_linked_query_variables(evidence);
+  const query_str = format_linked_query_variables(query);
+  return `P( ${query_str || "\\cdot"}${evidence_str && "|"}${evidence_str} )`
 }
 
 function topological_ordering(from: BN_Node[]) {
