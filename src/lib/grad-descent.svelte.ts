@@ -16,7 +16,7 @@ import {
 export type ObjectiveFunction = (v: Vec2D) => number;
 export type ObjectiveGradient = (v: Vec2D) => Vec2D;
 
-export abstract class Descenter {
+export abstract class Descender {
 	tau: number = $state(0.1); // learning rate
 	gamma: number = $state(0.5);
 	epsilon: number = $state(1e-8);
@@ -43,11 +43,14 @@ export abstract class Descenter {
 	v_curr: Vec2D = $state(vv());
 	v_last: Vec2D = $state(vv());
 
+  ext_update = () => {};
+
 	constructor(
 		fn: ObjectiveFunction,
 		grad: ObjectiveGradient,
 		init_point: Vec2D,
-		max_steps: number
+		max_steps: number,
+    ext_update: () => void,
 	) {
 		this.fn = fn;
 		this.grad = grad;
@@ -59,8 +62,10 @@ export abstract class Descenter {
 		this.moments = [vv()];
 		this.second_moments = [vv()];
 
+    this.ext_update = ext_update;
+
 		// do first prestep, so the right values will show up in the UI
-		this.prestep();
+		this.prestep(true);
 	}
 
 	clear(init_point: Vec2D) {
@@ -77,16 +82,17 @@ export abstract class Descenter {
 		this.prestep();
 	}
 
-	prestep() {
+	prestep(do_not_call_update = false) {
 		this.p_curr = this.last();
 		this.grad_curr = this.grad(this.p_curr);
 		this.m_last = this.m_curr;
 		this.v_last = this.v_curr;
+
+    if (!do_not_call_update) this.ext_update();
 	}
 
 	step() {
-		console.log('step', this.t);
-		if (vlen(this.grad_curr) < this.epsilon) return;
+    if (vlen(this.grad_curr) < this.epsilon) return;
 		if (this.t >= this.t_max) return;
 
 		this._step();
@@ -106,7 +112,7 @@ export abstract class Descenter {
 	abstract _step(): Vec2D;
 }
 
-export class GradientDescenter extends Descenter {
+export class GradientDescender extends Descender {
 	_step(): Vec2D {
 		this.m_curr = vv(); // we dont use momentum
 		this.p_curr = vsub(this.p_curr, vscale(this.grad_curr, this.tau));
@@ -115,7 +121,7 @@ export class GradientDescenter extends Descenter {
 	}
 }
 
-export class MomentumGradientDescenter extends Descenter {
+export class MomentumGradientDescender extends Descender {
 	_step(): Vec2D {
 		this.m_curr = vadd(vscale(this.grad_curr, this.tau), vscale(this.m_last, this.gamma));
 		this.p_curr = vsub(this.p_curr, this.m_curr);
@@ -124,7 +130,7 @@ export class MomentumGradientDescenter extends Descenter {
 	}
 }
 
-export class AdamGradientDescenter extends Descenter {
+export class AdamGradientDescender extends Descender {
 	_step(): Vec2D {
     this.m_curr = vadd(vscale(this.m_last, this.beta_1), vscale(this.grad_curr, 1 - this.beta_1))
 		const m_hat = vinvscale(

@@ -9,6 +9,8 @@ abstract class Value {
 	type: ValueType;
 	label?: string;
   abstract prec: number;
+  id: number;
+  static max_id: number = 0;
 
 	constructor(value: number, type: ValueType = 'in', children: Value[] = [], label?: string) {
 		this.value = value;
@@ -16,6 +18,7 @@ abstract class Value {
 		this.children = children;
 		this.label = label;
 		this.type = type;
+    this.id = Value.max_id++;
 	}
 
 	backward() {
@@ -27,13 +30,13 @@ abstract class Value {
 		return; // this does nothing
 	}
 
-	toExpr(mathjax = false, precedence: number = 0): string {
+	to_expr(mathjax = false, precedence: number = 0): string {
     if (!mathjax) {
       if (this.label) return this.label;
       if (this.children.length > 1)
-        return this.children.map((v) => (v.prec < this.prec) ? "(" + v.toExpr() + ")" : v.toExpr()).join(this.type);
+        return this.children.map((v) => (v.prec < this.prec) ? "(" + v.to_expr() + ")" : v.to_expr()).join(this.type);
       if (this.children.length == 1)
-        return this.type + "(" + this.children[0].toExpr() + ")";
+        return this.type + "(" + this.children[0].to_expr() + ")";
       if (this.type === "const") return "" + this.value;
     }
 
@@ -46,42 +49,42 @@ abstract class Value {
         out = "" + this.value; break;
       case "relu":
       case "sigmoid":
-        out = `\\sigma(${this.children[0].toExpr(mathjax, this.prec)})`; break;
+        out = `\\sigma(${this.children[0].to_expr(mathjax, this.prec)})`; break;
       case "cos":
       case "sin":
       case "exp":
       case "log":
-        out = `\\${this.type}(${this.children[0].toExpr(mathjax, this.prec)})`; break;
+        out = `\\${this.type}(${this.children[0].to_expr(mathjax, this.prec)})`; break;
       case "abs":
-        out = `|${this.children[0].toExpr(mathjax, this.prec)}|`; break;
+        out = `|${this.children[0].to_expr(mathjax, this.prec)}|`; break;
       case "sum":
-        out = `\\Sigma[${this.children.map(v => v.toExpr(mathjax, this.prec)).join(", ")}]`; break;
+        out = `\\Sigma[${this.children.map(v => v.to_expr(mathjax, this.prec)).join(", ")}]`; break;
       case "^": {
         const [base, expo] = this.children;
-        out = `${base.toExpr(mathjax, this.prec)}^{${expo.toExpr(mathjax, this.prec)}}`; break;
+        out = `${base.to_expr(mathjax, this.prec)}^{${expo.to_expr(mathjax, this.prec)}}`; break;
       }
       case "+": {
         const [A, B] = this.children;
-        out = `${A.toExpr(mathjax, this.prec)}+${B.toExpr(mathjax, this.prec)}`; break;
+        out = `${A.to_expr(mathjax, this.prec)}+${B.to_expr(mathjax, this.prec)}`; break;
       }
       case "*":{
         const [A, B] = this.children;
         if (B.type === "const") {
-          out = `${B.toExpr(mathjax, this.prec)}${A.toExpr(mathjax, this.prec)}`;
+          out = `${B.to_expr(mathjax, this.prec)}${A.to_expr(mathjax, this.prec)}`;
           break;
         }
-        out = `${A.toExpr(mathjax, this.prec)} \\cdot ${B.toExpr(mathjax, this.prec)}`; break;
+        out = `${A.to_expr(mathjax, this.prec)} \\cdot ${B.to_expr(mathjax, this.prec)}`; break;
       }
       case "-": {
         const [A, B] = this.children;
-        out = `${A.toExpr(mathjax, this.prec)} - ${B.toExpr(mathjax, this.prec)}`; break;
+        out = `${A.to_expr(mathjax, this.prec)} - ${B.to_expr(mathjax, this.prec)}`; break;
       }
       case "/": {
         const [A, B] = this.children;
-        out = `\\frac{${A.toExpr(mathjax, this.prec)}}{${B.toExpr(mathjax, this.prec)}}`; break;
+        out = `\\frac{${A.to_expr(mathjax, this.prec)}}{${B.to_expr(mathjax, this.prec)}}`; break;
       }
       case "~":
-        out = `-${this.children[0].toExpr(mathjax, this.prec)}`; break;
+        out = `-${this.children[0].to_expr(mathjax, this.prec)}`; break;
       default:
         const NEVER: never = this.type;
     }
@@ -94,7 +97,7 @@ abstract class Value {
 	}
 
 	listVals(depth = 0, index = 0): string {
-		const val = `${this.toExpr()} = ${this.value.toFixed(4)} \t grad = ${this.grad.toFixed(4)} \n`;
+		const val = `${this.to_expr()} = ${this.value.toFixed(4)} \t grad = ${this.grad.toFixed(4)} \n`;
 		const deps = this.children.map((v, i) => v.listVals(++depth, i)).join('');
 		return val + deps;
 	}
@@ -454,7 +457,7 @@ class AbsNode extends SimpleFunctionNode {
     // f = |A|
     // df/dA = [-1, 0, 1]
     const [A] = this.children;
-    A.grad += A.value > 0 ? 1 : A.value == 0 ? 0 : -1;
+    A.grad += (A.value > 0 ? 1 : A.value == 0 ? 0 : -1) * this.grad;
   }
 
   forward(): void {
@@ -596,5 +599,55 @@ export class Function2D extends Function {
 
   get_bound_grad2d() {
     return this.grad2d.bind(this);
+  }
+
+  format_graph_for_mermaid(): string {
+    const preamble = "graph LR";
+    const nodes: string[] = [];
+    const conns: string[] = [];
+
+    for (const val of this.topo) {
+      let node_name = "";
+
+      switch (val.type) {
+        case "in":
+          node_name = `v${val.id}`;
+          nodes.push(node_name + `["${val.label || node_name} = ${val.value.toFixed(3)} | #nabla; = ${val.grad.toFixed(3)}"]`)
+          break;
+        case "const":
+          node_name = `v${val.id}`;
+          nodes.push(node_name + `["${val.value}"]`)
+          break;
+        case "relu":
+        case "sum":
+        case "sigmoid":
+        case "abs":
+        case "cos":
+        case "sin":
+        case "exp":
+        case "^":
+        case "+":
+        case "*":
+        case "-":
+        case "/":
+        case "~":
+        case "log":
+          node_name = `o${val.id}`;
+          nodes.push(node_name + `(("${val.type}"))`);
+          nodes.push("v" + val.id + `(["${val.value.toFixed(3)} | #nabla; = ${val.grad.toFixed(3)}"])`);
+          conns.push(`${node_name} --> v${val.id}`)
+          break;
+        default:
+          const NEVER: never = val.type;
+      }
+
+      for (const child of val.children) {
+        conns.push(`v${child.id} --> ${node_name}`)
+      }
+    }
+
+    const out = preamble + "\n" + nodes.join("\n") + "\n" + conns.join("\n");
+    console.log(out);
+    return out;
   }
 }

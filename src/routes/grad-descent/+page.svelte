@@ -3,15 +3,16 @@
 	import GradDescentView from '$lib/components/GradDescentView.svelte';
 	import VectorView from '$lib/components/VectorView.svelte';
 	import {
-		AdamGradientDescenter,
-		Descenter,
-		GradientDescenter,
-		MomentumGradientDescenter,
+		AdamGradientDescender,
+		Descender,
+		GradientDescender,
+		MomentumGradientDescender,
 		type ObjectiveFunction,
 		type ObjectiveGradient
 	} from '$lib/grad-descent.svelte';
 	import { tex } from '$lib/mathjax';
 	import type { Vec2D } from '$lib/vector';
+	import { Mermaid } from '@friendofsvelte/mermaid';
 
 	// example functions
 	let available_functions: ag.Function2D[] = [
@@ -56,19 +57,26 @@
 		fn: ObjectiveFunction,
 		grad: ObjectiveGradient,
 		init_point: Vec2D,
-		max_steps: number
-	) => Descenter = $state(GradientDescenter);
+		max_steps: number,
+    on_step: () => void,
+	) => Descender = $state(GradientDescender);
 
-	let chosen_autograd = $derived(Object.values(available_functions)[0]);
+	let chosen_autograd = $state(Object.values(available_functions)[1]);
 	let obj_fn: ObjectiveFunction = $derived(chosen_autograd.get_bound_fn2d());
 	let obj_grad: ObjectiveGradient = $derived(chosen_autograd.get_bound_grad2d());
+  let graph_str: string = $state("");
+
+  function update_graph() {
+    graph_str = chosen_autograd.format_graph_for_mermaid();
+  }
 
 	let descenter = $derived(
 		new chosen_descenter(
 			obj_fn,
 			obj_grad,
 			{ x1: chosen_autograd.x1.value, x2: chosen_autograd.x2.value },
-			100
+			100,
+      update_graph
 		)
 	);
 
@@ -80,7 +88,7 @@
 	}
 
 	function reload() {
-		descenter = new chosen_descenter(obj_fn, obj_grad, descenter.init_point, 1000);
+		descenter = new chosen_descenter(obj_fn, obj_grad, descenter.init_point, 1000, update_graph);
 		descenter.clear(descenter.init_point);
 		view.update_route();
 		stop_autostep();
@@ -121,20 +129,20 @@
 		Function:
 		<select bind:value={chosen_autograd} onchange={reload}>
 			{#each Object.entries(available_functions) as [name, fn]}
-				<option value={fn}>{@html fn.result.toExpr()}</option>
+				<option value={fn}>{@html fn.result.to_expr()}</option>
 			{/each}
 		</select>
 	</label>
 
-  {@html tex('f(x_1, x_2) = ' + chosen_autograd.result.toExpr(true))}</div>
+  {@html tex('f(x_1, x_2) = ' + chosen_autograd.result.to_expr(true))}</div>
 
 
 	<label
 		>Method:
 		<select bind:value={chosen_descenter} onchange={reload}>
-			<option value={GradientDescenter}>Fixed-&tau; Gradient Descent</option>
-			<option value={MomentumGradientDescenter}>Momentum-based Gradient Descent</option>
-			<option value={AdamGradientDescenter}>ADAM Gradient Descent</option>
+			<option value={GradientDescender}>Fixed-&tau; Gradient Descent</option>
+			<option value={MomentumGradientDescender}>Momentum-based Gradient Descent</option>
+			<option value={AdamGradientDescender}>ADAM Gradient Descent</option>
 		</select>
 	</label>
 
@@ -159,7 +167,7 @@
 			>
 			<div
 				class="flex flex-col gap-2 border"
-				class:inactive={chosen_descenter !== MomentumGradientDescenter}
+				class:inactive={chosen_descenter !== MomentumGradientDescender}
 			>
 				<div class="light-border">Momentum-based parameters</div>
 				<label
@@ -175,7 +183,7 @@
 			</div>
 			<div
 				class="flex flex-col gap-2 border"
-				class:inactive={chosen_descenter !== AdamGradientDescenter}
+				class:inactive={chosen_descenter !== AdamGradientDescender}
 			>
 				<div class="light-border">ADAM parameters</div>
 				<label
@@ -225,4 +233,6 @@
 			<VectorView vec={descenter.v_curr}></VectorView>
 		</div>
 	</div>
+
+  <Mermaid string={graph_str} config={{fontFamily: "Consolas, monospace"}}></Mermaid>
 </div>

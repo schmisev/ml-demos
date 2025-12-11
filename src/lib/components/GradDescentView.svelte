@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Descenter, type ObjectiveFunction } from '$lib/grad-descent.svelte';
+	import { Descender, type ObjectiveFunction } from '$lib/grad-descent.svelte';
 	import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 	import { onMount } from 'svelte';
 	import * as three from 'three';
@@ -13,7 +13,7 @@
 	}: {
 		w: number;
 		h: number;
-    descenter: Descenter;
+    descenter: Descender;
     squeeze_z: number;
 	} = $props();
 
