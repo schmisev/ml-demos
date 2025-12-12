@@ -11,6 +11,7 @@
 	import ChartView from '$lib/components/ChartView.svelte';
 	import { tex } from '$lib/mathjax';
 	import { Mermaid } from '@friendofsvelte/mermaid';
+  import * as fmt from '$lib/fmt';
 
 	let chosen_graph_generator = $state(CLOUDY_BN_GRAPH);
 	let chosen_graph: BN_Graph = $state(chosen_graph_generator());
@@ -23,6 +24,9 @@
 	let N = $state(0);
 	let W = $state(0);
 	let W_query = $state(0);
+  let dW = $state(0);
+  let dW_Query = $state(0);
+  let fulfilled = $state(false);
 	let current_query: BN_LinkedQuery = $state(chosen_graph.get_linked_query());
 	let current_evidence: BN_LinkedQuery = $state(chosen_graph.get_linked_query());
 	let current_query_str: string = $derived(format_linked_query(current_query, current_evidence));
@@ -40,6 +44,9 @@
 		N = 0;
 		W = 0;
 		W_query = 0;
+    dW = 0;
+    dW_Query = 0;
+    fulfilled = false;
 		update_diagram();
 		chart.reset_chart();
 		chart.update_title(current_query_str);
@@ -52,10 +59,18 @@
 			chosen_graph.clear();
 			const r = chosen_graph.query(
 				strip_linked_query(current_query),
-				strip_linked_query(current_evidence),
+				strip_linked_query(current_evidence)
 			);
-			if (r.fulfilled) W_query += r.weight;
-			W += r.weight;
+
+			if (r.fulfilled) dW_Query = r.weight;
+      else dW_Query = 0;
+      dW = r.weight;
+
+      W_query += dW_Query;
+			W += dW;
+      
+
+      fulfilled = r.fulfilled;
 			N++;
 			labels.push(N);
 			data.push(W_query / W);
@@ -71,51 +86,77 @@
 </script>
 
 <div class="flex flex-col gap-2 p-2">
-	<label class="light-border"
-		>Network: <select bind:value={chosen_graph_generator} onchange={reload}>
-			<option value={CLOUDY_BN_GRAPH}>Wet grass</option>
-			<option value={BURGLAR_BN_GRAPH}>Burglar-Alarm</option>
-			<option value={TOOTHACHE_BN_GRAPH}>Toothache</option>
-		</select></label
-	>
+	<div class="grid grid-cols-2 gap-2">
+		<div class="flex flex-row gap-5">
+			<h1>Bayesian Networks | <a href="../">back</a></h1>
+		</div>
+		<label class="light-border"
+			>Network: <select bind:value={chosen_graph_generator} onchange={reload}>
+				<option value={CLOUDY_BN_GRAPH}>Wet grass</option>
+				<option value={BURGLAR_BN_GRAPH}>Burglar-Alarm</option>
+				<option value={TOOTHACHE_BN_GRAPH}>Toothache</option>
+			</select></label
+		>
+	</div>
 
 	<div class="light-border flex flex-row flex-wrap gap-4 text-2xl">
 		<div class="flex flex-row flex-wrap items-center gap-0.5">
-			<div>P(</div>
-			{#each query_settings as opt, i}
-				<select style="background-color: {current_query[opt.name].value >= 0 ? "lightblue" : "white"};" bind:value={current_query[opt.name].value} onchange={reset}>
-					{#each opt.values as val}
-						<option value={val}>{opt.name} = {opt.node.format_value(val)}</option>
+			{@html tex(`P`)}
+			<div
+				class="mr-1 ml-1 flex w-min flex-row flex-wrap gap-2 rounded-2xl border-r-2 border-l-2 p-2"
+			>
+				<div class="inline-flex flex-row flex-wrap">
+					{#each query_settings as opt, i}
+						<select
+							style="background-color: {current_query[opt.name].value >= 0
+								? 'lightblue'
+								: 'white'};"
+							bind:value={current_query[opt.name].value}
+							onchange={reset}
+						>
+							{#each opt.values as val}
+								<option value={val}>{opt.name} = {opt.node.format_value(val)}</option>
+							{/each}
+						</select>
+						{#if i < query_settings.length - 1}
+							<!--div>,</div-->
+						{/if}
 					{/each}
-				</select>
-				{#if i < query_settings.length - 1}
-					<div>,</div>
-				{/if}
-			{/each}
-			<div>|</div>
-			{#each evidence_settings as opt, i}
-				<select style="background-color: {current_evidence[opt.name].value >= 0 ? "lightcoral" : "white"};" bind:value={current_evidence[opt.name].value} onchange={reset}>
-					{#each opt.values as val}
-						<option value={val}>{opt.name} = {opt.node.format_value(val)}</option>
+				</div>
+				<div class="inline-flex flex-row border-l-2 pl-2">
+					{#each evidence_settings as opt, i}
+						<select
+							style="background-color: {current_evidence[opt.name].value >= 0
+								? 'lightcoral'
+								: 'white'};"
+							bind:value={current_evidence[opt.name].value}
+							onchange={reset}
+						>
+							{#each opt.values as val}
+								<option value={val}>{opt.name} = {opt.node.format_value(val)}</option>
+							{/each}
+						</select>
+						{#if i < evidence_settings.length - 1}
+							<!--div>,</div-->
+						{/if}
 					{/each}
-				</select>
-				{#if i < evidence_settings.length - 1}
-					<div>,</div>
-				{/if}
-			{/each}
-			<div>)</div>
+				</div>
+			</div>
 		</div>
 
 		<div class="flex flex-row flex-wrap items-center">
 			{@html tex(`= ${current_query_str} = \\frac{W_{query}}{W}`)}
 			{@html tex(
-				`= \\frac{${W_query.toLocaleString('en-US', { useGrouping: false })}}{${W.toLocaleString('en-US', { useGrouping: false })}} = {${(W_query / W).toFixed(3)}}`
+				`= \\frac{${fmt.num(W_query - dW_Query)}${dW_Query ? "+" + fmt.num(dW_Query) : ""}}{${fmt.num(W - dW)}${dW ? "+" + fmt.num(dW) : ""}}`
+			)}
+      {@html tex(
+				`= \\frac{${fmt.num(W_query)}}{${fmt.num(W)}} = {${(W_query / W).toFixed(3)}}`
 			)}
 		</div>
 	</div>
 
-	<div class="grid grid-cols-2">
-		<div>
+	<div class="grid grid-cols-2 gap-4">
+		<div class="flex flex-col gap-2">
 			<div class="flex flex-row flex-wrap gap-2">
 				<button onclick={() => step()} class="border">Random draw!</button>
 				<button onclick={() => step(10)} class="border">Draw 10 times!</button>
@@ -132,7 +173,7 @@
 				bind:this={chart}
 				title={current_query_str}
 				datasets={[
-					{ label: 'Joint probability', data: [], pointRadius: 0, borderJoinStyle: 'round' }
+					{ label: 'Monte-Carlo estimation', data: [], pointRadius: 0, borderJoinStyle: 'round' }
 				]}
 				labels={[]}
 				aspect_ratio={1}

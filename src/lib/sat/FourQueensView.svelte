@@ -19,8 +19,6 @@
 			}
 		}
 
-		console.log(inner_grid);
-
 		return inner_grid;
 	});
 </script>

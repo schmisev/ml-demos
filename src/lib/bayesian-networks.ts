@@ -160,7 +160,7 @@ export class BN_Node {
 
       const probs = full_index(c, this.prob_matrix);
       for (let v = 0; v < this.domain_size; v++) {
-        out += `<td class="${active_comb && v === this._last_drawn ? 'picked' : ''} ${active_comb ? 'active' : ''}">` + (probs[v] !== undefined ? probs[v] : 1 - probs.reduce((a, b) => a+b)).toFixed(2) + "</td>";
+        out += `<td class="${active_comb && v === this._last_drawn ? 'picked' : ''} ${active_comb ? 'active' : ''}">` + (probs[v] !== undefined ? probs[v] : 1 - probs.reduce((a, b) => a+b)).toFixed(3) + "</td>";
       }
       out += "</tr>"
     }
@@ -411,8 +411,8 @@ export function BURGLAR_BN_GRAPH(): BN_Graph {
 export function TOOTHACHE_BN_GRAPH(): BN_Graph {
   const p_Weather = new BN_Node("W", 3, [], [0.3, 0.6], ["rain", "sunny", "fog"], "Weather");
   const p_Cavity = new BN_Node("C", 2, [], [0.1], BOOL_DOMAIN, "Cavity");
-  const p_Toothache = new BN_Node("T", 2, [p_Cavity], [[0.108+0.012], [0.016+0.064]], BOOL_DOMAIN, "Toothache");
-  const p_Catch = new BN_Node("D", 2, [p_Cavity], [[0.108+0.072], [0.016+0.144]], BOOL_DOMAIN, "Diagnosis");
+  const p_Toothache = new BN_Node("T", 2, [p_Cavity], [[1-0.108-0.012], [0.016+0.064]], BOOL_DOMAIN, "Toothache");
+  const p_Catch = new BN_Node("D", 2, [p_Cavity], [[1-0.108-0.072], [0.016+0.144]], BOOL_DOMAIN, "Diagnosis");
 
   const graph = new BN_Graph([p_Toothache, p_Catch, p_Weather]);
   return graph;

@@ -108,9 +108,7 @@ export interface UnaryOp {
 }
 
 function parse(src: string): Sequence {
-	console.log(src);
   const tokens = tokenize(src);
-  console.log(tokens);
 
 	function at(): Token {
 		return tokens[0];
