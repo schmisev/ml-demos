@@ -1,3 +1,5 @@
+import {is_empty} from "$lib";
+
 export enum BN {
 	TRUE = 0,
 	FALSE = 1
@@ -238,9 +240,11 @@ export class BN_Graph {
     }
   }
 
-	query(query: BN_StrippedQuery, evidence: BN_StrippedQuery): { fulfilled: boolean, weight: number } {
+	query(query: BN_StrippedQuery, evidence: BN_StrippedQuery, early_out: boolean): { fulfilled: boolean, weight: number } {
 		let w = 1; // weight variable
     let mismatch = false;
+    let evidence_exhausted = false;
+    let query_exhausted = false;
 
     for (const node of this.topo) {
       // check evidence
@@ -251,6 +255,8 @@ export class BN_Graph {
         const p = node.get_cond_prob_for_value(v)
         w *= p;
         node.set_value(v, p);
+
+        evidence_exhausted = is_empty(evidence);
       } else {
         v = node.random_draw();
       }
@@ -259,10 +265,17 @@ export class BN_Graph {
 			if (node.name in query && query[node.name] >= 0 /*shouldn't be needed anymore*/) {
 				if (v !== query[node.name]) mismatch = true; // we drew a wrong value
         delete query[node.name]; // can be removed from query, since it's only visited once
+
+        query_exhausted = is_empty(query);
 			} else {
 				// console.warn("Malformed query:", query);
 				// return false; // query is malformed and thus impossible
 			}
+
+      if (early_out && evidence_exhausted) {
+        if (mismatch) return { fulfilled: false, weight: w };
+        if (query_exhausted) return { fulfilled: true, weight: w };
+      }
 		}
 
     if (mismatch) return { fulfilled: false, weight: w };
@@ -329,7 +342,7 @@ export function format_linked_query_variables(query: BN_LinkedQuery): string {
 export function format_linked_query(query: BN_LinkedQuery, evidence: BN_LinkedQuery) {
   const evidence_str = format_linked_query_variables(evidence);
   const query_str = format_linked_query_variables(query);
-  return `P( ${query_str || "\\cdot"}${evidence_str && "|"}${evidence_str} )`
+  return `P( ${query_str || "\\cdot"}${evidence_str && " | "}${evidence_str} )`
 }
 
 function topological_ordering(from: BN_Node[]) {

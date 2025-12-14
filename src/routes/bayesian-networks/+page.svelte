@@ -13,6 +13,8 @@
 	import { Mermaid } from '@friendofsvelte/mermaid';
   import * as fmt from '$lib/fmt';
 
+  let early_out = $state(false);
+
 	let chosen_graph_generator = $state(CLOUDY_BN_GRAPH);
 	let chosen_graph: BN_Graph = $state(chosen_graph_generator());
 	let query_settings = $derived(chosen_graph.get_query_settings());
@@ -59,7 +61,8 @@
 			chosen_graph.clear();
 			const r = chosen_graph.query(
 				strip_linked_query(current_query),
-				strip_linked_query(current_evidence)
+				strip_linked_query(current_evidence),
+        early_out
 			);
 
 			if (r.fulfilled) dW_Query = r.weight;
@@ -127,7 +130,7 @@
 					{#each evidence_settings as opt, i}
 						<select
 							style="background-color: {current_evidence[opt.name].value >= 0
-								? 'lightcoral'
+								? 'lightblue'
 								: 'white'};"
 							bind:value={current_evidence[opt.name].value}
 							onchange={reset}
@@ -144,7 +147,7 @@
 			</div>
 		</div>
 
-		<div class="flex flex-row flex-wrap items-center">
+		<div class="flex flex-row flex-wrap items-center gap-2">
 			{@html tex(`= ${current_query_str} = \\frac{W_{query}}{W}`)}
 			{@html tex(
 				`= \\frac{${fmt.num(W_query - dW_Query)}${dW_Query ? "+" + fmt.num(dW_Query) : ""}}{${fmt.num(W - dW)}${dW ? "+" + fmt.num(dW) : ""}}`
@@ -158,11 +161,13 @@
 	<div class="grid grid-cols-2 gap-4">
 		<div class="flex flex-col gap-2">
 			<div class="flex flex-row flex-wrap gap-2">
-				<button onclick={() => step()} class="border">Random draw!</button>
+				<button onclick={() => step()} class="border special">Random draw!</button>
 				<button onclick={() => step(10)} class="border">Draw 10 times!</button>
 				<button onclick={() => step(100)} class="border">Draw 100 times!</button>
 				<button onclick={() => step(1000)} class="border">Draw 1000 times!</button>
-				<button onclick={reset} class="border">Reset</button>
+				<button onclick={reset} class="border negative">Reset</button>
+        <button onclick={reload} class="border negative">Empty query</button>
+        <label class="light-border">Early out? <input type="checkbox" bind:checked={early_out}></label>
 			</div>
 
 			<Mermaid config={{ htmlLabels: true, theme: 'neutral' }} string={mermaid_str}></Mermaid>

@@ -40,6 +40,14 @@ a {
   &.inactive {
     background-color: lightgray;
   }
+
+  &.special {
+    background-color: lightblue;
+  }
+
+  &.special-2 {
+    background-color: plum;
+  }
 }
 
 button {
