@@ -90,8 +90,8 @@ export function clamp(a: number, min: number, max: number): number {
 export function hex(r: number, g: number, b: number): string {
 	return (
 		'#' +
-		clamp(r, 0, 255).toString(16).padStart(2, '0') +
-		clamp(g, 0, 255).toString(16).padStart(2, '0') +
-		clamp(b, 0, 255).toString(16).padStart(2, '0')
+		clamp(Math.floor(r), 0, 255).toString(16).padStart(2, '0') +
+		clamp(Math.floor(g), 0, 255).toString(16).padStart(2, '0') +
+		clamp(Math.floor(b), 0, 255).toString(16).padStart(2, '0')
 	);
 }

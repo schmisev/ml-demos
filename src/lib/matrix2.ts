@@ -6,7 +6,7 @@ export type MatrixMeta = {
   name?: string;
 }
 
-export class MatrixNxM {
+export class MatrixND {
 	readonly kind: MatrixKind;
 	readonly rows: number;
 	readonly cols: number;
@@ -41,8 +41,8 @@ export class MatrixNxM {
 		return mod(i, this.rows) * this.cols + mod(j, this.cols);
 	}
 
-	copy(): MatrixNxM {
-		return new MatrixNxM(this.rows, this.cols, this.values);
+	copy(): MatrixND {
+		return new MatrixND(this.rows, this.cols, this.values);
 	}
 
 	// get value at (i, j)
@@ -81,7 +81,7 @@ export class MatrixNxM {
 		return old_v;
 	}
 
-	mul(other: MatrixNxM): MatrixNxM {
+	mul(other: MatrixND): MatrixND {
 		if (!this.can_multiply(other))
 			throw `Dimension mismatch: (${this.shape()}) x (${other.shape()})`;
 		const new_values: number[] = [];
@@ -97,10 +97,10 @@ export class MatrixNxM {
 			}
 		}
 
-		return new MatrixNxM(this.rows, other.cols, new_values);
+		return new MatrixND(this.rows, other.cols, new_values);
 	}
 
-	hadamard(other: MatrixNxM): MatrixNxM {
+	hadamard(other: MatrixND): MatrixND {
 		if (!this.equals_shape(other))
 			throw `Dimension mismatch: (${this.shape()}) o (${other.shape()})`;
 		const new_values: number[] = [];
@@ -111,10 +111,10 @@ export class MatrixNxM {
 			}
 		}
 
-		return new MatrixNxM(this.cols, other.rows, new_values);
+		return new MatrixND(this.cols, other.rows, new_values);
 	}
 
-	add(other: MatrixNxM): MatrixNxM {
+	add(other: MatrixND): MatrixND {
 		if (!this.equals_shape(other))
 			throw `Dimension mismatch: (${this.shape()}) + (${other.shape()})`;
 		const new_values: number[] = [];
@@ -125,10 +125,10 @@ export class MatrixNxM {
 			}
 		}
 
-		return new MatrixNxM(this.cols, other.rows, new_values);
+		return new MatrixND(this.cols, other.rows, new_values);
 	}
 
-	sub(other: MatrixNxM): MatrixNxM {
+	sub(other: MatrixND): MatrixND {
 		if (!this.equals_shape(other))
 			throw `Dimension mismatch: (${this.shape()}) - (${other.shape()})`;
 		const new_values: number[] = [];
@@ -139,7 +139,7 @@ export class MatrixNxM {
 			}
 		}
 
-		return new MatrixNxM(this.cols, other.rows, new_values);
+		return new MatrixND(this.cols, other.rows, new_values);
 	}
 
 	// iterators
@@ -196,15 +196,46 @@ export class MatrixNxM {
 		}
 	}
 
+  len1() {
+    let accum = 0;
+    for (const v of this.values) {
+      accum += v;
+    }
+    return accum;
+  }
+
 	// currently only works for vectors
-	norm() {
+	norm1() {
 		switch (this.kind) {
 			case 'scalar':
 				return scalar(1);
 			case 'col-vec':
 			case 'row-vec':
-				const L = this.values.reduce((a, b) => a + b);
-				const new_values = this.values.map((a) => (L > 0 ? a / L : 0));
+				const L = this.len1();
+				const new_values = this.values.map((a) => (L > 0 ? (a / L) : 0));
+				return this.kind === 'col-vec' ? col_vec(new_values) : row_vec(new_values);
+			case 'matrix':
+				return this.copy();
+		}
+	}
+
+  len2() {
+    let accum = 0;
+    for (const v of this.values) {
+      accum += v**2;
+    }
+    return Math.sqrt(accum);
+  }
+
+  // currently only works for vectors
+  norm2() {
+		switch (this.kind) {
+			case 'scalar':
+				return scalar(1);
+			case 'col-vec':
+			case 'row-vec':
+				const L = this.len2();
+				const new_values = this.values.map((a) => (L > 0 ? (a / L) : 0));
 				return this.kind === 'col-vec' ? col_vec(new_values) : row_vec(new_values);
 			case 'matrix':
 				return this.copy();
@@ -238,12 +269,12 @@ export class MatrixNxM {
 	}
 
 	// check if the untransposed shapes are equal
-	equals_shape(other: MatrixNxM): boolean {
+	equals_shape(other: MatrixND): boolean {
 		return this.rows == other.rows && this.cols == other.cols;
 	}
 
 	// checks if matrices can be multiplied
-	can_multiply(other: MatrixNxM): boolean {
+	can_multiply(other: MatrixND): boolean {
 		return this.cols == other.rows;
 	}
 
@@ -272,11 +303,11 @@ export class MatrixNxM {
 	}
 }
 
-export function matrix(rows: number, cols: number, values: number[]): MatrixNxM {
-	return new MatrixNxM(rows, cols, values);
+export function matrix(rows: number, cols: number, values: number[]): MatrixND {
+	return new MatrixND(rows, cols, values);
 }
 
-export function flat_matrix(values: number[][]): MatrixNxM {
+export function flat_matrix(values: number[][]): MatrixND {
 	let rows = values.length;
 	if (rows < 1) throw `Row dimension too small!`;
 	let cols = values[0].length;
@@ -290,22 +321,22 @@ export function flat_matrix(values: number[][]): MatrixNxM {
 		}
 	}
 
-	return new MatrixNxM(rows, cols, new_values);
+	return new MatrixND(rows, cols, new_values);
 }
 
-export function row_vec(values: number[]): MatrixNxM {
-	return new MatrixNxM(1, values.length, values);
+export function row_vec(values: number[]): MatrixND {
+	return new MatrixND(1, values.length, values);
 }
 
-export function col_vec(values: number[]): MatrixNxM {
-	return new MatrixNxM(values.length, 1, values);
+export function col_vec(values: number[]): MatrixND {
+	return new MatrixND(values.length, 1, values);
 }
 
-export function scalar(value: number): MatrixNxM {
-	return new MatrixNxM(1, 1, [value]);
+export function scalar(value: number): MatrixND {
+	return new MatrixND(1, 1, [value]);
 }
 
-export function diag(values: number[]): MatrixNxM {
+export function diag(values: number[]): MatrixND {
 	const new_values: number[] = [];
 
 	for (let i = 0; i < values.length; i++) {
@@ -314,10 +345,10 @@ export function diag(values: number[]): MatrixNxM {
 		}
 	}
 
-	return new MatrixNxM(values.length, values.length, new_values);
+	return new MatrixND(values.length, values.length, new_values);
 }
 
-export function eye(size: number): MatrixNxM {
+export function eye(size: number): MatrixND {
 	const new_values: number[] = [];
 
 	for (let i = 0; i < size; i++) {
@@ -326,5 +357,5 @@ export function eye(size: number): MatrixNxM {
 		}
 	}
 
-	return new MatrixNxM(size, size, new_values);
+	return new MatrixND(size, size, new_values);
 }

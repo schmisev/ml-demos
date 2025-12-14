@@ -1,6 +1,6 @@
 import { hex } from '$lib';
 import * as fmt from '$lib/fmt';
-import { col_vec, diag, matrix, MatrixNxM, row_vec } from './matrix2';
+import { col_vec, diag, matrix, MatrixND, row_vec } from './matrix2';
 
 export type HMM_Mode = 'predict' | 'filter';
 
@@ -10,6 +10,10 @@ export type HMM_ValueTuple = HMM_Value[];
 export interface HMM_Variable {
 	name: string;
 	domain: HMM_Value[];
+}
+
+export interface HMM_EvidenceTemplate extends HMM_Variable {
+	value: HMM_Value;
 }
 
 export interface HMM_BinaryVariable {
@@ -79,77 +83,108 @@ export function create_binary_variables(vars: HMM_Variable[]) {
 	return bin_vars;
 }
 
+export function evidence_to_1_hot(evidence_templates: HMM_EvidenceTemplate[]): { one_hot: number[], index: number } {
+  // product of all domains
+  const N = evidence_templates.map(t => t.domain.length).reduce((a, b) => a*b, 1);
+  const one_hot = new Array(N).fill(0);
+
+  // finding the fitting input
+  let base = N;
+  let index = 0;
+  for (const template of evidence_templates) {
+    base /= template.domain.length;
+    const pos = template.domain.findIndex((v) => v === template.value);
+    index += pos * base;
+  }
+
+  one_hot[index] = 1;
+  return {
+    index,
+    one_hot
+  };
+}
+
 export function build_hmm(
 	hidden_vars: HMM_Variable[],
 	init_variables: number[],
 	transition_model: number[],
 	evidence_vars: HMM_Variable[],
 	sensor_model: number[]
-) {
+): { model: HiddenMarkovModel; evidence_templates: HMM_EvidenceTemplate[]; } {
 	const hidden_labels = create_binary_variables(hidden_vars);
 	const h = hidden_labels.length;
 	if (init_variables.length !== h) throw `Initial state p is not fully defined!`;
-	if (transition_model.length !== h ** 2) throw `Transition matrix T is not fully defined!`;
-	const T = new MatrixNxM(h, h, transition_model);
+	if (transition_model.length !== h ** 2) throw `Transition matrix T is not fully defined! Expected (${h},${h}) matrix, i.e. ${h*h} values.`;
+	const T = new MatrixND(h, h, transition_model);
 
-  // checking sums
-  for (let i = 0; i < T.rows; i++) {
-    let sum = T.row_at(i).reduce((a, b) => a+b);
-    if (Math.abs(sum-1) > 0.001) throw `Rows of transition matrix T do not sum up to 1, (${i})`;
-  }
+	// checking sums
+	for (let i = 0; i < T.cols; i++) {
+		let sum = T.col_at(i).reduce((a, b) => a + b);
+		if (Math.abs(sum - 1) > 0.001)
+			throw `Columns of transition matrix T do not sum up to 1 @ (${i})`;
+	}
 
 	const sensor_labels = create_binary_variables(evidence_vars);
 	const e = sensor_labels.length;
-	if (sensor_model.length !== h * e) throw `Sensor matrix H is not fully defined!`;
-	const H = new MatrixNxM(e, h, sensor_model);
+	if (sensor_model.length !== h * e) throw `Sensor matrix H is not fully defined! Expected (${e},${h}) matrix, i.e. ${e*h} values.`;
+	const H = new MatrixND(e, h, sensor_model);
 
-  // checking sums
-  for (let i = 0; i < H.cols; i++) {
-    let sum = H.col_at(i).reduce((a, b) => a+b);
-    if (Math.abs(sum-1) > 0.001) throw `Columns of transition matrix H do not sum up to 1, (${i})`;
-  }
+	// checking sums
+	for (let i = 0; i < H.cols; i++) {
+		let sum = H.col_at(i).reduce((a, b) => a + b);
+		if (Math.abs(sum - 1) > 0.001)
+			throw `Columns of transition matrix H do not sum up to 1, (${i})`;
+	}
 
 	const model = new HiddenMarkovModel(col_vec(init_variables), hidden_labels, T, H, sensor_labels);
-	return model;
+
+	const evidence_templates: HMM_EvidenceTemplate[] = evidence_vars.map((v) => {
+		return { value: v.domain[0], ...v };
+	});
+
+	return {
+		model,
+		evidence_templates
+	};
 }
 
 export class HiddenMarkovModel {
 	var_count: number;
 	sensor_count: number;
 
-	p0: MatrixNxM;
-	p: MatrixNxM;
-	f: MatrixNxM;
+	p0: MatrixND;
+	// p: MatrixNxM = $state(new MatrixNxM(1, 1, []));
+	f: MatrixND = $state(new MatrixND(1, 1, []));
 	p_labels: HMM_BinaryVariable[];
 
-	e: MatrixNxM;
+	e: MatrixND = $state(new MatrixND(1, 1, []));
 	e_labels: HMM_BinaryVariable[];
 
-	p_trace: MatrixNxM[] = [];
-	f_trace: MatrixNxM[] = [];
-	e_trace: MatrixNxM[] = [];
+	// p_trace: MatrixNxM[] = [];
+	f_trace: MatrixND[] = [];
+	e_trace: MatrixND[] = [];
 
-	T: MatrixNxM;
-	H: MatrixNxM;
+	T: MatrixND;
+	H: MatrixND;
 
 	constructor(
-		init_state: MatrixNxM,
+		init_state: MatrixND,
 		state_labels: HMM_BinaryVariable[],
-		transition_model: MatrixNxM,
-		sensor_model: MatrixNxM,
+		transition_model: MatrixND,
+		sensor_model: MatrixND,
 		sensor_labels: HMM_BinaryVariable[]
 	) {
 		// state
 		this.var_count = init_state.rows;
 		if (init_state.cols != 1) throw `State has to be 1D vector`;
 		this.p0 = init_state.copy();
-		this.p = init_state.copy();
+		// this.p = init_state.copy();
 		this.f = init_state.copy();
 
-		this.p_trace.push(this.p);
+		// this.p_trace.push(this.p);
 		this.f_trace.push(this.f);
 
-		if (state_labels.length !== this.p.rows) throw `Every variable has to be labeled!`;
+		if (state_labels.length !== this.f.rows) throw `Every variable has to be labeled!`;
 		this.p_labels = state_labels;
 		// transition model
 		if (!transition_model.is_square(this.var_count))
@@ -165,24 +200,30 @@ export class HiddenMarkovModel {
 		this.e = matrix(this.sensor_count, 1, []);
 	}
 
-	step(): { p: MatrixNxM; e: MatrixNxM } {
-		this.p = this.T.mul(this.p);
-		this.p_trace.push(this.p);
-		this.e = this.H.mul(this.p);
+	clear(): void {
+		this.f = this.p0;
+		this.f_trace = [this.p0];
+		this.e_trace = [];
+	}
+
+	predict(): { p: MatrixND; e: MatrixND } {
+		this.f = this.T.mul(this.f);
+		this.f_trace.push(this.f);
+		this.e = this.H.mul(this.f);
 		this.e_trace.push(this.e);
 		return {
-			p: this.p,
+			p: this.f,
 			e: this.e
 		};
 	}
 
-	filter(obs: number[]): { e: MatrixNxM; f: MatrixNxM } {
+	filter(obs: number[]): { e: MatrixND; f: MatrixND } {
 		if (obs.length !== this.sensor_count)
 			throw `Observation mismatch (${obs.length},1) vs. (${this.H.rows},1)!`;
 
 		const obs_vec = row_vec(obs); // Sx1
 		const O = obs_vec.mul(this.H).diag(); // 1xN => NxN
-		this.f = O.mul(this.T).mul(this.f).norm();
+		this.f = O.mul(this.T).mul(this.f).norm1();
 		this.f_trace.push(this.f);
 		this.e = col_vec(obs);
 		this.e_trace.push(this.e);
@@ -200,7 +241,7 @@ export class HiddenMarkovModel {
 			let val;
 			switch (kind) {
 				case 'P(x)':
-					val = this.p;
+					val = this.f;
 					break;
 				case 'P(e)':
 					val = this.e;
@@ -223,24 +264,26 @@ export class HiddenMarkovModel {
 		const conns: string[] = [];
 		const styles: string[] = [];
 
-		for (let i = 0; i < this.p_labels.length; i++) {
+		const N = this.p_labels.length;
+		for (let i = 0; i < N; i++) {
 			let value_label = '';
 			switch (mode) {
 				case 'predict':
-					value_label = `p<sub>${i}</sub> = ${fmt.num(this.p.v(i))}`;
+					value_label = `<b>p<sub>${i}</sub></b> = ${fmt.num(this.f.v(i))}`;
 					break;
 				case 'filter':
-					value_label = `f<sub>${i}</sub> = ${fmt.num(this.f.v(i))}`;
+					value_label = `<b>f<sub>${i}</sub></b> = ${fmt.num(this.f.v(i))}`;
 					break;
 				default:
 					const NEVER: never = mode;
 			}
 
-			const node_name = `h${i}(["x<sub>${i}</sub> ≙  (${this.p_labels[i].name}) \n${value_label}"])`;
+			const node_name = `h${i}(["<b>x<sub>${i}</sub></b> ≙  (${this.p_labels[i].name}) \n${value_label}"])`;
 			nodes.push(node_name);
 			// nodes.push(`d${i}((x<sub>${i}</sub>))`);
+			styles.push(`style h${i} fill:${hex((i / N) * 255, 255, (1 - i / N) * 255)}`);
 
-			for (const [j, p] of this.T.row_at(i).entries()) {
+			for (const [j, p] of this.T.col_at(i).entries()) {
 				if (p === 0) continue;
 				conns.push(`h${i} -->|${p}| h${j}`);
 			}

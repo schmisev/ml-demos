@@ -50,7 +50,7 @@
 	let decision_tree: DT_Node | undefined = $state<DT_Node>();
 	let diagram_svg: string = $state('');
 	let pruned_diagram_svg: string = $state('');
-	let chosen_inference: 'kNN' | 'DT' = $state('DT');
+	let chosen_inference: 'kNN' | 'DT' = $state('kNN');
 	let chosen_impurity_measure: DT_Heuristic = $state(misclassification_impurity);
 	let impurity_threshold = $state(0.1);
 	let allow_same_category_split = $state(false);
@@ -106,7 +106,8 @@
     ]
 	};
 
-	let chosen_feature_set = $state(feature_sets["axis-aligned"]);
+	let chosen_feature_set = $state(feature_sets["x & y"]);
+  console.log(chosen_feature_set);
 
 	const MAX_DATA: number = 300;
 	const MAX_TEST_DATA: number = 200;
@@ -144,7 +145,7 @@
 
 	function update() {
 		makeUpData();
-		doTraining();
+    doTraining();
 		drawData();
 	}
 
