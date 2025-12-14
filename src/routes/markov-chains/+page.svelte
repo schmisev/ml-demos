@@ -1,27 +1,27 @@
 <script lang="ts">
-	import { HiddenMarkovModel, HMM_Builder } from '$lib/hmm.svelte';
+	import { build_hmm, HiddenMarkovModel } from '$lib/hmm.svelte';
 	import { col_vec, matrix } from '$lib/matrix2';
 	import { Mermaid } from '@friendofsvelte/mermaid';
 	import * as fmt from '$lib/fmt';
 	import MatrixView from '$lib/components/MatrixView.svelte';
 
-	const builder = new HMM_Builder(
+	const hmm = build_hmm(
 		[
 			{ name: 'Rain', domain: [true, false] },
 			{ name: 'T', domain: ['cold', 'hot'] }
 		],
-		[{ name: 'Umbrella', domain: [true, false] }]
-	);
-
-	console.log(builder.bin_hidden_vars);
-
-	// testing
-	const hmm = new HiddenMarkovModel(
-		col_vec([0.4, 0.2, 0.3, 0.1]),
-		builder.bin_hidden_vars,
-		matrix(4, 4, [0.4, 0.1, 0.3, 0.2, 0.6, 0.1, 0, 0.3, 0.7, 0.1, 0.1, 0.1, 0, 0, 0.1, 0.9]),
-		matrix(2, 4, [0.9, 0.2, 0.1, 0.8]),
-		builder.bin_evidence_vars
+    [ 1, 0, 0, 0 ],
+    [
+      0.4, 0.1, 0.3, 0.2, 
+      0.6, 0.1, 0.0, 0.3, 
+      0.7, 0.1, 0.1, 0.1, 
+      0.0, 0.0, 0.1, 0.9
+    ],
+		[{ name: 'Umbrella', domain: [true, false] }],
+    [
+      0.9, 0.2, 0.1, 0.7, 
+      0.1, 0.8, 0.9, 0.3
+    ]
 	);
 
 	let graph_str = $state(hmm.format_graph_for_mermaid('filter'));
@@ -37,7 +37,7 @@
 		<h1>Hidden Markov Models | <a href="../">back</a></h1>
 	</div>
 	<div class="flex flex-col items-center">
-		<Mermaid class="w-full" config={{layout: "elk", flowchart: {curve: "basis", layout: "elk"}} as any} string={graph_str}></Mermaid>
+		<Mermaid class="w-full" config={{flowchart: {curve: "catmullRom"}} as any} string={graph_str}></Mermaid>
 	</div>
 	<div class="flex flex-row flex-wrap gap-2">
 		<button class="border" onclick={step}>Step</button>
