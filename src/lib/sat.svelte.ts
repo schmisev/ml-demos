@@ -764,7 +764,7 @@ export function csp_to_network(csp: SAT_Problem) {
 	let link_id = 0;
 	const network: NetworkData = {
 		links: [],
-		nodes: [],
+		nodes: {},
 		physics: { ...STANDARD_PHYSICS, center_pull: 4, node_charge: 6000, spring_stiffness: 1.4 }
 	};
 
@@ -773,7 +773,7 @@ export function csp_to_network(csp: SAT_Problem) {
 	for (const variable in csp.init_asg) {
 		const new_node_id = node_id++;
 		node_ref[variable] = new_node_id;
-		network.nodes.push({ id: new_node_id, name: variable });
+		network.nodes[new_node_id] = { id: new_node_id, name: variable };
 	}
 
 	for (const c of csp.constraints) {

@@ -470,7 +470,7 @@ function parse(src: string): Sequence {
 	return seq;
 }
 
-// testing
-const src = `forall x exists t person(x) => time(t) and can_fool(x, t)`;
+// // testing
+// const src = `forall x exists t person(x) => time(t) and can_fool(x, t)`;
 
-parse(src);
+// parse(src);
