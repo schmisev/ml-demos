@@ -95,3 +95,14 @@ export function hex(r: number, g: number, b: number): string {
 		clamp(Math.floor(b), 0, 255).toString(16).padStart(2, '0')
 	);
 }
+
+export function remove(list: any[], value_to_removed: any) {
+  let ret: any;
+  for (let i = 0; i < list.length; i++) {
+    if (list[i] === value_to_removed) {
+      ret = list.splice(i, 1);
+      break;
+    }
+  }
+  return ret;
+}

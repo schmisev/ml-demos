@@ -4,6 +4,7 @@
 	import AustraliaView from "$lib/sat/AustraliaView.svelte";
 	import DomainView from "$lib/sat/DomainView.svelte";
 	import FourQueensView from "$lib/sat/FourQueensView.svelte";
+	import ScheduleView from "$lib/sat/ScheduleView.svelte";
 	import SudokuView from "$lib/sat/SudokuView.svelte";
 
 
@@ -32,6 +33,8 @@
     <FourQueensView asg={used_asg} {colormap}></FourQueensView>
   {:else if solver.csp.name === "australia" && !in_list}
     <AustraliaView asg={used_asg} {colormap}></AustraliaView>
+  {:else if solver.csp.name === "scheduling"}
+    <ScheduleView asg={used_asg} dom={used_dom} {colormap}></ScheduleView>
   {:else}
     <div class="flex flex-row gap-1">
       <AssignmentView asg={used_asg} {colormap}></AssignmentView>

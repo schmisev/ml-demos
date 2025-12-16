@@ -8,6 +8,7 @@
 		SAT_Solver,
 		SAT_ValueSelectionMode,
 		SAT_VarSelectionMode,
+		scheduling_generator,
 		simple_problem_generator,
 		sorting_list_generator,
 		sudoku_puzzle_generator
@@ -38,7 +39,7 @@
 	let inference_mode = $state(SAT_InferenceMode.FORWARD_CHECKING);
 	let var_selection = $state(SAT_VarSelectionMode.MRV_DEGREE);
 	let value_selection = $state(SAT_ValueSelectionMode.LEAST_CONSTRAINING);
-  let arc_preprocessing = $state(false);
+	let arc_preprocessing = $state(false);
 
 	let solver = $state(
 		new SAT_Solver(problem, inference_mode, var_selection, value_selection, arc_preprocessing)
@@ -50,7 +51,7 @@
 			inference_mode,
 			var_selection,
 			value_selection,
-      arc_preprocessing
+			arc_preprocessing
 		);
 	}
 
@@ -86,7 +87,7 @@
 	<div class="flex flex-col gap-2 p-2">
 		<div class="flex flex-row gap-5">
 			<h1>CSP | <a href="../">back</a></h1>
-			<select class="max-w-40" bind:value={generator} onchange={reload}>
+			<select class="min-w-0 grow" bind:value={generator} onchange={reload}>
 				<optgroup label="simple problems">
 					<option value={simple_problem_generator}>Simple cycle</option>
 					<option value={sorting_list_generator}>Sorting a list</option>
@@ -105,14 +106,48 @@
 					<option value={(seed: number) => n_queens_generator(seed, 7)}>7-Queens</option>
 					<option value={(seed: number) => n_queens_generator(seed, 8)}>8-Queens</option>
 				</optgroup>
+				<optgroup label="Scheduling">
+					<option
+						value={(seed: number) =>
+							scheduling_generator(
+								seed,
+								4,
+								2,
+								4,
+								[
+									[0, 1, -1, -1],
+									[-1, -1, -1, -1]
+								],
+								{ 2: [3] }
+							)}>Small Schedule</option
+					>
+          <option
+						value={(seed: number) =>
+							scheduling_generator(
+								seed,
+								8,
+								4,
+								7,
+								[
+									[-1, -1, -1, -1, -1, -1, -1],
+									[-1, -1, -1, -1, -1, -1, -1],
+                  [-1, -1, -1, -1, -1, -1, -1],
+                  [-1, -1, -1, -1, -1, -1, -1],
+								],
+								{ 2: [2, 3, 4, 5, 6], 4: [4, 5, 6], 5: [4, 5] }
+							)}>Large Schedule</option
+					>
+				</optgroup>
 			</select>
 		</div>
 
 		<hr />
 
 		<div class="flex flex-row flex-wrap gap-2">
-			<button class="border" onclick={step}>{solver.arc_preprocessing && solver.steps === 0 ? "preprocess" : "step"}</button>
-			<button class="border negative" onclick={reset}>reset</button>
+			<button class="border" onclick={step}
+				>{solver.arc_preprocessing && solver.steps === 0 ? 'preprocess' : 'step'}</button
+			>
+			<button class="negative border" onclick={reset}>reset</button>
 			<button class="border" onclick={reload}>reload</button>
 			<button
 				class="border"
@@ -120,36 +155,46 @@
 				onclick={autostep}>autostep</button
 			>
 
-      <label>inference:
-			<select bind:value={inference_mode} onchange={reset}>
-				<option value={SAT_InferenceMode.NO_INFERENCE}>no inference</option>
-				<option value={SAT_InferenceMode.FORWARD_CHECKING}>forward checking</option>
-        <option value={SAT_InferenceMode.FORWARD_CHECKING_WITH_DIRECT_ASSIGNMENT}>forward checking w/ direct assigment</option>
-        <option value={SAT_InferenceMode.RECURSIVE_FORWARD_CHECKING}>recursive forward checking</option>
-				<option value={SAT_InferenceMode.ARC_CONSISTENCY}>arc consistency</option>
-			</select>
-      </label>
+			<label
+				>inference:
+				<select bind:value={inference_mode} onchange={reset}>
+					<option value={SAT_InferenceMode.NO_INFERENCE}>no inference</option>
+					<option value={SAT_InferenceMode.FORWARD_CHECKING}>forward checking</option>
+					<option value={SAT_InferenceMode.FORWARD_CHECKING_WITH_DIRECT_ASSIGNMENT}
+						>forward checking w/ direct assigment</option
+					>
+					<option value={SAT_InferenceMode.RECURSIVE_FORWARD_CHECKING}
+						>recursive forward checking</option
+					>
+					<option value={SAT_InferenceMode.ARC_CONSISTENCY}>arc consistency</option>
+				</select>
+			</label>
 
-      <label>variable selection:
-			<select bind:value={var_selection} onchange={reset}>
-				<option value={SAT_VarSelectionMode.ANY}>any</option>
-				<option value={SAT_VarSelectionMode.MRV}>MRV → any</option>
-        <option value={SAT_VarSelectionMode.DEGREE}>degree → any</option>
-        <option value={SAT_VarSelectionMode.MRV_DEGREE}>MRV → degree → any</option>
-        <option value={SAT_VarSelectionMode.DEGREE_MRV}>degree → MRV → any</option>
-			</select>
-      </label>
+			<label
+				>variable selection:
+				<select bind:value={var_selection} onchange={reset}>
+					<option value={SAT_VarSelectionMode.ANY}>any</option>
+					<option value={SAT_VarSelectionMode.MRV}>MRV → any</option>
+					<option value={SAT_VarSelectionMode.DEGREE}>degree → any</option>
+					<option value={SAT_VarSelectionMode.MRV_DEGREE}>MRV → degree → any</option>
+					<option value={SAT_VarSelectionMode.DEGREE_MRV}>degree → MRV → any</option>
+				</select>
+			</label>
 
-      <label>value selection:
-			<select bind:value={value_selection} onchange={reset}>
-				<option value={SAT_ValueSelectionMode.ANY}>any</option>
-				<option value={SAT_ValueSelectionMode.LEAST_CONSTRAINING}>least constraining values</option>
-			</select>
-      </label>
+			<label
+				>value selection:
+				<select bind:value={value_selection} onchange={reset}>
+					<option value={SAT_ValueSelectionMode.ANY}>any</option>
+					<option value={SAT_ValueSelectionMode.LEAST_CONSTRAINING}
+						>least constraining values</option
+					>
+				</select>
+			</label>
 
-      <label>arc consistency preprocessing
-        <input onchange={reset} type="checkbox" bind:checked={arc_preprocessing}>
-      </label>
+			<label
+				>arc consistency preprocessing
+				<input onchange={reset} type="checkbox" bind:checked={arc_preprocessing} />
+			</label>
 		</div>
 
 		<hr />

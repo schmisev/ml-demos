@@ -107,7 +107,7 @@
 	};
 
 	let chosen_feature_set = $state(feature_sets["x & y"]);
-  console.log(chosen_feature_set);
+  // console.log(chosen_feature_set);
 
 	const MAX_DATA: number = 300;
 	const MAX_TEST_DATA: number = 200;

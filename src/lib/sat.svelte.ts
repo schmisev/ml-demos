@@ -1,3 +1,4 @@
+import { remove } from '$lib';
 import { STANDARD_PHYSICS, type NetworkData } from './network';
 import seedrandom from 'seedrandom';
 
@@ -8,7 +9,7 @@ export type SAT_Variable = '<no variable>' | string;
 
 export interface SAT_BinaryConstraint {
 	vars: string[];
-	op: '=' | '≠' | '<' | '⊻' | '+';
+	op: '=' | '≠' | '<' | '⊻' | '+' | '|' | '&';
 }
 
 export enum SAT_Result {
@@ -57,10 +58,8 @@ function get_unassigned(asg: SAT_Assignment): Set<string> {
 function check_constraint(cstr: SAT_Constraint, asg: SAT_Assignment): SAT_Result {
 	let undecided = false;
 	switch (cstr.op) {
-		case '=':
-		case '≠':
-		case '<':
-			break;
+    case '&':
+    case '|':
 		case '⊻':
 		case '+':
 			let over_zero_count = 0;
@@ -69,18 +68,28 @@ function check_constraint(cstr: SAT_Constraint, asg: SAT_Assignment): SAT_Result
 				if (asg[v] === undefined) undecided_count++;
 				else if (asg[v] > 0) over_zero_count++;
 			}
-			if (over_zero_count > 1) return SAT_Result.FAILURE;
+			if (cstr.op === "&" && (over_zero_count + undecided_count) !== cstr.vars.length) return SAT_Result.FAILURE; // every value has to be over 0
+      if (cstr.op === "|" && (over_zero_count + undecided_count) < 1) return SAT_Result.FAILURE; // at least one value has to be over 0 or unknown
+      if (cstr.op === '+' && over_zero_count > 1) return SAT_Result.FAILURE;
 			if (undecided_count > 0) return SAT_Result.UNDECIDED;
-			if (cstr.op === '⊻' && over_zero_count !== 1) return SAT_Result.FAILURE;
+      if (cstr.op === '⊻' && over_zero_count !== 1) return SAT_Result.FAILURE;
+
 			return SAT_Result.SUCCESS;
 	}
 
 	for (const [i, v1] of cstr.vars.entries()) {
+    const A = asg[v1];
+
+    if (A === undefined) {
+      undecided = true;
+      continue;
+    }
+
 		for (const [j, v2] of cstr.vars.entries()) {
-			const A = asg[v1];
+			
 			const B = asg[v2];
 
-			if (A === undefined || B === undefined) {
+			if (B === undefined) {
 				undecided = true;
 				continue; // skip undefined values
 			}
@@ -322,8 +331,6 @@ export class SAT_Solver {
 			// if (!changed_vars.includes(variable))
 			arcs.push({ changed_var: variable, exclude_var: exclude });
 			const v = dom[variable].splice(i, 1);
-
-			console.log('!!! removed:', v, 'from', variable);
 		}
 
 		function test_assign_stop(variable: string) {
@@ -404,6 +411,19 @@ export class SAT_Solver {
 							}
 							if (test_assign_stop(constrained_var)) return SAT_Result.FAILURE;
 							break;
+            case '|':
+              if (test_assign_stop(constrained_var)) return SAT_Result.FAILURE;
+              break;
+            case '&':
+              for (let i = 0; i < dom[constrained_var].length; ) {
+								if (dom[constrained_var][i] === 0)
+									save_and_splice(constrained_var, changed_var, i);
+								else i++;
+							}
+              if (test_assign_stop(constrained_var)) return SAT_Result.FAILURE;
+              break;
+            default:
+              const NEVER: never = constraint.op;
 					}
 				}
 			}
@@ -466,6 +486,19 @@ export class SAT_Solver {
 						// if (dom[cvar].length === 1) asg[cvar] = dom[cvar][0];
 					}
 					break;
+        case '&':
+          // this is entirely independent of set_value
+          // we can discard all zero values from all the domains
+          for (let i = 0; i < dom[cvar].length; ) {
+            const cval = dom[cvar][i];
+            if (cval === 0) dom[cvar].splice(i, 1);
+            else i++;
+          }
+          if (set_value < 1) return SAT_Result.FAILURE;
+          break;
+        case '|':
+          // sadly, this constraint does not give any information until the second to last assignment
+          break;
 				default:
 					const NEVER: never = constraint.op;
 			}
@@ -562,6 +595,20 @@ export class SAT_Solver {
 									set_and_save(cvar);
 								}
 								break;
+              case '&':
+                // we can discard all values equal to 0
+                for (let i = 0; i < dom[cvar].length; ) {
+                  const cval = dom[cvar][i];
+                  if (cval === 0) dom[cvar].splice(i, 1);
+                  else i++;
+                }
+                if (current_value < 1) return SAT_Result.FAILURE;
+                if (dom[cvar].length <= 0) return SAT_Result.FAILURE;
+                set_and_save(cvar);
+                break;
+              case '|':
+                set_and_save(cvar);
+                break;
 							default:
 								const NEVER: never = constraint.op;
 						}
@@ -697,7 +744,7 @@ export class SAT_Solver {
 	}
 
 	// ORDERING DOMAIN VALUES
-	order_domain_values(variable: string, asg: SAT_Assignment, dom: SAT_Domain) {
+	order_domain_values(variable: string, asg: SAT_Assignment, dom: SAT_Domain): number[] {
 		switch (this.value_selection) {
 			case SAT_ValueSelectionMode.ANY:
 				return this.order_domain_values_by_occurence(variable, asg, dom);
@@ -798,7 +845,8 @@ export type SAT_ProblemName =
 	| 'NxN sudoku'
 	| 'sorting'
 	| 'N queens'
-	| 'simple problem';
+	| 'simple problem'
+  | 'scheduling';
 
 // setting up a simple problem
 export const SIMPLE_PROBLEM: SAT_Problem = {
@@ -1141,4 +1189,71 @@ export function n_queens_generator(seed: number, n: number): SAT_Problem {
 	}
 
 	return problem;
+}
+
+
+export function scheduling_generator(seed: number, people: number, rooms: number, time_slots: number, init_schedule: number[][], unavailable: Record<number, number[]>): SAT_Problem {
+  const problem: SAT_Problem = {
+    constraints: [],
+    init_asg: {},
+    init_domains: {},
+    name: "scheduling",
+  }
+
+  function field_var(rooms: number, time_slots: number): string {
+    return `R${rooms}_T${time_slots}`;
+  }
+
+  const domain = new Array(people).fill(0).map((v, i) => i);
+
+  for (let r = 0; r < rooms; r++) {
+    for (let t = 0; t < time_slots; t++) {
+      const v = field_var(r, t);
+
+      problem.init_asg[v] = undefined;
+      problem.init_domains[v] = [...domain];
+
+      // set initial values
+      const init_value = init_schedule.at(r)?.at(t);
+      if (init_value !== undefined && init_value >= 0) {
+        problem.init_asg[v] = init_value;
+        problem.init_domains[v] = [init_value];
+      }
+    }
+  }
+
+  // rule: only one person per room
+  for (let t = 0; t < time_slots; t++) {
+    const unequal_vars: string[] = [];
+    for (let r = 0; r < rooms; r++) {
+      const v = field_var(r, t);
+      unequal_vars.push(v);
+    }
+    problem.constraints.push({op: "≠", vars: unequal_vars});
+  }
+
+  // rule: each person only once in each room
+  for (let r = 0; r < rooms; r++) {
+    const unequal_vars: string[] = [];
+    for (let t = 0; t < time_slots; t++) {
+      const v = field_var(r, t);
+      unequal_vars.push(v);
+    }
+    problem.constraints.push({op: "≠", vars: unequal_vars});
+  }
+
+  // rule: unavailable times --> reduce domains
+  for (let p in unavailable) {
+    const person = parseInt(p);
+    const unavailable_slots = unavailable[p];
+    for (let t of unavailable_slots) {
+      console.log("--",t);
+      for (let r = 0; r < rooms; r++) {
+        const v = field_var(r, t);
+        remove(problem.init_domains[v], person);
+      }
+    }
+  }
+
+  return problem;
 }
