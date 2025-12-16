@@ -293,7 +293,7 @@ export const NETWORK_LEFT_HEAVY: NetworkData = (() => {
 		node_id += 2;
 
 		network.nodes[left_id] = { id: left_id, name: `L${left_id}` };
-    network.nodes[right_id] = { id: left_id, name: `L${left_id}` };
+    network.nodes[right_id] = { id: right_id, name: `L${right_id}` };
 
 		network.links.push(
 			{ id: link_id++, source: at, target: left_id, weight: 1 },

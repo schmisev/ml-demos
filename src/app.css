@@ -21,17 +21,22 @@ a {
 	text-decoration: underline;
 }
 
-input, select, option {
+input {
   border-radius: 0.4rem;
+}
+
+select {
+  border-radius: 0.4rem;
+  box-shadow: inset 1px 1px 5px rgba(0, 0, 0, 0.2);
 }
 
 .border {
 	padding: 0.5rem;
 	border: 2px solid black;
   border-radius: 0.4rem;
-  background-color: white;
-	box-shadow: 2px 2px 2px rgba(0, 0, 0, 0.2);
-	translate: -2px -2px;
+  background-color: whitesmoke;
+	box-shadow: 2px 2px 2px rgba(0, 0, 0, 0.2), 2px 2px 2px inset rgba(255, 255, 255, 0.4); 
+	/* translate: -2px -2px; */
 	transition: 0.1s;
 
 	&.negative {
@@ -53,6 +58,10 @@ input, select, option {
   &.special-2 {
     background-color: plum;
   }
+
+  &.rounded {
+    border-radius: calc(min(50vh, 50vw));
+  }
 }
 
 button {
@@ -62,7 +71,7 @@ button {
 		}
 
 		&:active {
-			translate: 0 0;
+			translate: 2px 2px;
 			box-shadow: none;
 		}
 	}
@@ -133,6 +142,10 @@ button {
 
 table, th, td {
   border-collapse: collapse;
+
+  &.bare td {
+    border: none;
+  }
 }
 
 th, td {

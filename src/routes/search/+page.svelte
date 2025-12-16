@@ -446,9 +446,9 @@
 			<div>Reached size: <b>{search_algo.reached_size}</b></div>
 		</div>
 		<div class="start flex flex-row items-start justify-evenly gap-2">
-			<div class="light-border flex w-1/3 flex-col gap-2">
+			<div class="light-border flex w-1/3 flex-col gap-2 overflow-hidden">
 				<h2>frontier</h2>
-				<table>
+				<table class="bare">
 					<tbody>
 						{#each search_algo.frontier as state}
 							<tr>
@@ -467,7 +467,7 @@
 			</div>
 			<div class="light-border flex w-1/3 flex-col gap-2">
 				<h2>reached</h2>
-				<table>
+				<table class="bare">
 					<tbody>
 						{#each search_algo.reached.values() as node}
 							<tr><td class="w-4">●</td><td>{node.state.node.name}</td><td>{node.path_cost}</td></tr

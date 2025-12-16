@@ -1,8 +1,8 @@
 import { hex } from '$lib';
 import * as fmt from '$lib/fmt';
-import { col_vec, diag, matrix, MatrixND, row_vec } from './matrix2';
+import { col_vec, diag, matrix, MatrixND, ones_like, row_vec } from './matrix2';
 
-export type HMM_Mode = 'predict' | 'filter';
+export type HMM_Mode = 'predict' | 'filter' | 'init' | 'backward';
 
 export type HMM_Value = number | string | boolean;
 export type HMM_ValueTuple = HMM_Value[];
@@ -12,13 +12,24 @@ export interface HMM_Variable {
 	domain: HMM_Value[];
 }
 
-export interface HMM_EvidenceTemplate extends HMM_Variable {
+export interface HMM_ValuedVariable extends HMM_Variable {
 	value: HMM_Value;
 }
 
 export interface HMM_BinaryVariable {
 	encodes: HMM_Value[];
 	name: string;
+}
+
+export interface HMM_ValuedBinaryVariable extends HMM_BinaryVariable {
+  prob: number;
+  mode: HMM_Mode;
+}
+
+export interface HMM_LabeledDistro {
+  distro: MatrixND,
+  smoothed?: MatrixND,
+  mode: HMM_Mode,
 }
 
 function domain_combinations(
@@ -83,7 +94,7 @@ export function create_binary_variables(vars: HMM_Variable[]) {
 	return bin_vars;
 }
 
-export function evidence_to_1_hot(evidence_templates: HMM_EvidenceTemplate[]): { one_hot: number[], index: number } {
+export function evidence_to_1_hot(evidence_templates: HMM_ValuedVariable[]): { one_hot: number[], index: number } {
   // product of all domains
   const N = evidence_templates.map(t => t.domain.length).reduce((a, b) => a*b, 1);
   const one_hot = new Array(N).fill(0);
@@ -110,7 +121,7 @@ export function build_hmm(
 	transition_model: number[],
 	evidence_vars: HMM_Variable[],
 	sensor_model: number[]
-): { model: HiddenMarkovModel; evidence_templates: HMM_EvidenceTemplate[]; } {
+): { model: HiddenMarkovModel; evidence_templates: HMM_ValuedVariable[]; } {
 	const hidden_labels = create_binary_variables(hidden_vars);
 	const h = hidden_labels.length;
 	if (init_variables.length !== h) throw `Initial state p is not fully defined!`;
@@ -138,7 +149,7 @@ export function build_hmm(
 
 	const model = new HiddenMarkovModel(col_vec(init_variables), hidden_labels, T, H, sensor_labels);
 
-	const evidence_templates: HMM_EvidenceTemplate[] = evidence_vars.map((v) => {
+	const evidence_templates: HMM_ValuedVariable[] = evidence_vars.map((v) => {
 		return { value: v.domain[0], ...v };
 	});
 
@@ -160,9 +171,19 @@ export class HiddenMarkovModel {
 	e: MatrixND = $state(new MatrixND(1, 1, []));
 	e_labels: HMM_BinaryVariable[];
 
+  b: MatrixND = $state(new MatrixND(1, 1, []));
+  s: MatrixND = $state(new MatrixND(1, 1, []));
+
 	// p_trace: MatrixNxM[] = [];
-	f_trace: MatrixND[] = [];
-	e_trace: MatrixND[] = [];
+	f_trace: HMM_LabeledDistro[] = $state([]);
+	e_trace: HMM_LabeledDistro[] = $state([]);
+
+  t = $derived(this.f_trace.length);
+  s_pos = $state(0);
+  s_end = $state(0);
+
+  b_rev_trace: MatrixND[] = $state([]);
+  // s_rev_trace: HMM_LabeledDistro[] = $state([]);
 
 	T: MatrixND;
 	H: MatrixND;
@@ -182,7 +203,7 @@ export class HiddenMarkovModel {
 		this.f = init_state.copy();
 
 		// this.p_trace.push(this.p);
-		this.f_trace.push(this.f);
+		this.f_trace.push({ distro: this.f, mode: "init" });
 
 		if (state_labels.length !== this.f.rows) throw `Every variable has to be labeled!`;
 		this.p_labels = state_labels;
@@ -198,19 +219,29 @@ export class HiddenMarkovModel {
 		if (sensor_labels.length !== this.H.rows) throw `Every sensor has to be labeled!`;
 		this.e_labels = sensor_labels;
 		this.e = matrix(this.sensor_count, 1, []);
+
+    // initialize b
+    this.b = ones_like(this.f);
+
+    // set "time step"
+    this.t = this.f_trace.length;
 	}
 
 	clear(): void {
 		this.f = this.p0;
-		this.f_trace = [this.p0];
+		this.f_trace = [{ distro: this.p0, mode: 'init'} ];
 		this.e_trace = [];
+    this.b_rev_trace = [];
+    // this.s_rev_trace = [];
+    this.s_end = 0;
+    this.s_pos = 0;
 	}
 
 	predict(): { p: MatrixND; e: MatrixND } {
 		this.f = this.T.mul(this.f);
-		this.f_trace.push(this.f);
+		this.f_trace.push({distro: this.f, mode: "predict"});
 		this.e = this.H.mul(this.f);
-		this.e_trace.push(this.e);
+		this.e_trace.push({ distro: this.e, mode: "predict" });
 		return {
 			p: this.f,
 			e: this.e
@@ -224,14 +255,91 @@ export class HiddenMarkovModel {
 		const obs_vec = row_vec(obs); // Sx1
 		const O = obs_vec.mul(this.H).diag(); // 1xN => NxN
 		this.f = O.mul(this.T).mul(this.f).norm1();
-		this.f_trace.push(this.f);
+		this.f_trace.push({distro: this.f, mode: "filter"});
 		this.e = col_vec(obs);
-		this.e_trace.push(this.e);
+		this.e_trace.push({ distro: this.e, mode: "filter" });
 		return {
 			e: this.e,
 			f: this.f
 		};
 	}
+  
+  backward(): { b: MatrixND; s: MatrixND } {
+    if (this.t !== this.s_end || this.s_end < this.s_pos) {
+      // this.s_rev_trace = []; // clear last smoothing
+      // restart
+      this.s_end = this.t;
+      this.s_pos = this.t-1;
+
+      this.b = ones_like(this.f); // set to ones-vector
+    }
+
+    // run out of evidence
+    if (this.s_pos-1 < 0) return { b: this.b, s: this.s };
+
+    const prev_e = this.e_trace[this.s_pos-1].distro;
+    const O = this.H.mul(prev_e).diag(); // Nx1 => NxN
+
+    const prev_f = this.f_trace[this.s_pos].distro;
+    this.s = prev_f.hadamard(this.b).norm1();
+    this.b = this.T.transpose().mul(O).mul(this.b);
+
+    this.b_rev_trace.push(this.b);
+
+    this.f_trace[this.s_pos].smoothed = this.s;
+
+    this.s_pos--;
+    
+    return {
+      b: this.b,
+      s: this.s,
+    }
+  }
+
+  // most likely values
+  *most_likely_f(): Generator<HMM_ValuedBinaryVariable, void, unknown> {
+    for (const f of this.f_trace) {
+      const { index, value } = f.distro.max_val();
+      const variable = this.p_labels[index];
+      const out: HMM_ValuedBinaryVariable = {
+        ...variable,
+        prob: value,
+        mode: f.mode
+      }
+      yield out;
+    } 
+  }
+
+  *most_likely_e(): Generator<HMM_ValuedBinaryVariable | undefined, void, unknown> {
+    yield undefined; // first value will always be empty
+    for (const e of this.e_trace) {
+      const { index, value } = e.distro.max_val();
+      const variable = this.e_labels[index];
+      const out: HMM_ValuedBinaryVariable = {
+        ...variable,
+        prob: value,
+        mode: e.mode
+      }
+      yield out;
+    } 
+  }
+
+  *most_likely_s(): Generator<HMM_ValuedBinaryVariable | undefined, void, unknown> {
+    for (const f of this.f_trace) {
+      if (!f.smoothed) {
+        yield undefined;
+        continue;
+      }
+      const { index, value } = f.smoothed.max_val();
+      const variable = this.p_labels[index];
+      const out: HMM_ValuedBinaryVariable = {
+        ...variable,
+        prob: value,
+        mode: f.mode
+      }
+      yield out;
+    } 
+  }
 
 	// printing stuff
 	format_prob(kind: 'P(x)' | 'P(e)' | 'P(x|e)') {
@@ -269,19 +377,20 @@ export class HiddenMarkovModel {
 			let value_label = '';
 			switch (mode) {
 				case 'predict':
-					value_label = `<b>p<sub>${i}</sub></b> = ${fmt.num(this.f.v(i))}`;
-					break;
 				case 'filter':
-					value_label = `<b>f<sub>${i}</sub></b> = ${fmt.num(this.f.v(i))}`;
+        case 'init':
+        case 'backward':
+          value_label = `<b>p<sub>${i}</sub></b> = ${fmt.num(this.f.v(i))}`;
 					break;
 				default:
 					const NEVER: never = mode;
 			}
 
-			const node_name = `h${i}(["<b>x<sub>${i}</sub></b> ≙  (${this.p_labels[i].name}) \n${value_label}"])`;
+      const label = this.p_labels[i];
+			const node_name = `h${i}(["<b>x<sub>${i}</sub></b> ≙  (${label.name}) \n${value_label}"])`;
 			nodes.push(node_name);
 			// nodes.push(`d${i}((x<sub>${i}</sub>))`);
-			styles.push(`style h${i} fill:${hex((i / N) * 255, 255, (1 - i / N) * 255)}`);
+			styles.push(`style h${i} fill:white;`);
 
 			for (const [j, p] of this.T.col_at(i).entries()) {
 				if (p === 0) continue;

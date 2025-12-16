@@ -1,4 +1,5 @@
 import { mod } from '$lib';
+import * as fmt from "$lib/fmt";
 
 export type MatrixKind = 'scalar' | 'col-vec' | 'row-vec' | 'matrix';
 
@@ -37,7 +38,7 @@ export class MatrixND {
 		console.table(this.unflatten());
 	}
 
-	#get_idx(i: number, j: number): number {
+	get_index(i: number, j: number): number {
 		return mod(i, this.rows) * this.cols + mod(j, this.cols);
 	}
 
@@ -47,7 +48,7 @@ export class MatrixND {
 
 	// get value at (i, j)
 	ij(i: number, j: number) {
-		const idx = this.#get_idx(i, j);
+		const idx = this.get_index(i, j);
 		return this.values[i * this.cols + j];
 	}
 
@@ -67,7 +68,7 @@ export class MatrixND {
 
 	// set value at (i, j), return old value
 	put_ij(i: number, j: number, v: number): number {
-		const idx = this.#get_idx(i, j);
+		const idx = this.get_index(i, j);
 		const old_v = this.values[idx];
 		this.values[idx] = v;
 		return old_v;
@@ -75,7 +76,7 @@ export class MatrixND {
 
 	// scale value at (i, j), return old value
 	scale_ij(i: number, j: number, s: number): number {
-		const idx = this.#get_idx(i, j);
+		const idx = this.get_index(i, j);
 		const old_v = this.values[idx];
 		this.values[idx] = s * old_v;
 		return old_v;
@@ -242,6 +243,53 @@ export class MatrixND {
 		}
 	}
 
+  comp_val(comp: (a: number, b: number) => boolean): { value: number, index: number, ij: [number, number] } {
+    let chosen_index = 0;
+    let max_value = this.values[0];
+    let chosen_i = 0;
+    let chosen_j = 0;
+
+    for (let i = 0; i < this.rows; i++) {
+      for (let j = 0; j < this.cols; j++) {
+        const index = this.get_index(i, j);
+        let value = this.values[index];
+        if (comp(value,max_value)) {
+          max_value = value;
+          chosen_index = index
+          chosen_i = i;
+          chosen_j = j;
+        }
+      }
+    }
+
+    return {
+      ij: [chosen_i, chosen_j],
+      index: chosen_index,
+      value: max_value,
+    }
+  }
+
+  max_val() {
+    return this.comp_val((a, b) => a > b);
+  }
+
+  min_val() {
+    return this.comp_val((a, b) => a < b);
+  }
+
+  // transpose of matrix
+  transpose(): MatrixND {
+    const new_values: number[] = [];
+
+    for (let j = 0; j < this.cols; j++) {
+      for (let i = 0; i < this.rows; i++) {
+        new_values.push(this.ij(i, j));
+      }
+    }
+
+    return new MatrixND(this.cols, this.rows, new_values);
+  }
+
 	cholesky() {
 		let n = this.cols;
 
@@ -301,6 +349,22 @@ export class MatrixND {
 
 		return values;
 	}
+
+  // to html table
+  format_as_html_table(): string {
+    let out = "<table>";
+    for (let i = 0; i < this.rows; i++) {
+      out += "<tr>"
+      for (let j = 0; j < this.cols; j++) {
+        let value = this.ij(i, j);
+        out += `<td>${fmt.num(value)}</td>`
+      }
+      out += "</tr>"
+    } 
+    out += "</table>";
+
+    return out;
+  }
 }
 
 export function matrix(rows: number, cols: number, values: number[]): MatrixND {
@@ -358,4 +422,10 @@ export function eye(size: number): MatrixND {
 	}
 
 	return new MatrixND(size, size, new_values);
+}
+
+export function ones_like(M: MatrixND): MatrixND {
+  const N = M.cols * M.rows;
+  const new_values = new Array(N).fill(1);
+  return new MatrixND(M.rows, M.cols, new_values);
 }
