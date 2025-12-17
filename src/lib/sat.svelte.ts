@@ -1192,13 +1192,15 @@ export function n_queens_generator(seed: number, n: number): SAT_Problem {
 }
 
 
-export function scheduling_generator(seed: number, people: number, rooms: number, time_slots: number, init_schedule: number[][], unavailable: Record<number, number[]>): SAT_Problem {
+export function scheduling_generator(seed: number, people: number, rooms: number, time_slots: number): SAT_Problem {
   const problem: SAT_Problem = {
     constraints: [],
     init_asg: {},
     init_domains: {},
     name: "scheduling",
   }
+
+  const rng = seedrandom(`${seed}`);
 
   function field_var(rooms: number, time_slots: number): string {
     return `R${rooms}_T${time_slots}`;
@@ -1213,11 +1215,11 @@ export function scheduling_generator(seed: number, people: number, rooms: number
       problem.init_asg[v] = undefined;
       problem.init_domains[v] = [...domain];
 
-      // set initial values
-      const init_value = init_schedule.at(r)?.at(t);
-      if (init_value !== undefined && init_value >= 0) {
-        problem.init_asg[v] = init_value;
-        problem.init_domains[v] = [init_value];
+      // presets
+      if (rng() > 0.9) {
+        const p = Math.floor(rng() * people);
+        problem.init_asg[v] = p;
+        problem.init_domains[v] = [p];
       }
     }
   }
@@ -1243,14 +1245,16 @@ export function scheduling_generator(seed: number, people: number, rooms: number
   }
 
   // rule: unavailable times --> reduce domains
-  for (let p in unavailable) {
-    const person = parseInt(p);
-    const unavailable_slots = unavailable[p];
-    for (let t of unavailable_slots) {
-      console.log("--",t);
+  // unavailability
+  for (let p = 0; p < people; p++) {
+    if (rng() < 0.3) continue; // has no unavailability
+
+    for (let t = 0; t < time_slots; t++) {
+      if (rng() < 0.5) continue; // available for this time slots
+
       for (let r = 0; r < rooms; r++) {
         const v = field_var(r, t);
-        remove(problem.init_domains[v], person);
+        remove(problem.init_domains[v], p);
       }
     }
   }

@@ -36,18 +36,18 @@
   let shortened_name = names.map((n) => n[0]);
 </script>
 
-<div class="border">
+<div class="border h-fit">
 	<table>
 		<tbody>
       <tr>
-        <td>Time</td>
+        <td class="h1">Time</td>
       {#each grid[0] as slot, r}
-        <th>Room {r}</th>
+        <th class="h1">Room {r}</th>
       {/each}
       </tr>
 			{#each grid as room, r}
 				<tr>
-          <th>{r+1}</th>
+          <th class="h2">{r+1}</th>
 					{#each room as slot}
             {#if slot[0] === undefined}
               <td class="max-w-4 overflow-clip text-center">
