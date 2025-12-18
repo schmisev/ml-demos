@@ -125,4 +125,18 @@
 			{/each}
 		</div>
 	</div>
+
+  <div class="light-border">
+    <h2>KB</h2>
+    <div class="flex flex-row flex-wrap gap-2">
+    {#each raw_kb as rule, i}
+      <div class="light-border"><b>({i+1})</b> {ctx.format(rule)}</div>
+    {/each}
+    </div>
+  </div>
+
+  <div class="light-border">
+    <h2>Working CNF</h2>
+    {ctx.format(cnf)}
+  </div>
 </div>
