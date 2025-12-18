@@ -159,7 +159,7 @@ export class LogicContext {
 		}
 	}
 
-	format(expr: LogicExpr | CNF): string {
+	format(expr: LogicExpr | CNF, sep=", "): string {
 		switch (expr.kind) {
 			case 'TERM':
 				return `${this.format(expr.symbol)}`;
@@ -178,7 +178,7 @@ export class LogicContext {
 			case 'BICOND':
 				return `(${this.format(expr.left)} ⇔ ${this.format(expr.right)})`;
 			case 'CNF':
-				return `[${expr.clauses.map((s) => '[' + [...s].map((v) => this.resolve_name(v)).join(' ∨ ') + ']').join(', ')}]`;
+				return `${expr.clauses.map((s) => '(' + [...s].map((v) => this.resolve_name(v)).join('∨') + ')').join(sep)}`;
 		}
 	}
 

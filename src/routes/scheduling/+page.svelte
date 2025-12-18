@@ -14,6 +14,9 @@
 	let activate_ordering_A_C = $state(true);
   let activate_problem_5_schedule = $state(true);
 
+  let show_cnf = $state(false);
+  let show_kb = $state(false);
+
 	let ctx = $derived(new SchedulingContext(people, rooms, time_slots));
 
 	let unique = $derived(ctx.unique_slot_constraint());
@@ -126,17 +129,32 @@
 		</div>
 	</div>
 
-  <div class="light-border">
-    <h2>KB</h2>
-    <div class="flex flex-row flex-wrap gap-2">
+  <div class="flex flex-col gap-2">
+    <div class="flex flex-row gap-2 items-center">
+      <button class="border" onclick={() => show_kb = !show_kb}>{show_kb ? "△" : "▽"}</button>
+      <h2>Knowledge base</h2>
+    </div>
+    
+    {#if show_kb}
+    <div class="flex flex-col gap-2">
     {#each raw_kb as rule, i}
       <div class="light-border"><b>({i+1})</b> {ctx.format(rule)}</div>
     {/each}
     </div>
+    {/if}
+    
   </div>
 
-  <div class="light-border">
-    <h2>Working CNF</h2>
-    {ctx.format(cnf)}
+  <div class="flex flex-col gap-2">
+    <div class="flex flex-row gap-2 items-center">
+      <button class="border" onclick={() => show_cnf = !show_cnf}>{show_cnf ? "△" : "▽"}</button>
+      <h2>Current CNF</h2>
+    </div>
+
+    {#if show_cnf}
+    <div class="flex flex-col gap-2 light-border">
+      {@html ctx.format(dpll.current_cnf, ", ")}
+    </div>
+    {/if}
   </div>
 </div>
