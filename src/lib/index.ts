@@ -106,3 +106,11 @@ export function remove(list: any[], value_to_removed: any) {
   }
   return ret;
 }
+
+export function range(bound: number, max_bound?: number): number[] {
+  const max = max_bound === undefined ? bound : max_bound;
+  const min = max_bound === undefined ? 0 : bound;
+
+  if (max <= min) return [];
+  return Array(max-min).fill(0).map(((v, i) => i+min));
+}

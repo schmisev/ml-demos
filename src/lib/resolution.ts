@@ -142,7 +142,7 @@ export class LogicContext {
 
 						// we resolved to empty set
 						if (res.size === 0) {
-							clauses.push;
+							clauses.push(res);
 							return { result: true, cnf: { kind: 'CNF', clauses } };
 						}
 					}
@@ -205,13 +205,13 @@ export class LogicContext {
 		}
 	}
 
-	format_each_expr(expr: Set<LogicExpr> | Array<LogicExpr>) {
-		return [...expr].map((s) => this.format(s)).join(', ');
+	format_each_expr(expr: Set<LogicExpr> | Array<LogicExpr>, sep=", ") {
+		return [...expr].map((s) => this.format(s)).join(sep);
 	}
 
-	expand_again(changed: boolean, expr: LogicExpr | Term, depth: number) {
+	expand_again(changed: boolean, expr: LogicExpr | Term, depth: number, quiet = true) {
 		if (changed) {
-			console.log('..'.repeat(depth) + this.format(expr));
+			if (!quiet) console.log('..'.repeat(depth) + this.format(expr));
 			this.expand_dependend_exprs(expr, depth);
 		}
 	}
@@ -286,10 +286,15 @@ export function term(expr: LogicExpr): Term {
 }
 
 // CNF
+
 export interface CNF {
 	kind: 'CNF';
 	clauses: Set<number>[];
 }
+
+export function clause(...lits: number[]) {
+  return new Set<number>(lits);
+} 
 
 function get_sym_id(sym: Literal) {
 	return Math.abs(sym.value);
