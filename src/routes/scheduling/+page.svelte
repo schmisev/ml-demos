@@ -24,10 +24,10 @@
 	let not_simul = $derived(ctx.not_simul_constraint());
 	let problem5_schedule = $derived(
 		ctx.initial_schedule([
-			{ person: 0, room: 0, time_slot: 0 },
-			{ person: 1, room: 0, time_slot: 3 },
-			{ person: 0, room: 1, time_slot: 1 },
-			{ person: 1, room: 1, time_slot: 2 }
+			[0,0,0],
+      [1,0,3],
+      [0,1,1],
+      [1,1,2]
 		])
 	);
 	let ordering_A_C = $derived(ctx.ordering_constraint(0, 2));

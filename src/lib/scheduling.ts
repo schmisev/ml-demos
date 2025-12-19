@@ -127,9 +127,9 @@ export class SchedulingContext extends LogicContext {
     return kb;
   }
 
-  initial_schedule(schedule: {person: number, room: number, time_slot: number}[]) {
+  initial_schedule(schedule: [number, number, number][]) {
     const kb: LogicExpr[] = [];
-    for (let {person, room, time_slot} of schedule) {
+    for (let [person, room, time_slot] of schedule) {
       kb.push(this.field_var(person, room, time_slot));
     }
 

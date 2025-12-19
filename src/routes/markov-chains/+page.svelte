@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { build_hmm, evidence_to_1_hot, HiddenMarkovModel } from '$lib/hmm.svelte';
+	import { build_hmm, evidence_to_1_hot, HiddenMarkovModel, RAIN_UMBRELLA_HMM, SLEEPY_STUDENTS } from '$lib/hmm.svelte';
 	import { col_vec, matrix, MatrixND, row_vec } from '$lib/matrix2';
 	import { Mermaid } from '@friendofsvelte/mermaid';
 	import * as fmt from '$lib/fmt';
@@ -8,31 +8,7 @@
 	import TraceView from '$lib/components/TraceView.svelte';
 
 	let { model: hmm, evidence_templates } = $state(
-		build_hmm(
-			[
-				{ name: 'Rain', domain: [true, false] },
-				{ name: 'T', domain: ['cold', 'hot'] }
-			],
-			[0.25, 0.25, 0.25, 0.25],
-			[
-    //  R c  R h -R c -R h --> TO
-        0.4, 0.6, 0.7, 0.1, // R c 
-        0.1, 0.3, 0.1, 0.1, // R h
-        0.4, 0.0, 0.1, 0.1, // -R c
-        0.1, 0.1, 0.1, 0.7  // -R h
-      ],
-			[
-				{ name: 'Umbrella', domain: [true, false] },
-				{ name: 'T-Shirt', domain: [true, false] }
-			],
-			[
-    //  R c  R h -R c -R h
-        0.1, 0.7, 0.05, 0.3, // umbrella, t-shirt
-        0.6, 0.2, 0.3, 0.05, // umbrella, -t-shirt
-        0.1, 0.05, 0.5, 0.4, // -umbrella, t-shirt
-        0.2, 0.05, 0.15, 0.25  // -umbrella, -t-shirt
-      ]
-		)
+		SLEEPY_STUDENTS()
 	);
 
 	let { one_hot: one_hot_evidence, index: index_evidence } = $derived(

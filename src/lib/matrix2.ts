@@ -49,7 +49,7 @@ export class MatrixND {
 	// get value at (i, j)
 	ij(i: number, j: number) {
 		const idx = this.get_index(i, j);
-		return this.values[i * this.cols + j];
+		return this.values[idx];
 	}
 
 	/**
@@ -108,7 +108,7 @@ export class MatrixND {
 
 		for (let i = 0; i < this.rows; i++) {
 			for (let j = 0; j < this.cols; j++) {
-				new_values.push(this.ij(i, j) * this.ij(i, j));
+				new_values.push(this.ij(i, j) * other.ij(i, j));
 			}
 		}
 
@@ -155,7 +155,7 @@ export class MatrixND {
 
   col_at(j: number): number[] {
 		const col: number[] = [];
-		for (let i = 0; i < this.cols; i++) {
+		for (let i = 0; i < this.rows; i++) {
 			col.push(this.ij(i, j));
 		}
 

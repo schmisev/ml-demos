@@ -142,9 +142,10 @@ export function build_hmm(
 
 	// checking sums
 	for (let i = 0; i < H.cols; i++) {
-		let sum = H.col_at(i).reduce((a, b) => a + b);
+    let col = H.col_at(i);
+		let sum = col.reduce((a, b) => a + b);
 		if (Math.abs(sum - 1) > 0.001)
-			throw `Columns of transition matrix H do not sum up to 1, (${i})`;
+			throw `Columns of sensor matrix H do not sum up to 1, (${i}, ${sum.toFixed(10)}, [${col}])`;
 	}
 
 	const model = new HiddenMarkovModel(col_vec(init_variables), hidden_labels, T, H, sensor_labels);
@@ -265,11 +266,13 @@ export class HiddenMarkovModel {
 	}
   
   backward(): { b: MatrixND; s: MatrixND } {
-    if (this.t !== this.s_end || this.s_end < this.s_pos) {
+    const t = this.f_trace.length;
+
+    if (t !== this.s_end || this.s_end < this.s_pos) {
       // this.s_rev_trace = []; // clear last smoothing
       // restart
-      this.s_end = this.t;
-      this.s_pos = this.t-1;
+      this.s_end = t;
+      this.s_pos = t-1;
 
       this.b = ones_like(this.f); // set to ones-vector
     }
@@ -277,11 +280,14 @@ export class HiddenMarkovModel {
     // run out of evidence
     if (this.s_pos-1 < 0) return { b: this.b, s: this.s };
 
-    const prev_e = this.e_trace[this.s_pos-1].distro;
-    const O = this.H.mul(prev_e).diag(); // Nx1 => NxN
+    const prev_e = this.e_trace[this.s_pos-1].distro.transpose();
+
+    const O = prev_e.mul(this.H).diag(); // Nx1 => NxN
 
     const prev_f = this.f_trace[this.s_pos].distro;
+
     this.s = prev_f.hadamard(this.b).norm1();
+
     this.b = this.T.transpose().mul(O).mul(this.b);
 
     this.b_rev_trace.push(this.b);
@@ -402,4 +408,56 @@ export class HiddenMarkovModel {
 
 		return out;
 	}
+}
+
+
+export function RAIN_UMBRELLA_HMM() {
+  return build_hmm(
+    [
+      { name: 'Rain', domain: [true, false] },
+      { name: 'T', domain: ['cold', 'hot'] }
+    ],
+    [0.25, 0.25, 0.25, 0.25],
+    [
+  //  R c  R h -R c -R h --> TO
+      0.4, 0.6, 0.7, 0.1, // R c 
+      0.1, 0.3, 0.1, 0.1, // R h
+      0.4, 0.0, 0.1, 0.1, // -R c
+      0.1, 0.1, 0.1, 0.7  // -R h
+    ],
+    [
+      { name: 'Umbrella', domain: [true, false] },
+      { name: 'T-Shirt', domain: [true, false] }
+    ],
+    [
+  //  R c  R h -R c -R h
+      0.1, 0.7, 0.05, 0.3, // umbrella, t-shirt
+      0.6, 0.2, 0.3, 0.05, // umbrella, -t-shirt
+      0.1, 0.05, 0.5, 0.4, // -umbrella, t-shirt
+      0.2, 0.05, 0.15, 0.25  // -umbrella, -t-shirt
+    ]
+  )
+}
+
+export function SLEEPY_STUDENTS() {
+  return build_hmm(
+    [
+      {name: 'Enough sleep', domain: [true, false]}
+    ],
+    [0.7, 0.3],
+    [
+      0.8, 0.3,
+      0.2, 0.7,
+    ],
+    [
+      { name: "red eyes", domain: [true, false] },
+      { name: "sleeping", domain: [true, false] }
+    ],
+    [
+      0.02, 0.21,
+      0.18, 0.49,
+      0.08, 0.09,
+      0.72, 0.21
+    ]
+  )
 }
