@@ -114,7 +114,7 @@ export class SchedulingContext extends LogicContext {
   unavailable_constraint(guest: number, time_slot: number): LogicExpr[] {
     const kb: LogicExpr[] = []
     for (let r = 0; r < this.rooms; r++) {
-      kb.push(not(this.field_var(guest, r, time_slot)));
+      kb.push(this.field_var(guest, r, time_slot, true));
     }
 
     return kb;
@@ -137,14 +137,60 @@ export class SchedulingContext extends LogicContext {
     return kb;
   }
 
-  initial_schedule(schedule: [number, number, number][]) {
+  initial_schedule(schedule: (number | null)[][]) {
     const kb: LogicExpr[] = [];
-    for (let [person, room, time_slot] of schedule) {
-      if (person >= this.people || room >= this.rooms || time_slot >= this.time_slots)
-        continue;
-      kb.push(this.field_var(person, room, time_slot));
+
+    for (let room = 0; room < schedule.length; room++) {
+      for (let time_slot = 0; time_slot < schedule[room].length; time_slot++) {
+        const person = schedule[room][time_slot];
+        if (person === null || person < 0 || person >= this.people || room >= this.rooms || time_slot >= this.time_slots)
+          continue;
+        kb.push(this.field_var(person, room, time_slot));
+      }
+    }
+
+    return kb;
+  }
+
+  mutual_exclusion_constraint(guest_a: number, guest_b: number): LogicExpr[] {
+    const kb: LogicExpr[] = [];
+
+    for (let t = 0; t < this.time_slots; t++) {
+      let vars_A: LogicExpr[] = [];
+      let vars_B: LogicExpr[] = [];
+      for (let r = 0; r < this.rooms; r++) {
+        vars_A.push(this.field_var(guest_a, r, t));
+        vars_B.push(this.field_var(guest_b, r, t));
+      }
+      kb.push(not(and(or(...vars_A), or(...vars_B))));
+    }
+
+    return kb;
+  }
+
+  consecutive_order_constraint(guest_a: number, guest_b: number) {
+    const kb: LogicExpr[] = [];
+
+    for (let r = 0; r < this.rooms; r++) {
+      for (let t = 0; t < this.time_slots; t++) {
+        const var_A = this.field_var(guest_a, r, t);
+
+        const later_t = t+1;
+        const earlier_t = t-1;
+
+        const vars_B: LogicExpr[] = []
+        if (later_t < this.time_slots)
+            vars_B.push(this.field_var(guest_b, r, later_t))
+        if (earlier_t >= 0)
+            vars_B.push(this.field_var(guest_b, r, earlier_t))
+    
+        kb.push(impl(var_A, or(...vars_B)));
+      }
     }
 
     return kb;
   }
 }
+
+
+

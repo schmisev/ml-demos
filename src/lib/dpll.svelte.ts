@@ -99,6 +99,7 @@ export class DPLL {
   }
 }
 
+
 /**
  * Recursive implementaion of DPLL
  * @param cnf 
