@@ -288,12 +288,12 @@ export function not(expr: LogicExpr): NotExpr {
 }
 
 export function and(...exprs: LogicExpr[]): AndExpr {
-  if (exprs.length === 0) throw Error('has no operands');
+  // if (exprs.length === 0) throw Error('has no operands');
 	return { kind: 'AND', symbols: exprs };
 }
 
 export function or(...exprs: LogicExpr[]): OrExpr {
-  if (exprs.length === 0) throw Error('has no operands');
+  // if (exprs.length === 0) throw Error('has no operands');
 	return { kind: 'OR', symbols: exprs };
 }
 
