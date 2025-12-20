@@ -45,7 +45,7 @@
 	<div class="flex flex-row items-center p-2">
 		{#each new Array(N) as _, i}
 			{#if i > 0}
-				<div><img class="w-7 min-w-7 pr-1" src={RightArrow} alt="→" /></div>
+				<div><img class="w-7 min-w-7" src={RightArrow} alt="→" /></div>
 			{/if}
 			<div class="min-w-max">
         <div>t = {i}</div>

@@ -1,24 +1,29 @@
 <script lang="ts">
-	import { build_hmm, evidence_to_1_hot, HiddenMarkovModel, RAIN_UMBRELLA_HMM, SLEEPY_STUDENTS } from '$lib/hmm.svelte';
+	import { build_hmm, evidence_to_1_hot, HiddenMarkovModel, RAIN_TEMP_UMBRELLA_TSHIRT_HMM, RAIN_UMBRELLA_HMM, SLEEPY_STUDENTS_HMM, TRIP_PLANNING_HMM } from '$lib/hmm.svelte';
 	import { col_vec, matrix, MatrixND, row_vec } from '$lib/matrix2';
 	import { Mermaid } from '@friendofsvelte/mermaid';
 	import * as fmt from '$lib/fmt';
 	import MatrixView from '$lib/components/MatrixView.svelte';
 	import { tex } from '$lib/mathjax';
 	import TraceView from '$lib/components/TraceView.svelte';
+  import { browser } from "$app/environment";
+	import { onMount } from 'svelte';
+
+  let show_evidence = $state(true);
+  let chosen_model = $state(TRIP_PLANNING_HMM);
 
 	let { model: hmm, evidence_templates } = $state(
-		SLEEPY_STUDENTS()
+		chosen_model()
 	);
 
 	let { one_hot: one_hot_evidence, index: index_evidence } = $derived(
 		evidence_to_1_hot(evidence_templates)
 	);
 
-	let graph_str = $state(hmm.format_graph_for_mermaid('filter'));
+	let graph_str = $state(hmm.format_graph_for_mermaid('filter', show_evidence));
 
 	function update_graphs() {
-		graph_str = hmm.format_graph_for_mermaid('filter');
+		graph_str = hmm.format_graph_for_mermaid('filter', show_evidence);
 	}
 
 	function filter() {
@@ -37,14 +42,27 @@
 	}
 
 	function reset() {
+    ({model: hmm, evidence_templates} = chosen_model());
+    let { one_hot, index } = evidence_to_1_hot(evidence_templates);
+    one_hot_evidence = one_hot;
+    index_evidence = index;
 		hmm.clear();
 		update_graphs();
 	}
 </script>
 
 <div class="flex flex-col gap-2 p-2">
-	<div class="flex flex-row gap-5">
-		<h1>Hidden Markov Models | <a href="../">back</a></h1>
+	<div class="flex flex-row gap-5 items-center">
+		<h1 class="grow">Hidden Markov Models | <a href="../">back</a></h1>
+    <label class="light-border">
+      Model: 
+      <select bind:value={chosen_model} onchange={reset}>
+        <option value={TRIP_PLANNING_HMM}>Trip planning</option>
+        <option value={SLEEPY_STUDENTS_HMM}>Sleepy Students</option>
+        <option value={RAIN_UMBRELLA_HMM}>Rain & Umbrellas</option>
+        <option value={RAIN_TEMP_UMBRELLA_TSHIRT_HMM}>Rain, Temperature, Umbrellas & T-Shirts</option>
+      </select>
+    </label>
 	</div>
 	<div class="flex flex-row">
     <div class="flex flex-col grow">
@@ -77,6 +95,7 @@
         {@html tex(`e_${index_evidence} ≙`)}
         <MatrixView matrix={row_vec(one_hot_evidence)}></MatrixView>
       </div>
+      <label class="light-border">Show evidence in graph: <input type="checkbox" bind:checked={show_evidence} onchange={update_graphs}></label>
     </div>
 	</div>
   <h2>Timeline</h2>

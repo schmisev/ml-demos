@@ -1,4 +1,7 @@
-export type LogicExpr = Literal | NotExpr | AndExpr | OrExpr | ImplExpr | BiCondExpr | Term;
+import { to_cnf as new_to_cnf } from "./new-resolution";
+
+export type NoTermLogicExpr = Literal | NotExpr | AndExpr | OrExpr | ImplExpr | BiCondExpr;
+export type LogicExpr = NoTermLogicExpr | Term;
 
 // term just wraps an expression without modification
 export interface Term {
@@ -61,41 +64,52 @@ export class LogicContext {
 	}
 
 	convert_to_CNF(expr: LogicExpr): CNF {
-		if (expr.kind === 'TERM') return this.convert_to_CNF(expr.symbol);
+    const as_cnf = new_to_cnf(expr);
+    const new_clauses: Set<number>[] = [];
+    for (const cnf_clause of as_cnf.symbols) {
+      const clause = new Set(cnf_clause.symbols.map(s => s.value));
+      if (clause_is_in_list(new_clauses, clause)) continue;
+      new_clauses.push(clause);
+    }
+    return {
+      kind: 'CNF',
+      clauses: new_clauses,
+    };
+		// if (expr.kind === 'TERM') return this.convert_to_CNF(expr.symbol);
 
-		const new_clauses: Set<number>[] = [];
-		if (expr.kind !== 'AND') throw `Couldn't convert ${this.format(expr)} to CNF!`;
+		// const new_clauses: Set<number>[] = [];
+		// if (expr.kind !== 'AND') throw `Couldn't convert ${this.format(expr)} to CNF!`;
 
-		for (const symbol of expr.symbols) {
-			let add_clause: Set<number>;
-			switch (symbol.kind) {
-				case 'LITERAL':
-					add_clause = new Set([symbol.value]);
-					break;
-				case 'OR':
-					add_clause = new Set(
-						symbol.symbols.map((v) => {
-							if (v.kind !== 'LITERAL') throw `Disallowed!`;
-							return v.value;
-						})
-					);
-					break;
-				case 'NOT':
-				case 'AND':
-				case 'IMPL':
-				case 'BICOND':
-        case "TERM":
-					throw `${symbol.kind} disallowed when creating CNF!`;
-			}
+		// for (const symbol of expr.symbols) {
+		// 	let add_clause: Set<number>;
+		// 	switch (symbol.kind) {
+		// 		case 'LITERAL':
+		// 			add_clause = new Set([symbol.value]);
+		// 			break;
+		// 		case 'OR':
+		// 			add_clause = new Set(
+		// 				symbol.symbols.map((v) => {
+		// 					if (v.kind !== 'LITERAL') throw `Disallowed!`;
+		// 					return v.value;
+		// 				})
+		// 			);
+		// 			break;
+		// 		case 'NOT':
+		// 		case 'AND':
+		// 		case 'IMPL':
+		// 		case 'BICOND':
+    //     case "TERM":
+		// 			throw `${symbol.kind} disallowed when creating CNF!`;
+		// 	}
 
-      if (clause_is_in_list(new_clauses, add_clause)) continue;
-			new_clauses.push(add_clause);
-		}
+    //   if (clause_is_in_list(new_clauses, add_clause)) continue;
+		// 	new_clauses.push(add_clause);
+		// }
 
-		return {
-			kind: 'CNF',
-			clauses: new_clauses
-		};
+		// return {
+		// 	kind: 'CNF',
+		// 	clauses: new_clauses
+		// };
 	}
 
 	convert_to_AND(cnf: CNF): AndExpr {
@@ -261,15 +275,25 @@ export class LogicContext {
 	}
 }
 
+export function lit(value: number): Literal {
+  return { kind: 'LITERAL', value }
+}
+
+export function inv_lit(l: Literal): Literal {
+  return lit(-l.value);
+}
+
 export function not(expr: LogicExpr): NotExpr {
 	return { kind: 'NOT', symbol: expr };
 }
 
 export function and(...exprs: LogicExpr[]): AndExpr {
+  if (exprs.length === 0) throw Error('has no operands');
 	return { kind: 'AND', symbols: exprs };
 }
 
 export function or(...exprs: LogicExpr[]): OrExpr {
+  if (exprs.length === 0) throw Error('has no operands');
 	return { kind: 'OR', symbols: exprs };
 }
 
@@ -336,7 +360,7 @@ function expand_expr(expr: LogicExpr): { changed: boolean; expr: LogicExpr } {
 				case 'TERM':
 					// unpack term
 					expr.symbol = symbol.symbol;
-					return { changed: true, expr };
+					return { changed: true, expr: { kind: 'NOT', symbol: expr } };
 			}
 		}
 		case 'AND':

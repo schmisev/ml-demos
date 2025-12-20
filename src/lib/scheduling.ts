@@ -25,9 +25,12 @@ export class SchedulingContext extends LogicContext {
 		this.rooms = rooms;
 	}
 
-	field_var(person: number, room: number, time_slot: number, negate = false): Literal {
-		const name = `P${person}_R${room}_T${time_slot}`;
-		return this.lit(name, negate);
+  field_name(person: number, room: number, time_slot: number): string {
+    return `P${person}_R${room}_T${time_slot}`;
+  }
+
+  field_var(person: number, room: number, time_slot: number, negate = false): Literal {
+		return this.lit(this.field_name(person, room, time_slot), negate);
 	}
 
   recover_field_values(signed_id: number): { person: number, room: number, time_slot: number } {
@@ -46,55 +49,62 @@ export class SchedulingContext extends LogicContext {
 
 		for (let r = 0; r < this.rooms; r++) {
 			for (let t = 0; t < this.time_slots; t++) {
-				for (let g1 = 0; g1 < this.people - 1; g1++) {
-					for (let g2 = g1 + 1; g2 < this.people; g2++) {
-						const G1 = this.field_var(g1, r, t);
-						const G2 = this.field_var(g2, r, t);
-
-						const sentence = not(and(G1, G2));
-						kb.push(sentence);
-					}
-				}
+        const variables: string[] = [];
+        for (let g = 0; g < this.people; g++) {
+          variables.push(this.field_name(g, r, t));
+        }
+        kb.push(...this.at_most_one_of(variables));
 			}
 		}
 
 		return kb;
 	}
 
-	single_visit_constraint(): LogicExpr[] {
-		const kb: LogicExpr[] = [];
+  at_most_one_of(variables: string[]): LogicExpr[] {
+    let clauses: LogicExpr[] = [];
+    for (const v of variables) {
+      let implied: Literal[] = [];
+      for (const w of variables) {
+        if (v === w) continue;
+        implied.push(this.lit(w, true));
+      }
+      if (implied.length == 0) continue;
+      clauses.push(impl(this.lit(v), and(...implied)));
+    }
+    return clauses;
+  }
 
-		for (let r = 0; r < this.rooms; r++) {
-			for (let g = 0; g < this.people; g++) {
-				const clauses: LogicExpr[] = [];
-				for (let t = 0; t < this.time_slots; t++) {
-					const rules: LogicExpr[] = [];
-					for (let ts = 0; ts < this.time_slots; ts++) {
-						if (t == ts) {
-							rules.push(this.field_var(g, r, ts, false));
-						} else {
-							rules.push(this.field_var(g, r, ts, true));
-						}
-					}
-					clauses.push(and(...rules));
-				}
-				kb.push(or(...clauses));
-			}
-		}
+  one_of(variables: string[]): LogicExpr[] {
+    let clauses: LogicExpr[] = this.at_most_one_of(variables);
+    clauses.push(or(...variables.map(v => this.lit(v))));
+    return clauses;
+  }
 
-		return kb;
-	}
+  single_visit_constraint(): LogicExpr[] {
+    const kb: LogicExpr[] = [];
+    for (let r = 0; r < this.rooms; r++) {
+      for (let g = 0; g < this.people; g++) {
+        let names = new Array(this.time_slots);
+        for (let t = 0; t < this.time_slots; t++) {
+          names[t] = this.field_name(g, r, t);
+        }
+
+        kb.push(...this.one_of(names));
+      }
+    }
+    return kb;
+  }
 
 	not_simul_constraint(): LogicExpr[] {
 		const kb: LogicExpr[] = [];
 
 		for (let g = 0; g < this.people; g++) {
 			for (let t = 0; t < this.time_slots; t++) {
-				const rules: LogicExpr[] = [];
+				const variables: string[] = [];
 				for (let r = 0; r < this.rooms; r++) {
-					rules.push(this.field_var(g, r, t));
+					variables.push(this.field_name(g, r, t));
 				}
-				kb.push(not(and(...rules)));
+				kb.push(...this.at_most_one_of(variables));
 			}
 		}
 
@@ -130,6 +140,8 @@ export class SchedulingContext extends LogicContext {
   initial_schedule(schedule: [number, number, number][]) {
     const kb: LogicExpr[] = [];
     for (let [person, room, time_slot] of schedule) {
+      if (person >= this.people || room >= this.rooms || time_slot >= this.time_slots)
+        continue;
       kb.push(this.field_var(person, room, time_slot));
     }
 

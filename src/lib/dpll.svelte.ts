@@ -1,4 +1,5 @@
 import { clause, type CNF } from './resolution';
+import { choice } from '$lib';
 
 export enum DPLL_Result {
   SUCCESS = "SUCCESS",
@@ -57,20 +58,27 @@ export class DPLL {
     }
 
     let clauses = [...this.current_cnf.clauses];
-
-    unit_check: while (true) {
-		for (const cl of clauses) {
-			if (cl.size == 1) {
-				// this is a unit clause
-				const lit = [...cl][0];
-				clauses = unit_propagate(lit, clauses);
-				this.current_asg.push(lit);
-				continue unit_check;
-			}
-			if (cl.size == 0) return DPLL_Result.UNDECIDED; // couldn't be satisfied!
-		}
-		break;
-	  }
+    while (true) {
+      clauses.sort((a, b) => a.size - b.size);
+      const first_multi = clauses.findIndex((a) => a.size > 1);
+      let units: Set<number>[];
+      if (first_multi === -1) {
+        units = clauses;
+        clauses = [];
+      } else {
+        units = clauses.splice(0, first_multi);
+      }
+      if (units.length === 0) break;
+      while (units.length > 0) {
+        const cl = units.pop()!;
+        if (cl.size == 0) return DPLL_Result.UNDECIDED; // couldn't be satisfied!
+        // this is a unit clause
+        const lit = choice(cl);
+        units = unit_propagate(lit, units);
+        clauses = unit_propagate(lit, clauses);
+        this.current_asg.push(lit);
+      }
+    }
 
     if (clauses.length === 0) {
       this.cnf_stack.push({kind: "CNF", clauses: [...clauses]});

@@ -114,3 +114,10 @@ export function range(bound: number, max_bound?: number): number[] {
   if (max <= min) return [];
   return Array(max-min).fill(0).map(((v, i) => i+min));
 }
+
+export function choice<T>(cl: Set<T>): T {
+  for(var t of cl) {
+    return t;
+  }
+  throw new Error("set empty");
+}

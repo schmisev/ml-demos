@@ -45,11 +45,35 @@
 	let split_asg = $derived(split_assigment(dpll.current_asg));
 
 	function step() {
+    if (dpll.last_result !== DPLL_Result.UNDECIDED) {
+      stop_autostep();
+      return;
+    }
+
 		dpll.step();
 	}
 
 	function reset() {
 		dpll.reset();
+	}
+
+  // autostepping
+	let is_autostepping = $state(false);
+	let autostep_timer: number | undefined = undefined;
+
+	function autostep() {
+		is_autostepping = !is_autostepping;
+
+		if (is_autostepping) {
+			autostep_timer = setInterval(step, 100);
+		} else if (autostep_timer !== undefined) {
+			clearInterval(autostep_timer);
+		}
+	}
+
+	function stop_autostep() {
+		is_autostepping = false;
+		if (autostep_timer) clearInterval(autostep_timer);
 	}
 </script>
 
@@ -69,7 +93,7 @@
 		</label>
 		<label
 			>Time slots:
-			<input class="w-20" min="1" max="5" type="number" bind:value={time_slots} />
+			<input class="w-20" min="1" max="10" type="number" bind:value={time_slots} />
 		</label>
 	</div>
 	<div class="flex flex-row gap-2">
@@ -108,6 +132,7 @@
 
 	<div class="flex flex-row gap-2">
 		<button class="border" onclick={step}>Step</button>
+    <button class="border" class:negative={is_autostepping} onclick={autostep}>Autostep</button>
 		<button class="negative border" onclick={reset}>Reset</button>
 	</div>
 
@@ -153,7 +178,7 @@
 
     {#if show_cnf}
     <div class="flex flex-col gap-2 light-border">
-      {@html ctx.format(dpll.current_cnf, ", ")}
+      {@html ctx.format(dpll.current_cnf, "<br>")}
     </div>
     {/if}
   </div>

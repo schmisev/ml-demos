@@ -2,6 +2,7 @@ import { hex } from '$lib';
 import * as fmt from '$lib/fmt';
 import { col_vec, diag, matrix, MatrixND, ones_like, row_vec } from './matrix2';
 
+export type HMM_GraphDir = "TD" | "LR" | "RL";
 export type HMM_Mode = 'predict' | 'filter' | 'init' | 'backward';
 
 export type HMM_Value = number | string | boolean;
@@ -120,7 +121,8 @@ export function build_hmm(
 	init_variables: number[],
 	transition_model: number[],
 	evidence_vars: HMM_Variable[],
-	sensor_model: number[]
+	sensor_model: number[],
+  graph_dir: HMM_GraphDir = "LR",
 ): { model: HiddenMarkovModel; evidence_templates: HMM_ValuedVariable[]; } {
 	const hidden_labels = create_binary_variables(hidden_vars);
 	const h = hidden_labels.length;
@@ -148,7 +150,7 @@ export function build_hmm(
 			throw `Columns of sensor matrix H do not sum up to 1, (${i}, ${sum.toFixed(10)}, [${col}])`;
 	}
 
-	const model = new HiddenMarkovModel(col_vec(init_variables), hidden_labels, T, H, sensor_labels);
+	const model = new HiddenMarkovModel(col_vec(init_variables), hidden_labels, T, H, sensor_labels, graph_dir);
 
 	const evidence_templates: HMM_ValuedVariable[] = evidence_vars.map((v) => {
 		return { value: v.domain[0], ...v };
@@ -163,6 +165,7 @@ export function build_hmm(
 export class HiddenMarkovModel {
 	var_count: number;
 	sensor_count: number;
+  graph_dir: HMM_GraphDir;
 
 	p0: MatrixND;
 	// p: MatrixNxM = $state(new MatrixNxM(1, 1, []));
@@ -194,8 +197,11 @@ export class HiddenMarkovModel {
 		state_labels: HMM_BinaryVariable[],
 		transition_model: MatrixND,
 		sensor_model: MatrixND,
-		sensor_labels: HMM_BinaryVariable[]
+		sensor_labels: HMM_BinaryVariable[],
+    graph_dir: HMM_GraphDir = "LR",
 	) {
+    this.graph_dir = graph_dir;
+
 		// state
 		this.var_count = init_state.rows;
 		if (init_state.cols != 1) throw `State has to be 1D vector`;
@@ -372,8 +378,8 @@ export class HiddenMarkovModel {
 		return out;
 	}
 
-	format_graph_for_mermaid(mode: HMM_Mode): string {
-		const premable = `flowchart LR`;
+	format_graph_for_mermaid(mode: HMM_Mode, show_evidence: boolean): string {
+		const premable = `flowchart ${this.graph_dir}`;
 		const nodes: string[] = [];
 		const conns: string[] = [];
 		const styles: string[] = [];
@@ -404,14 +410,57 @@ export class HiddenMarkovModel {
 			}
 		}
 
+    let E = this.e_labels.length;
+    if (show_evidence) {
+      for (let j = 0; j < E; j++) {
+        let value_label = '';
+        switch (mode) {
+          case 'predict':
+          case 'filter':
+          case 'init':
+          case 'backward':
+            value_label = `<b>p<sub>${j}</sub></b> = ${fmt.num(this.e.v(j))}`;
+            break;
+          default:
+            const NEVER: never = mode;
+        }
+
+        nodes.push(`e${j}{{"<b>e<sub>${j}</sub></b> ≙  (${this.e_labels[j].name}) \n${value_label}"}}`)
+
+        for (const [i, p] of this.H.row_at(j).entries()) {
+          if (p === 0) continue;
+          conns.push(`h${i} -.->|${p}| e${j}`);
+        }
+      }
+    }
+
 		const out = [premable, ...nodes, ...conns, ...styles].join('\n');
 
 		return out;
 	}
 }
 
+export function FALLBACK_HMM() {
+  return build_hmm(
+    [
+      {name: "Error", domain: [true, false]}
+    ],
+    [0.5, 0.5],
+    [
+      0.5, 0.5,
+      0.5, 0.5,
+    ],
+    [
+      {name: "Blue Screen", domain: [true, false]}
+    ],
+    [
+      0.8, 0,
+      0.2, 1
+    ]
+  )
+}
 
-export function RAIN_UMBRELLA_HMM() {
+export function RAIN_TEMP_UMBRELLA_TSHIRT_HMM() {
   return build_hmm(
     [
       { name: 'Rain', domain: [true, false] },
@@ -439,7 +488,7 @@ export function RAIN_UMBRELLA_HMM() {
   )
 }
 
-export function SLEEPY_STUDENTS() {
+export function SLEEPY_STUDENTS_HMM() {
   return build_hmm(
     [
       {name: 'Enough sleep', domain: [true, false]}
@@ -460,4 +509,61 @@ export function SLEEPY_STUDENTS() {
       0.72, 0.21
     ]
   )
+}
+
+export function RAIN_UMBRELLA_HMM() {
+  return build_hmm(
+    [
+      {name: 'Rain', domain: [true, false]}
+    ],
+    [0.5, 0.5],
+    [
+      0.7, 0.3,
+      0.3, 0.7,
+    ],
+    [
+      { name: "Umbrella", domain: [true, false] },
+    ],
+    [
+      0.9, 0.2,
+      0.1, 0.8,
+    ]
+  )
+}
+
+export function TRIP_PLANNING_HMM() {
+  try {
+  const hmm = build_hmm(
+    [
+      {name: 'Purpose', domain: ["Home", "Work", "Leasure"]},
+      {name: 'By', domain: ["Car", "Bike"]},
+    ],
+    [0.5, 0.5, 0, 0, 0, 0],
+    [
+    //HC   HB   WC   WB   LC   LB
+      0.0, 0.0, 0.5, 0.0, 0.8, 0.0, // HC
+      0.0, 0.0, 0.0, 0.4, 0.0, 0.6, // HB
+      0.5, 0.5, 0.0, 0.0, 0.2, 0.0, // WC
+      0.3, 0.3, 0.0, 0.0, 0.0, 0.1, // WB
+      0.1, 0.1, 0.5, 0.0, 0.0, 0.0, // LC
+      0.1, 0.1, 0.0, 0.6, 0.0, 0.3, // LB
+    ],
+    [
+      { name: "Location", domain: ["Home", "Office", "Gym", "Bar", "Lake"] },
+    ],
+    [
+    //HC   HB   WC   WB   LC   LB
+      1.0, 1.0, 0.0, 0.0, 0.0, 0.0, // Home
+      0.0, 0.0, 1.0, 1.0, 0.0, 0.0, // Office
+      0.0, 0.0, 0.0, 0.0, 0.3, 0.5, // Gym
+      0.0, 0.0, 0.0, 0.0, 0.1, 0.4, // Bar
+      0.0, 0.0, 0.0, 0.0, 0.6, 0.1, // Lake
+    ],
+    "TD"
+  )
+  return hmm;
+  } catch(e) {
+    console.error(e);
+    return FALLBACK_HMM();
+  }
 }
