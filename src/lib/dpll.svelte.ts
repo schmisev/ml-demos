@@ -16,6 +16,7 @@ export class DPLL {
   t: number = $state(0);
 
   current_asg: number[] = $state([]);
+  asg_history: number[][] = $state([]);
   current_cnf: CNF = $state({kind: "CNF", clauses: []});
 
   last_result: DPLL_Result = $state(DPLL_Result.UNDECIDED);
@@ -37,6 +38,7 @@ export class DPLL {
     this.cnf_stack = [this.init_cnf];
     this.current_asg = this.init_asg;
     this.current_cnf = this.init_cnf;
+    this.asg_history = [];
   }
 
   step(): DPLL_Result {
@@ -53,14 +55,14 @@ export class DPLL {
     this.current_asg = this.asg_stack.pop()!;
     this.current_cnf = this.cnf_stack.pop()!;
 
-    if (this.current_cnf.clauses.length === 0) {
-      return DPLL_Result.SUCCESS;
-    }
-
     let clauses = [...this.current_cnf.clauses];
+    let asg_diff: number[] = [];
+    
     while (true) {
       clauses.sort((a, b) => a.size - b.size);
+     
       const first_multi = clauses.findIndex((a) => a.size > 1);
+      
       let units: Set<number>[];
       if (first_multi === -1) {
         units = clauses;
@@ -68,22 +70,30 @@ export class DPLL {
       } else {
         units = clauses.splice(0, first_multi);
       }
+
       if (units.length === 0) break;
+
       while (units.length > 0) {
         const cl = units.pop()!;
-        if (cl.size == 0) return DPLL_Result.UNDECIDED; // couldn't be satisfied!
+        if (cl.size == 0) {
+          this.asg_history.pop(); // asg failed -- remove it from history!
+          return DPLL_Result.UNDECIDED; // couldn't be satisfied!
+        }
         // this is a unit clause
         const lit = choice(cl);
         units = unit_propagate(lit, units);
         clauses = unit_propagate(lit, clauses);
-        this.current_asg.push(lit);
+        asg_diff.push(lit);
       }
     }
 
+    this.current_asg.push(...asg_diff);
+    this.asg_history.push(asg_diff);
+
     if (clauses.length === 0) {
-      this.cnf_stack.push({kind: "CNF", clauses: [...clauses]});
-      this.asg_stack.push([...this.current_asg]);
-      return DPLL_Result.UNDECIDED; // SATISFIED!
+      this.current_cnf = {kind: "CNF", clauses: [...clauses]};
+      this.current_asg = [...this.current_asg];
+      return DPLL_Result.SUCCESS; // SATISFIED!
     }
 
     // choose next literal
