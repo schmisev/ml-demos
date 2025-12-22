@@ -1,4 +1,5 @@
 import { rand, randint } from '$lib';
+import { DPLL } from './dpll.svelte';
 import * as PL from './resolution';
 import { vadd, vclamp, type Vec2D } from './vector';
 
@@ -24,9 +25,11 @@ export class WumpusWorld {
 	grid = $state<KnowledgeCell[][]>([]);
 	ctx = $state(new PL.LogicContext());
 
-	hero: Vec2D = $state({ x: 0, y: 0 });
-	hero_kb: PL.AndExpr = $state({ kind: 'AND', symbols: [] });
-	hero_kb_text: string = $derived(this.ctx.short_format(this.hero_kb));
+  full_kb: PL.AndExpr = $state({kind: "AND", symbols: []});
+  full_cnf: PL.CNF = $state({kind: "CNF", clauses: []});
+  solution = $derived(new DPLL(this.full_cnf, []).solve());
+
+	hero: Vec2D = $state({ x1: 0, x2: 0 });
 
   treasure_collected: boolean = $state(false);
   fell_in_hole: boolean = $state(false);
@@ -44,16 +47,6 @@ export class WumpusWorld {
   }
 
 	local_cell = $derived(this.get_cell(this.hero.x1, this.hero.x2)!);
-	local_rule = $derived(this.ctx.format(this.local_cell.rules));
-	local_state = $derived(this.ctx.format(this.local_cell.state));
-
-	local_cnf = $derived(
-		this.ctx.format(
-			this.ctx.expand_to_CNF(PL.and(this.local_cell.rules, this.hero_kb))
-		)
-	);
-
-  test_literals: string[] = $derived(this.get_adjacent_literals(this.hero.x1, this.hero.x2));
 
 	constructor(size: number) {
 		this.size = size;
@@ -125,6 +118,8 @@ export class WumpusWorld {
 
 				this.grid[x][y].rules = PL.and(...rules);
 				this.grid[x][y].state = PL.and(...state);
+
+        this.full_kb.symbols.push(...rules);
 			}
 		}
 
@@ -163,9 +158,10 @@ export class WumpusWorld {
     if (cell.Wumpus) this.died_to_wumpus = true;
     if (cell.Pit) this.fell_in_hole = true;
     if (cell.Treasure) this.treasure_collected = true;
-
-    this.hero_kb.symbols.push(...this.local_cell.state.symbols)
-    this.hero_kb = this.ctx.expand_to_AND(this.hero_kb);
+    
+    this.full_kb.symbols.push(...this.local_cell.state.symbols);
+    this.full_cnf = PL.convert_to_CNF(this.full_kb);
+    this.full_kb = PL.convert_CNF_to_AND(this.full_cnf);
   }
 
   leave() {
@@ -219,9 +215,4 @@ export class WumpusWorld {
 		if (cell === undefined) undefined;
 		return cell;
 	}
-
-  get_adjacent_literals(x: number, y: number) {
-    const names: string[] = [];
-    return names;
-  }
 }

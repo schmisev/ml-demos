@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { DPLL, DPLL_Result, split_assigment } from '$lib/dpll.svelte';
-	import { and } from '$lib/resolution';
+	import { and, convert_to_CNF } from '$lib/resolution';
 	import BooleanScheduleView from '$lib/sat/BooleanScheduleView.svelte';
 	import { SchedulingContext } from '$lib/scheduling';
 
@@ -98,8 +98,7 @@
 		...initial_schedule,
     ...chosen_add_constraint,
 	]);
-	let kb = $derived(ctx.expand_to_CNF(and(...raw_kb)));
-	let cnf = $derived(ctx.convert_to_CNF(kb));
+	let cnf = $derived(convert_to_CNF(and(...raw_kb)));
 	let dpll = $derived(new DPLL(cnf, []));
 	let split_asg = $derived(split_assigment(dpll.current_asg));
 

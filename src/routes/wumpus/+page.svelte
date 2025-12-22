@@ -1,9 +1,10 @@
 <script>
 	import { randint } from '$lib';
 	import WumpusWorldViz from '$lib/components/WumpusWorldViz.svelte';
+	import { DPLL } from '$lib/dpll.svelte';
 	import { WumpusWorld } from '$lib/wumpus.svelte';
 
-	let world = new WumpusWorld(4);
+	let world = $state(new WumpusWorld(4));
 
 	function reset() {
 		world = new WumpusWorld(randint(4, 8));
@@ -35,32 +36,31 @@
 				<div></div>
 			</div>
 		</div>
-		<div class="flex flex-row items-center">
+		<div class="flex flex-row items-center gap-2">
 			<button class="border" onclick={reset}>reset</button>
 		</div>
 		<table>
 			<tbody>
 				<tr>
-					<th>Hero KB</th><td>{world.hero_kb_text}</td>
+					<th>Local rules</th><td>{world.ctx.format(world.local_cell.rules)}</td>
 				</tr>
 				<tr>
-					<th>Local rules</th><td>{world.local_rule}</td>
-				</tr>
-				<tr>
-					<th>Current observation</th><td>{world.local_state}</td>
-				</tr>
-				<tr>
-					<th>Local hero CNF</th><td>{world.local_cnf}</td>
+					<th>Current observation</th><td>{world.ctx.format(world.local_cell.state)}</td>
 				</tr>
 			</tbody>
 		</table>
 
-		<div class="pr-2 pl-2">Test:</div>
+		<div class="flex flex-row gap-2">
+			<div class="light-border grow">
+				<h2>CNF</h2>
+				{@html world.ctx.format(world.full_cnf, ', ')}
+			</div>
+		</div>
 	</div>
 
-	<div class="flex flex-col items-center">
-    <div class="w-8/9">
-		  <WumpusWorldViz {world}></WumpusWorldViz>
-    </div>
+	<div class="flex flex-col items-center gap-2">
+		<div class="w-8/9">
+			<WumpusWorldViz {world}></WumpusWorldViz>
+		</div>
 	</div>
 </div>

@@ -2,7 +2,6 @@ import { range } from '$lib';
 import { DPLL, dpll, DPLL_Result } from './dpll.svelte';
 import {
 	and,
-	copy_expr,
 	impl,
 	LogicContext,
 	not,

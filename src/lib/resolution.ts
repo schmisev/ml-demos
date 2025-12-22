@@ -1,5 +1,5 @@
-import { to_cnf as new_to_cnf } from "./fast-cnf";
-import { to_cnf } from "./fast-cnf-2";
+import { to_cnf as new_to_cnf } from './fast-cnf';
+import { to_cnf } from './fast-cnf-2';
 
 export type NoTermLogicExpr = Literal | NotExpr | AndExpr | OrExpr | ImplExpr | BiCondExpr;
 export type LogicExpr = NoTermLogicExpr | Term;
@@ -64,121 +64,7 @@ export class LogicContext {
 		return (signed_id < 0 ? '¬' : '') + this.lookup[Math.abs(signed_id)];
 	}
 
-	convert_to_CNF(expr: LogicExpr): CNF {
-    // const as_cnf = new_to_cnf(expr);
-    // const new_clauses: Set<number>[] = [];
-    // for (const cnf_clause of as_cnf.symbols) {
-    //   const clause = new Set(cnf_clause.symbols.map(s => s.value));
-    //   if (clause_is_in_list(new_clauses, clause)) continue;
-    //   new_clauses.push(clause);
-    // }
-    // return {
-    //   kind: 'CNF',
-    //   clauses: as_cnf.symbols.map(c => new Set(c.symbols.map(s => s.value))),
-    // };
-
-    const cnf = to_cnf(expr);
-    return cnf;
-
-		// if (expr.kind === 'TERM') return this.convert_to_CNF(expr.symbol);
-
-		// const new_clauses: Set<number>[] = [];
-		// if (expr.kind !== 'AND') throw `Couldn't convert ${this.format(expr)} to CNF!`;
-
-		// for (const symbol of expr.symbols) {
-		// 	let add_clause: Set<number>;
-		// 	switch (symbol.kind) {
-		// 		case 'LITERAL':
-		// 			add_clause = new Set([symbol.value]);
-		// 			break;
-		// 		case 'OR':
-		// 			add_clause = new Set(
-		// 				symbol.symbols.map((v) => {
-		// 					if (v.kind !== 'LITERAL') throw `Disallowed!`;
-		// 					return v.value;
-		// 				})
-		// 			);
-		// 			break;
-		// 		case 'NOT':
-		// 		case 'AND':
-		// 		case 'IMPL':
-		// 		case 'BICOND':
-    //     case "TERM":
-		// 			throw `${symbol.kind} disallowed when creating CNF!`;
-		// 	}
-
-    //   if (clause_is_in_list(new_clauses, add_clause)) continue;
-		// 	new_clauses.push(add_clause);
-		// }
-
-		// return {
-		// 	kind: 'CNF',
-		// 	clauses: new_clauses
-		// };
-	}
-
-	convert_to_AND(cnf: CNF): AndExpr {
-		const expr: AndExpr = {
-			kind: 'AND',
-			symbols: []
-		};
-
-		for (const c of cnf.clauses) {
-			const or_expr: OrExpr = { kind: 'OR', symbols: [] };
-			for (const v of c.values()) {
-				or_expr.symbols.push({ kind: 'LITERAL', value: v });
-			}
-			expr.symbols.push(or_expr);
-		}
-
-		return expr;
-	}
-
-  resolution(KB: LogicExpr, alpha: LogicExpr) {
-    const cnf = this.convert_to_CNF(this.expand_dependend_exprs(term(and(KB, not(alpha)))));
-    return this.CNF_resolution(cnf);
-  }
-
-	CNF_resolution(cnf: CNF): { result: boolean; cnf: CNF } {
-		const clauses = [...cnf.clauses];
-		let new_clauses: Set<number>[] = [];
-
-		while (true) {
-			let found_new_clause = false;
-			for (let i = 0; i < clauses.length; i++) {
-				for (let j = i + 1; j < clauses.length; j++) {
-					const Ci = clauses[i];
-					const Cj = clauses[j];
-
-					const resolvents = single_resolve(Ci, Cj);
-
-					for (const res of resolvents) {
-						// the resolvent has not been here before
-						if (!clause_is_in_list(clauses, res)) {
-							found_new_clause = true;
-							new_clauses.push(res);
-						}
-
-						// we resolved to empty set
-						if (res.size === 0) {
-							clauses.push(res);
-							return { result: true, cnf: { kind: 'CNF', clauses } };
-						}
-					}
-				}
-			}
-
-			if (new_clauses.length === 0) {
-				// we have found no more new clauses
-				return { result: false, cnf: { kind: 'CNF', clauses } };
-			}
-
-			clauses.push(...new_clauses);
-			new_clauses = [];
-		}
-	}
-
-	format(expr: LogicExpr | CNF, sep=", "): string {
+	format(expr: LogicExpr | CNF, sep = ', '): string {
 		switch (expr.kind) {
 			case 'TERM':
 				return `${this.format(expr.symbol)}`;
@@ -187,10 +73,10 @@ export class LogicContext {
 			case 'NOT':
 				return `¬ ${this.format(expr.symbol)}`;
 			case 'AND':
-        if (expr.symbols.length === 1) return this.format(expr.symbols[0]);
+				if (expr.symbols.length === 1) return this.format(expr.symbols[0]);
 				return `(${expr.symbols.map((s) => this.format(s)).join(' ∧ ')})`;
 			case 'OR':
-        if (expr.symbols.length === 1) return this.format(expr.symbols[0]);
+				if (expr.symbols.length === 1) return this.format(expr.symbols[0]);
 				return `(${expr.symbols.map((s) => this.format(s)).join(' ∨ ')})`;
 			case 'IMPL':
 				return `(${this.format(expr.left)} ⇒ ${this.format(expr.right)})`;
@@ -201,91 +87,84 @@ export class LogicContext {
 		}
 	}
 
-  short_format(expr: LogicExpr | CNF): string {
-		switch (expr.kind) {
-			case 'TERM':
-				return `${this.short_format(expr.symbol)}`;
-			case 'LITERAL':
-				return `${this.resolve_name(expr.value)}`;
-			case 'NOT':
-				return `¬ ${this.short_format(expr.symbol)}`;
-			case 'AND':
-        if (expr.symbols.length === 1) return this.short_format(expr.symbols[0]);
-				return `(${expr.symbols.map((s) => this.short_format(s)).join(', ')})`;
-			case 'OR':
-        if (expr.symbols.length === 1) return this.short_format(expr.symbols[0]);
-				return `(${expr.symbols.map((s) => this.short_format(s)).join('|')})`;
-			case 'IMPL':
-				return `(${this.short_format(expr.left)} ⇒ ${this.short_format(expr.right)})`;
-			case 'BICOND':
-				return `(${this.short_format(expr.left)} ⇔ ${this.short_format(expr.right)})`;
-			case 'CNF':
-				return `[${expr.clauses.map((s) => '[' + [...s].map((v) => this.resolve_name(v)).join('|') + ']').join(', ')}]`;
-		}
-	}
-
-	format_each_expr(expr: Set<LogicExpr> | Array<LogicExpr>, sep=", ") {
+	format_each_expr(expr: Set<LogicExpr> | Array<LogicExpr>, sep = ', ') {
 		return [...expr].map((s) => this.format(s)).join(sep);
-	}
-
-	expand_again(changed: boolean, expr: LogicExpr | Term, depth: number, quiet = true) {
-		if (changed) {
-			if (!quiet) console.log('..'.repeat(depth) + this.format(expr));
-			this.expand_dependend_exprs(expr, depth);
-		}
-	}
-
-	expand_to_CNF(expr: LogicExpr): LogicExpr {
-		return this.expand_dependend_exprs(term(copy_expr(expr)));
-	}
-
-	expand_to_AND(expr: LogicExpr): AndExpr {
-		return this.convert_to_AND(this.convert_to_CNF(this.expand_to_CNF(expr)));
-	}
-
-	expand_dependend_exprs(expr: LogicExpr, depth: number = 0) {
-		switch (expr.kind) {
-			case 'LITERAL':
-				// cannot be simplified
-				break;
-			case 'AND':
-			case 'OR':
-				for (let i = 0; i < expr.symbols.length; i++) {
-					this.expand_dependend_exprs(expr.symbols[i], depth + 1);
-					const ret = expand_expr(expr.symbols[i]);
-					expr.symbols[i] = ret.expr;
-					this.expand_again(ret.changed, expr, depth);
-				}
-				break;
-			case 'IMPL':
-			case 'BICOND':
-				this.expand_dependend_exprs(expr.left, depth + 1);
-				this.expand_dependend_exprs(expr.right, depth + 1);
-
-				const ret_left = expand_expr(expr.left);
-				const ret_right = expand_expr(expr.right);
-
-				this.expand_again(ret_left.changed || ret_right.changed, expr, depth);
-				break;
-			case 'NOT':
-			case 'TERM':
-				this.expand_dependend_exprs(expr.symbol, depth + 1);
-				const ret = expand_expr(expr.symbol);
-				expr.symbol = ret.expr;
-				this.expand_again(ret.changed, expr, depth);
-				break;
-		}
-
-		return expr;
 	}
 }
 
+function resolution(KB: LogicExpr, alpha: LogicExpr) {
+	const cnf = to_cnf(term(and(KB, not(alpha))));
+	return CNF_resolution(cnf);
+}
+
+function CNF_resolution(cnf: CNF): { result: boolean; cnf: CNF } {
+	const clauses = [...cnf.clauses];
+	let new_clauses: Set<number>[] = [];
+
+	while (true) {
+		let found_new_clause = false;
+		for (let i = 0; i < clauses.length; i++) {
+			for (let j = i + 1; j < clauses.length; j++) {
+				const Ci = clauses[i];
+				const Cj = clauses[j];
+
+				const resolvents = single_resolve(Ci, Cj);
+
+				for (const res of resolvents) {
+					// the resolvent has not been here before
+					if (!clause_is_in_list(clauses, res)) {
+						found_new_clause = true;
+						new_clauses.push(res);
+					}
+
+					// we resolved to empty set
+					if (res.size === 0) {
+						clauses.push(res);
+						return { result: true, cnf: { kind: 'CNF', clauses } };
+					}
+				}
+			}
+		}
+
+		if (new_clauses.length === 0) {
+			// we have found no more new clauses
+			return { result: false, cnf: { kind: 'CNF', clauses } };
+		}
+
+		clauses.push(...new_clauses);
+		new_clauses = [];
+	}
+}
+
+export function convert_to_CNF(expr: LogicExpr): CNF {
+	const cnf = to_cnf(expr);
+	return cnf;
+}
+
+export function convert_CNF_to_AND(cnf: CNF): AndExpr {
+	const expr: AndExpr = {
+		kind: 'AND',
+		symbols: []
+	};
+
+	for (const c of cnf.clauses) {
+		const or_expr: OrExpr = { kind: 'OR', symbols: [] };
+		for (const v of c.values()) {
+			or_expr.symbols.push({ kind: 'LITERAL', value: v });
+		}
+		expr.symbols.push(or_expr);
+	}
+
+	return expr;
+}
+
+//
 export function lit(value: number): Literal {
-  return { kind: 'LITERAL', value }
+	return { kind: 'LITERAL', value };
 }
 
 export function inv_lit(l: Literal): Literal {
-  return lit(-l.value);
+	return lit(-l.value);
 }
 
 export function not(expr: LogicExpr): NotExpr {
@@ -293,12 +172,12 @@ export function not(expr: LogicExpr): NotExpr {
 }
 
 export function and(...exprs: LogicExpr[]): AndExpr {
-  // if (exprs.length === 0) throw Error('has no operands');
+	// if (exprs.length === 0) throw Error('has no operands');
 	return { kind: 'AND', symbols: exprs };
 }
 
 export function or(...exprs: LogicExpr[]): OrExpr {
-  // if (exprs.length === 0) throw Error('has no operands');
+	// if (exprs.length === 0) throw Error('has no operands');
 	return { kind: 'OR', symbols: exprs };
 }
 
@@ -315,159 +194,17 @@ export function term(expr: LogicExpr): Term {
 }
 
 // CNF
-
 export interface CNF {
 	kind: 'CNF';
 	clauses: Set<number>[];
 }
 
 export function clause(...lits: number[]) {
-  return new Set<number>(lits);
-} 
+	return new Set<number>(lits);
+}
 
 function get_sym_id(sym: Literal) {
 	return Math.abs(sym.value);
-}
-
-function expand_expr(expr: LogicExpr): { changed: boolean; expr: LogicExpr } {
-	switch (expr.kind) {
-		case 'LITERAL':
-			// can't be simplified
-			return { changed: false, expr };
-		case 'NOT': {
-			const symbol = expr.symbol;
-			switch (symbol.kind) {
-				case 'LITERAL':
-					// replace with single atomic
-					return {
-						changed: true,
-						expr: { kind: 'LITERAL', value: -symbol.value }
-					};
-				case 'NOT':
-					// directly return doubly NOTed symbol
-					return { changed: true, expr: symbol.symbol };
-				case 'AND':
-				case 'OR':
-					const new_symbols: LogicExpr[] = [];
-					for (const child_expr of symbol.symbols) {
-						new_symbols.push({ kind: 'NOT', symbol: child_expr });
-					}
-					return {
-						changed: true,
-						expr: {
-							kind: symbol.kind === 'AND' ? 'OR' : 'AND',
-							symbols: new_symbols
-						}
-					};
-				case 'IMPL':
-				case 'BICOND':
-					return { changed: false, expr }; // do nothing
-				case 'TERM':
-					// unpack term
-					expr.symbol = symbol.symbol;
-					return { changed: true, expr: { kind: 'NOT', symbol: expr } };
-			}
-		}
-		case 'AND':
-		case 'OR': {
-			// combine with included ORs
-			let changed = false;
-			const new_symbols: LogicExpr[] = [];
-			for (const child_expr of expr.symbols) {
-				if (child_expr.kind === expr.kind) {
-					changed = true;
-					new_symbols.push(...child_expr.symbols);
-				} else {
-					new_symbols.push(child_expr);
-				}
-			}
-			expr.symbols = new_symbols;
-
-			if (!changed && expr.kind === 'OR') {
-				const repl = distribute_OR_over_AND(expr);
-				return { changed: false, expr: repl };
-			}
-
-			return { changed, expr };
-		}
-		case 'IMPL': {
-			const L = expr.left;
-			const R = expr.right;
-
-			const repl: OrExpr = {
-				kind: 'OR',
-				symbols: [{ kind: 'NOT', symbol: L }, R]
-			};
-
-			return { changed: true, expr: repl };
-		}
-		case 'BICOND': {
-			// expand
-			const L = expr.left;
-			const R = expr.right;
-
-			const exp_L: ImplExpr = { kind: 'IMPL', left: L, right: R };
-			const exp_R: ImplExpr = { kind: 'IMPL', left: R, right: L };
-
-			const repl: AndExpr = {
-				kind: 'AND',
-				symbols: [exp_L, exp_R]
-			};
-
-			return { changed: true, expr: repl };
-		}
-		case 'TERM': {
-			// unpack term
-			return { changed: false, expr: expr.symbol };
-		}
-	}
-}
-
-function is_clause(expr: LogicExpr): boolean {
-	if (expr.kind !== 'OR') return false;
-	for (const child_expr of expr.symbols) {
-		if (child_expr.kind !== 'LITERAL') return false;
-	}
-	return true;
-}
-
-function distribute_OR_over_AND(expr: OrExpr) {
-	if (is_clause(expr)) return expr;
-
-	let left = wrap_in_AND(expr.symbols[0]);
-	for (let i = 1; i < expr.symbols.length; i++) {
-		const raw = expr.symbols[i];
-		const right = wrap_in_AND(raw);
-
-		const new_conj: AndExpr = {
-			kind: 'AND',
-			symbols: []
-		};
-
-		for (const l_symbol of left.symbols) {
-			for (const r_symbol of right.symbols) {
-				new_conj.symbols.push({
-					kind: 'OR',
-					symbols: [l_symbol, r_symbol]
-				});
-			}
-		}
-
-		left = new_conj;
-	}
-
-	let ret: LogicExpr;
-	if (left.symbols.length === 1) {
-		ret = left.symbols[0];
-	} else {
-		ret = left;
-	}
-	return ret;
-}
-
-function wrap_in_AND(expr: LogicExpr): AndExpr {
-	if (expr.kind === 'AND') return expr;
-	return { kind: 'AND', symbols: [expr] };
 }
 
 function are_complements(sym_1: LogicExpr, sym_2: LogicExpr) {
@@ -515,8 +252,4 @@ export function clause_is_in_list(list: Set<number>[], clause: Set<number>) {
 		if (equal_clause(cl, clause)) return true;
 	}
 	return false;
-}
-
-export function copy_expr<E extends LogicExpr>(expr: E): E {
-	return JSON.parse(JSON.stringify(expr)) as E;
 }

@@ -107,6 +107,15 @@ export class DPLL {
 
     return DPLL_Result.UNDECIDED;
   }
+
+  solve(): {result: DPLL_Result, assignment: number[]} {
+    let result = DPLL_Result.UNDECIDED;
+    while (true) {
+      result = this.step();
+      if (result !== DPLL_Result.UNDECIDED) break;
+    }
+    return { result, assignment: this.current_asg }
+  }
 }
 
 
