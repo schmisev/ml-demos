@@ -121,3 +121,7 @@ export function choice<T>(cl: Set<T>): T {
   }
   throw new Error("set empty");
 }
+
+export function equal_sets<T>(s1: Set<T>, s2: Set<T>) {
+  return s1.size === s2.size && s1.isSubsetOf(s2);
+}

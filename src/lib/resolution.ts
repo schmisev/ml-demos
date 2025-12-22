@@ -1,4 +1,5 @@
-import { to_cnf as new_to_cnf } from "./new-resolution";
+import { to_cnf as new_to_cnf } from "./fast-cnf";
+import { to_cnf } from "./fast-cnf-2";
 
 export type NoTermLogicExpr = Literal | NotExpr | AndExpr | OrExpr | ImplExpr | BiCondExpr;
 export type LogicExpr = NoTermLogicExpr | Term;
@@ -64,17 +65,21 @@ export class LogicContext {
 	}
 
 	convert_to_CNF(expr: LogicExpr): CNF {
-    const as_cnf = new_to_cnf(expr);
-    const new_clauses: Set<number>[] = [];
-    for (const cnf_clause of as_cnf.symbols) {
-      const clause = new Set(cnf_clause.symbols.map(s => s.value));
-      if (clause_is_in_list(new_clauses, clause)) continue;
-      new_clauses.push(clause);
-    }
-    return {
-      kind: 'CNF',
-      clauses: new_clauses,
-    };
+    // const as_cnf = new_to_cnf(expr);
+    // const new_clauses: Set<number>[] = [];
+    // for (const cnf_clause of as_cnf.symbols) {
+    //   const clause = new Set(cnf_clause.symbols.map(s => s.value));
+    //   if (clause_is_in_list(new_clauses, clause)) continue;
+    //   new_clauses.push(clause);
+    // }
+    // return {
+    //   kind: 'CNF',
+    //   clauses: as_cnf.symbols.map(c => new Set(c.symbols.map(s => s.value))),
+    // };
+
+    const cnf = to_cnf(expr);
+    return cnf;
+
 		// if (expr.kind === 'TERM') return this.convert_to_CNF(expr.symbol);
 
 		// const new_clauses: Set<number>[] = [];

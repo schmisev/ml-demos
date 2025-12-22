@@ -3,8 +3,6 @@
 	import { and } from '$lib/resolution';
 	import BooleanScheduleView from '$lib/sat/BooleanScheduleView.svelte';
 	import { SchedulingContext } from '$lib/scheduling';
-	import { Mermaid } from '@friendofsvelte/mermaid';
-	import { onMount } from 'svelte';
 
 	let people = $state(4);
 	let rooms = $state(2);
