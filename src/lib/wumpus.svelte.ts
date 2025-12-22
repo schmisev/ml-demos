@@ -1,6 +1,6 @@
 import { rand, randint } from '$lib';
 import { DPLL } from './dpll.svelte';
-import * as PL from './resolution';
+import { and, bicond, convert_CNF_to_AND, convert_to_CNF, impl, LogicContext, not, or, resolution, type AndExpr, type CNF, type Literal, type LogicExpr } from './resolution';
 import { vadd, vclamp, type Vec2D } from './vector';
 
 export interface WumpusCell {
@@ -14,8 +14,15 @@ export interface WumpusCell {
 
 export interface KnowledgeCell extends WumpusCell {
 	discovered: boolean;
-	rules: PL.LogicExpr;
-	state: PL.AndExpr;
+	rules: LogicExpr;
+	state: AndExpr;
+}
+
+export class WumpusContext extends LogicContext {
+  cell_var(prop: WumpusProp, x: number, y: number, negate = false) {
+    const prefix = prop[0];
+    return this.lit(`${prefix}${x}${y}`, negate);
+  }
 }
 
 export type WumpusProp = keyof WumpusCell;
@@ -23,10 +30,10 @@ export type WumpusProp = keyof WumpusCell;
 export class WumpusWorld {
 	size = $state(5);
 	grid = $state<KnowledgeCell[][]>([]);
-	ctx = $state(new PL.LogicContext());
+	ctx = $state(new WumpusContext());
 
-  full_kb: PL.AndExpr = $state({kind: "AND", symbols: []});
-  full_cnf: PL.CNF = $state({kind: "CNF", clauses: []});
+  full_kb: AndExpr = $state({kind: "AND", symbols: []});
+  full_cnf: CNF = $state({kind: "CNF", clauses: []});
   solution = $derived(new DPLL(this.full_cnf, []).solve());
 
 	hero: Vec2D = $state({ x1: 0, x2: 0 });
@@ -76,8 +83,8 @@ export class WumpusWorld {
 					Glitter: false,
 					Breeze: false,
 					Stench: false,
-					rules: PL.and(),
-					state: PL.and(),
+					rules: and(),
+					state: and(),
 					discovered: false
 				});
 			}
@@ -97,27 +104,31 @@ export class WumpusWorld {
 		}
 
 		// create KB
-
 		for (let x = 0; x < size; x++) {
 			for (let y = 0; y < size; y++) {
 				const cell = this.get_cell(x, y)!;
-				const rules: PL.LogicExpr[] = [];
-				const state: PL.LogicExpr[] = [];
+				const rules: LogicExpr[] = [];
+				const state: LogicExpr[] = [];
 
-				rules.push(this.create_adjacent_rule("B", "P", x, y)); // breezes
-        rules.push(this.create_adjacent_rule("G", "T", x, y)); // glimmers
-        rules.push(this.create_adjacent_rule("S", "W", x, y)); // stenches
+				// rules.push(this.create_adjacent_rule("Breeze", "Pit", x, y, or)); // breezes
+        // rules.push(this.create_adjacent_rule("Glitter", "Treasure", x, y, or)); // glimmers
+        // rules.push(this.create_adjacent_rule("Stench", "Wumpus", x, y, or)); // stenches
+
+        rules.push(this.create_adjacent_rule("Pit", "Breeze", x, y, and)); // breezes
+        rules.push(this.create_adjacent_rule("Treasure", "Glitter", x, y, and)); // glimmers
+        rules.push(this.create_adjacent_rule("Wumpus", "Stench", x, y, and)); // stenches
+        
 
 				// included info
-				state.push(this.ctx.lit(`B${x}${y}`, !cell.Breeze));
-				state.push(this.ctx.lit(`S${x}${y}`, !cell.Stench));
-				state.push(this.ctx.lit(`G${x}${y}`, !cell.Glitter));
-        state.push(this.ctx.lit(`P${x}${y}`, !cell.Pit));
-				state.push(this.ctx.lit(`W${x}${y}`, !cell.Wumpus));
-				state.push(this.ctx.lit(`T${x}${y}`, !cell.Treasure));
+				state.push(this.ctx.cell_var("Breeze", x, y, !cell.Breeze));
+				state.push(this.ctx.cell_var("Stench", x, y, !cell.Stench));
+				state.push(this.ctx.cell_var("Glitter", x, y, !cell.Glitter));
+        state.push(this.ctx.cell_var("Pit", x, y, !cell.Pit));
+				state.push(this.ctx.cell_var("Wumpus", x, y, !cell.Wumpus));
+				state.push(this.ctx.cell_var("Treasure", x, y, !cell.Treasure));
 
-				this.grid[x][y].rules = PL.and(...rules);
-				this.grid[x][y].state = PL.and(...state);
+				this.grid[x][y].rules = and(...rules);
+				this.grid[x][y].state = and(...state);
 
         this.full_kb.symbols.push(...rules);
 			}
@@ -139,16 +150,16 @@ export class WumpusWorld {
     this.observe();
 	}
 
-  create_adjacent_rule(origin_prefix: string, target_prefix: string, x: number, y: number) {
-      const X = this.ctx.lit(`${origin_prefix}${x}${y}`);
-			const adj: PL.Literal[] = [];
+  create_adjacent_rule(prop: WumpusProp, target_prop: WumpusProp, x: number, y: number, adj_op: typeof and | typeof or) {
+      const X = this.ctx.cell_var(prop, x, y);
+			const adj: Literal[] = [];
 
-      if (x > 0) adj.push(this.ctx.lit(`${target_prefix}${x - 1}${y}`));
-      if (x < this.size - 1) adj.push(this.ctx.lit(`${target_prefix}${x + 1}${y}`));
-      if (y > 0) adj.push(this.ctx.lit(`${target_prefix}${x}${y - 1}`));
-      if (y < this.size - 1) adj.push(this.ctx.lit(`${target_prefix}${x}${y + 1}`));
+      if (x > 0) adj.push(this.ctx.cell_var(target_prop, x-1, y));
+      if (x < this.size - 1) adj.push(this.ctx.cell_var(target_prop, x+1, y));
+      if (y > 0) adj.push(this.ctx.cell_var(target_prop, x, y-1));
+      if (y < this.size - 1) adj.push(this.ctx.cell_var(target_prop, x, y+1));
 
-      return PL.bicond(X, PL.or(...adj))
+      return impl(X, adj_op(...adj))
   }
 
   observe() {
@@ -160,8 +171,8 @@ export class WumpusWorld {
     if (cell.Treasure) this.treasure_collected = true;
     
     this.full_kb.symbols.push(...this.local_cell.state.symbols);
-    this.full_cnf = PL.convert_to_CNF(this.full_kb);
-    this.full_kb = PL.convert_CNF_to_AND(this.full_cnf);
+    this.full_cnf = convert_to_CNF(this.full_kb);
+    this.full_kb = convert_CNF_to_AND(this.full_cnf);
   }
 
   leave() {
@@ -215,4 +226,9 @@ export class WumpusWorld {
 		if (cell === undefined) undefined;
 		return cell;
 	}
+
+  ask(query: Literal): { result: boolean; cnf: CNF; } {
+    const res = resolution(this.full_kb, query);
+    return res;
+  }
 }

@@ -17,23 +17,22 @@
 		world: WumpusWorld;
 	} = $props();
 
-  let assignment = $derived(world.solution.assignment);
+	let assignment = $derived(world.solution.assignment);
 
-  let asg_grid = $derived.by(() => {
-    let asg_grid: Record<string, string[]> = {};
-    
-    for (const a of assignment) {
-      const full_name = world.ctx.resolve_name(a);
-      const name = world.ctx.resolve_name(Math.abs(a));
-      const location = name.slice(1);
+	let asg_grid = $derived.by(() => {
+		let asg_grid: Record<string, string[]> = {};
 
-      if (asg_grid[location] === undefined) asg_grid[location] = [];
-      asg_grid[location].push(full_name);
-    }
-    
-    return asg_grid;
-  })
+		for (const a of assignment) {
+			const full_name = world.ctx.resolve_name(a);
+			const name = world.ctx.resolve_name(Math.abs(a));
+			const location = name.slice(1);
 
+			if (asg_grid[location] === undefined) asg_grid[location] = [];
+			asg_grid[location].push(full_name);
+		}
+
+		return asg_grid;
+	});
 </script>
 
 <div
@@ -89,8 +88,12 @@
 						{/if}
 					{/if}
 				{:else}
-					<div class="h-full w-full blur-md bg-gray-800"></div>
-          <!--div class="absolute text-white p-2 text-center">{asg_grid[""+x+y]?.join(", ") || ""}</div-->
+					<div class="h-full w-full bg-gray-800 blur-md"></div>
+					<div class="absolute font-bold text-white w-full">
+						<svg class="w-full" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+              <text x="100" y="100" text-anchor="middle" fill="white" alignment-baseline="central" font-size="50" class="font-bold">{x}{y}</text>
+						</svg>
+					</div>
 				{/if}
 			</div>
 		{/each}

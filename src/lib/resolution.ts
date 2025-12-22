@@ -92,12 +92,12 @@ export class LogicContext {
 	}
 }
 
-function resolution(KB: LogicExpr, alpha: LogicExpr) {
-	const cnf = to_cnf(term(and(KB, not(alpha))));
+export function resolution(KB: LogicExpr, alpha: LogicExpr) {
+	const cnf = to_cnf(and(KB, not(alpha)));
 	return CNF_resolution(cnf);
 }
 
-function CNF_resolution(cnf: CNF): { result: boolean; cnf: CNF } {
+export function CNF_resolution(cnf: CNF): { result: boolean; cnf: CNF } {
 	const clauses = [...cnf.clauses];
 	let new_clauses: Set<number>[] = [];
 
