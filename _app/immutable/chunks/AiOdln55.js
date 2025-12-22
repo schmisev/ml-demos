@@ -1,0 +1,1 @@
+import{g as t}from"./CRvhw1ZA.js";function i(o,r,n){return o**r*(1-o)**n}function s(o,r,n){return t(r+n)/(t(r)*t(n))*i(o,r-1,n-1)}function m(o,r,n){return n**r/t(r)*o**(r-1)*Math.E**(-n*o)}export{s as a,i as b,m as g};
