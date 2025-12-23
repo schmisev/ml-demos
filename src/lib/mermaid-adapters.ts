@@ -1,5 +1,5 @@
 import type { DPLL } from "./dpll.svelte";
-import type { LogicContext } from "./resolution";
+import type { LogicContext } from "./prop-logic";
 
 type MermaidDirection = "TD" | "LR" | "RL";
 type MermaidGraphType = "flowchart";

@@ -22,7 +22,7 @@ export function format_ast(node: FOL_Node): string {
     case NodeType.VARIABLE:
       return `${node.name}`;
     case NodeType.SIMPLE_PREDICATE:
-      return `_${node.name}_`;
+      return `[${node.name}]`;
   }
 }
 

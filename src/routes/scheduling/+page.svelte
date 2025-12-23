@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { DPLL, DPLL_Result, split_assigment } from '$lib/dpll.svelte';
-	import { and, convert_to_CNF } from '$lib/resolution';
+	import { and, convert_to_CNF } from '$lib/prop-logic';
 	import BooleanScheduleView from '$lib/sat/BooleanScheduleView.svelte';
 	import { SchedulingContext } from '$lib/scheduling';
 

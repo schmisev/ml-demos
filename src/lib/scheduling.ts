@@ -10,7 +10,7 @@ import {
 	type CNF,
 	type Literal,
 	type LogicExpr
-} from './resolution';
+} from './prop-logic';
 
 export class SchedulingContext extends LogicContext {
 	people: number;
@@ -58,26 +58,6 @@ export class SchedulingContext extends LogicContext {
 
 		return kb;
 	}
-
-  at_most_one_of(variables: string[]): LogicExpr[] {
-    let clauses: LogicExpr[] = [];
-    for (const v of variables) {
-      let implied: Literal[] = [];
-      for (const w of variables) {
-        if (v === w) continue;
-        implied.push(this.lit(w, true));
-      }
-      if (implied.length == 0) continue;
-      clauses.push(impl(this.lit(v), and(...implied)));
-    }
-    return clauses;
-  }
-
-  one_of(variables: string[]): LogicExpr[] {
-    let clauses: LogicExpr[] = this.at_most_one_of(variables);
-    clauses.push(or(...variables.map(v => this.lit(v))));
-    return clauses;
-  }
 
   single_visit_constraint(): LogicExpr[] {
     const kb: LogicExpr[] = [];

@@ -195,5 +195,3 @@ export function tokenize(src: string): Token[] {
 
   return tokens;
 }
-
-

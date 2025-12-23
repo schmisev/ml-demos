@@ -1,4 +1,4 @@
-import { clause, type CNF } from './resolution';
+import { type CNF, type Literal, type LogicExpr } from './prop-logic';
 import { choice } from '$lib';
 
 export enum DPLL_Result {
@@ -118,44 +118,11 @@ export class DPLL {
   }
 }
 
-
-/**
- * Recursive implementaion of DPLL
- * @param cnf 
- * @param asg 
- * @returns 
- */
-export function dpll(cnf: CNF, asg: number[]): { result: boolean; asg: number[] } {
-	let clauses = [...cnf.clauses];
-
-	unit_check: while (true) {
-		for (const cl of clauses) {
-			if (cl.size == 1) {
-				// this is a unit clause
-				const lit = [...cl][0];
-				clauses = unit_propagate(lit, clauses);
-				asg.push(lit);
-				continue unit_check;
-			}
-			if (cl.size == 0) return { result: false, asg }; // can't be satisfied!
-		}
-		break;
-	}
-
-	if (clauses.length === 0) return { result: true, asg }; // SATISFIED!
-
-	// choose next literal
-	let next_literal: number = unit_choose_literal(clauses);
-
-	// short circuiting
-	const first_try = dpll({ kind: 'CNF', clauses: [clause(next_literal), ...clauses] }, [...asg]);
-	if (first_try.result) return first_try;
-
-	const second_try = dpll({ kind: 'CNF', clauses: [clause(-next_literal), ...clauses] }, [...asg]);
-	return second_try;
+function clause(...lits: number[]) {
+	return new Set<number>(lits);
 }
 
-export function unit_choose_literal(clauses: Set<number>[]) {
+function unit_choose_literal(clauses: Set<number>[]) {
 	for (const cl of clauses) {
 		for (const lit of cl) {
 			return lit;
@@ -164,7 +131,7 @@ export function unit_choose_literal(clauses: Set<number>[]) {
 	return 0;
 }
 
-export function unit_propagate(unit: number, clauses: Set<number>[]) {
+function unit_propagate(unit: number, clauses: Set<number>[]) {
 	const new_clauses: Set<number>[] = [];
 
 	for (const cl of clauses) {
@@ -184,7 +151,6 @@ export function unit_propagate(unit: number, clauses: Set<number>[]) {
 	return new_clauses;
 }
 
-
 export function split_assigment(asg: number[]): {pos_asg: number[], neg_asg: number[]} {
   const res = {
     pos_asg: new Array<number>(),
@@ -196,4 +162,16 @@ export function split_assigment(asg: number[]): {pos_asg: number[], neg_asg: num
   }
 
   return res;
+}
+
+export function dpll(init_cnf: CNF, init_asg: number[]): { result: DPLL_Result; assignment: number[]; } {
+  return new DPLL(init_cnf, init_asg).solve()
+}
+
+export function dpll_resolution(cnf: CNF): { result: boolean, cnf: CNF } {
+  const res = dpll(cnf, []);
+  // if we cannot find an assignment
+  // the cnf is not satisfiable
+  // meaning that alpha has to be true
+  return { result: (res.result === DPLL_Result.FAILURE), cnf }
 }

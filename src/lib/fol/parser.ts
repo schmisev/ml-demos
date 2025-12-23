@@ -107,7 +107,7 @@ export interface UnaryOp {
 	right: Term;
 }
 
-function parse(src: string): Sequence {
+export function parse(src: string): Sequence {
   const tokens = tokenize(src);
 
 	function at(): Token {
@@ -469,8 +469,3 @@ function parse(src: string): Sequence {
   print_ast(seq);
 	return seq;
 }
-
-// // testing
-// const src = `forall x exists t person(x) => time(t) and can_fool(x, t)`;
-
-// parse(src);

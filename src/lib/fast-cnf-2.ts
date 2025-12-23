@@ -1,5 +1,5 @@
 import { equal_sets } from "$lib";
-import { impl, not, or, type CNF, type Literal, type LogicExpr, type NoTermLogicExpr } from "./resolution";
+import { impl, not, or, type CNF, type Literal, type LogicExpr, type NoTermLogicExpr } from "./prop-logic";
 
 enum NF_Kind {
   CNF = 1,

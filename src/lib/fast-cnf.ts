@@ -9,7 +9,7 @@ import {
 	lit,
 	or,
 	inv_lit
-} from './resolution';
+} from './prop-logic';
 
 interface DisjunctiveExpr extends OrExpr {
 	symbols: Literal[];
