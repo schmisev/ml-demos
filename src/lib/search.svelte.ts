@@ -1,6 +1,6 @@
 import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 import type { GraphLink, GraphNode } from './network';
-import { geo_distance, link_weight, no_weight, straight_line_minutes, uniform_heuristic, type SearchHeuristic, type SearchWeight } from './search-heuristics';
+import { euclidian_distance, geo_distance, link_weight, no_weight, straight_line_minutes, uniform_heuristic, type SearchHeuristic, type SearchWeight } from './search-heuristics';
 
 export enum SearchResult {
 	FAILURE,
@@ -375,4 +375,8 @@ export class AStarSearch extends BestFirstSearch {
 
 export class AStarSearchStraightLineMinutes extends BestFirstSearch {
   heuristic: SearchHeuristic = straight_line_minutes;
+}
+
+export class AStarEuclidianDistance extends BestFirstSearch {
+  heuristic: SearchHeuristic = euclidian_distance;
 }

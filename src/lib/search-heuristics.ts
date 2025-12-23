@@ -28,6 +28,16 @@ export function geo_distance(a: NetworkNode, b: NetworkNode) {
   return R * C / 1000;
 }
 
+export function euclidian_distance(a: NetworkNode, b: NetworkNode) {
+  // no heuristic applicable
+  if (!a.meta || !a.meta.cartesian || !b.meta || !b.meta.cartesian) return 0;
+
+  const {x: x1, y: y1} = a.meta.cartesian;
+  const {x: x2, y: y2} = b.meta.cartesian;
+
+  return Math.sqrt((x1-x2)**2 + (y1-y2)**2);
+}
+
 export function straight_line_minutes(a: NetworkNode, b: NetworkNode) {
   if (!a.meta || !a.meta.max_vel || !b.meta || !b.meta.max_vel) return 0;
   return 60 * 2 * geo_distance(a, b) / (a.meta.max_vel + b.meta.max_vel); // 60 * km / (km / h) = min

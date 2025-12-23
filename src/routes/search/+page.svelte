@@ -3,6 +3,7 @@
 	import {
 	NETWORK_COLLATZ,
 	NETWORK_GERMANY,
+		NETWORK_GRID,
 		NETWORK_LEFT_HEAVY,
 		NETWORK_MUNICH,
 		NETWORK_ROMANIA,
@@ -16,6 +17,7 @@
 
 	} from '$lib/network';
 	import {
+	AStarEuclidianDistance,
 		AStarSearch,
 		AStarSearchStraightLineMinutes,
 		BestFirstGreedySearch,
@@ -383,11 +385,16 @@
 				}}>Random autostep</button
 			>
       <select bind:value={chosen_dataset} onchange={(ev) => {load_data(chosen_dataset); random_restart()}}>
-        <option value={NETWORK_LEFT_HEAVY}>binary tree</option>
-        <option value={NETWORK_COLLATZ}>Collatz graph</option>
-        <option value={NETWORK_ROMANIA}>Romania</option>
-        <option value={NETWORK_GERMANY}>Germany</option>
-        <option value={NETWORK_MUNICH}>Munich</option>
+        <optgroup label="Abstract graphs">
+          <option value={NETWORK_LEFT_HEAVY}>binary tree</option>
+          <option value={NETWORK_GRID}>Torn grid</option>
+          <option value={NETWORK_COLLATZ}>Collatz graph</option>
+        </optgroup>
+        <optgroup label="Geographic graphs">
+          <option value={NETWORK_ROMANIA}>Romania</option>
+          <option value={NETWORK_GERMANY}>Germany</option>
+          <option value={NETWORK_MUNICH}>Munich</option>
+        </optgroup>
       </select>
       <label>show undiscovered <input type="checkbox" bind:checked={show_undiscovered}></label>
 		</div>
@@ -414,6 +421,7 @@
           <option value={BestFirstGreedySearch}>greedy best first</option>
 					<option value={AStarSearch}>A* geo distance</option>
           <option value={AStarSearchStraightLineMinutes}>A* straight line minutes</option>
+          <option value={AStarEuclidianDistance}>A* euclidian distance</option>
 				</optgroup>
 				<optgroup label="Depth first">
 					<option value={DepthFirstSearch}>naive depth first</option>

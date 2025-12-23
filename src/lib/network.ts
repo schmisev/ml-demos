@@ -1,4 +1,5 @@
-import { get_entries, get_values, is_in } from "$lib";
+import { get_entries, get_values, is_in, rand } from "$lib";
+import type { SearchHeuristic } from "./search-heuristics";
 import type { Vec2D } from "./vector";
 
 export type NetworkNode = { id: number; name: string; meta?: MetaInfo };
@@ -14,6 +15,7 @@ export type Network2DNode = {
 
 export type MetaInfo = {
 	coord?: { lon: number; lat: number };
+  cartesian?: { x: number; y: number };
   max_vel?: number;
   value?: number;
 };
@@ -310,7 +312,7 @@ export const NETWORK_LEFT_HEAVY: NetworkData = (() => {
 
 export const NETWORK_COLLATZ: NetworkData = (() => {
 	const network: NetworkData = {
-		physics: { ...STANDARD_PHYSICS, spring_stiffness: 200, node_charge: 2000},
+		physics: { ...STANDARD_PHYSICS, spring_stiffness: 200, node_charge: 2000, zoom: 0.1},
 		nodes: {},
 		links: []
 	};
@@ -328,15 +330,14 @@ export const NETWORK_COLLATZ: NetworkData = (() => {
     if (v1 < 1000) {
       if (!created_numbers.has(v1)) stack.push(v1);
       created_numbers.add(v1);
-      network.links.push({id: link_id++, source: current, target: v1, weight: 1});
+      network.links.push({id: link_id++, source: current, target: v1, weight: Math.round(Math.abs(current-v1))});
     }
 
     const v2 = (current - 1) / 3;
     if (Number.isInteger(v2) && v2 > 0 && v2 % 2 == 1) {
       if (!created_numbers.has(v2)) stack.push(v2);
       created_numbers.add(v2);
-      console.log(v2);
-      network.links.push({id: link_id++, source: current, target: v2, weight: 1});
+      network.links.push({id: link_id++, source: current, target: v2, weight: Math.round(Math.abs(current-v2))});
     }
   }
 
@@ -348,3 +349,28 @@ export const NETWORK_COLLATZ: NetworkData = (() => {
 	return network;
 })();
 
+export const NETWORK_GRID: NetworkData = (() => {
+  const network: NetworkData = {
+    physics: { ...STANDARD_PHYSICS, spring_stiffness: 200, node_charge: 1000 },
+    nodes: {},
+    links: [],
+  }
+
+  const W = 7;
+  const H = 7;
+  const F = 70;
+  let link_id = 0;
+
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      const id = y * W + x;
+      const name = `(${x},${y})`;
+      network.nodes[id] = {id, name, meta: { cartesian: { x: x*F, y: y*F } }};
+
+      if (x < W-1 && rand(0, 1) < 0.9) network.links.push({id: link_id++, source: id, target: id + 1, weight: F});
+      if (y < H-1 && rand(0, 1) < 0.9) network.links.push({id: link_id++, source: id, target: id + W, weight: F});
+    }
+  }
+
+  return network;
+})();
