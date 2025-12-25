@@ -23,4 +23,9 @@
   <h2>Logical agents</h2>
   <h3><a href="{resolve(`/wumpus`)}">Wumpus-World</a> (WIP)</h3>
   <h3><a href="{resolve(`/scheduling`)}">Scheduling via resolution</a></h3>
+
+  <hr>
+
+  <h2>Utilities</h2>
+  <h3><a href="{resolve(`/utils/graphing`)}">Graph drawing</a></h3>
 </div>
