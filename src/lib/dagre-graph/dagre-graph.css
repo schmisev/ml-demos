@@ -1,0 +1,58 @@
+.hui {
+	&.node {
+    background-color: whitesmoke;
+    border: 2px solid;
+    border-color: oklch(0% 0 0 / 0.3);
+    padding: 0.2rem 0.5rem 0.2rem 0.5rem;
+    border-radius: 0.5rem;
+
+    /* node shape */
+    &.rect {
+			border-radius: 0;
+    }
+
+    &.ellipse {
+      border-radius: 100%;
+      padding: 0.5rem 1rem 0.5rem 1rem;
+    }
+
+    &.pill {
+      border-radius: calc(infinity * 1px);
+      padding: 0.2rem 1rem 0.2rem 1rem;
+    }
+
+    /* coloring */
+		&.negative {
+			background-color: lightcoral;
+		}
+
+		&.positive {
+			background-color: lightgreen;
+		}
+
+		&.inactive {
+			background-color: lightgray;
+		}
+
+		&.special {
+			background-color: lightblue;
+		}
+
+		&.special-2 {
+			background-color: plum;
+		}
+
+    /* border style */
+    &.dotted {
+      border-style: dotted;
+    }
+
+    &.dashed {
+      border-style: dashed;
+    }
+
+    &.no-border {
+      border-style: hidden;
+    }
+	}
+}

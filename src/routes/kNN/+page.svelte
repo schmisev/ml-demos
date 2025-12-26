@@ -1,10 +1,13 @@
 <script lang="ts">
 	import { euclid, rand } from '$lib';
+	import type { EdgeDef, NodeDef } from '$lib/dagre-graph/dagre-graph';
+	import DagreGraph from '$lib/dagre-graph/DagreGraph.svelte';
 	import { type Sample, type Category, generateNewCategories, generateNewData } from '$lib/data';
 	import {
 		build_DT,
 		DT_inference,
 		entropy_impurity,
+		format_DT_for_dagre,
 		gini_impurity,
 		misclassification_impurity,
 		prune_tree,
@@ -14,7 +17,6 @@
 		type DT_Heuristic,
 		type DT_Node
 	} from '$lib/dt';
-	import { render_DT } from '$lib/dt_mermaid';
 	import {
 		inv_weight,
 		kNN_inference,
@@ -48,9 +50,15 @@
 	let test_data: Sample[] = [];
 	let categories: Category[] = [];
 	let decision_tree: DT_Node | undefined = $state<DT_Node>();
-	let diagram_svg: string = $state('');
-	let pruned_diagram_svg: string = $state('');
-	let chosen_inference: 'kNN' | 'DT' = $state('kNN');
+	// let diagram_svg: string = $state('');
+	// let pruned_diagram_svg: string = $state('');
+  let pruned_edge_defs: EdgeDef[] = $state([]);
+  let pruned_node_defs: NodeDef[] = $state([]);
+  let edge_defs: EdgeDef[] = $state([]);
+  let node_defs: NodeDef[] = $state([]);
+  
+
+	let chosen_inference: 'kNN' | 'DT' = $state('DT');
 	let chosen_impurity_measure: DT_Heuristic = $state(misclassification_impurity);
 	let impurity_threshold = $state(0.1);
 	let allow_same_category_split = $state(false);
@@ -132,6 +140,8 @@
 
 	function renderTrees() {
 		if (!decision_tree) return;
+
+    /*
 		render_DT('diagram', decision_tree, category_colors, false).then((v) => {
 			diagram_svg = v;
 			// console.log(v);
@@ -141,6 +151,10 @@
 			pruned_diagram_svg = v;
 			// console.log(v);
 		});
+    */
+
+    ({edge_defs, node_defs} = format_DT_for_dagre(decision_tree, category_colors, false));
+    ({edge_defs: pruned_edge_defs, node_defs: pruned_node_defs} = format_DT_for_dagre(decision_tree, category_colors, true));
 	}
 
 	function update() {
@@ -323,16 +337,18 @@
 
 	<div class="flex flex-row gap-5 p-2">
 		<canvas class="h-120 w-120 border" bind:this={cvs}> </canvas>
+    <div class="grow grid grid-cols-2">
 		{#if decision_tree && chosen_inference === 'DT'}
 			<div class="flex max-h-120 flex-col items-center">
 				<div><h1>DT</h1></div>
-				{@html diagram_svg}
+        <DagreGraph {edge_defs} {node_defs}></DagreGraph>
 			</div>
 			<div class="flex max-h-120 flex-col items-center">
 				<div><h1>DT pruned</h1></div>
-				{@html pruned_diagram_svg}
+        <DagreGraph edge_defs={pruned_edge_defs} node_defs={pruned_node_defs}></DagreGraph>
 			</div>
 		{/if}
+    </div>
 	</div>
 
 	<hr />

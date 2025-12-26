@@ -2,6 +2,8 @@
 	import * as ag from '$lib/autograd';
 	import GradDescentView from '$lib/components/GradDescentView.svelte';
 	import VectorView from '$lib/components/VectorView.svelte';
+	import type { EdgeDef, NodeDef } from '$lib/dagre-graph/dagre-graph';
+	import DagreGraph from '$lib/dagre-graph/DagreGraph.svelte';
 	import {
 		AdamGradientDescender,
 		Descender,
@@ -65,9 +67,12 @@
 	let obj_fn: ObjectiveFunction = $derived(chosen_autograd.get_bound_fn2d());
 	let obj_grad: ObjectiveGradient = $derived(chosen_autograd.get_bound_grad2d());
   let graph_str: string = $state("");
+  let node_defs: NodeDef[] = $state([]);
+  let edge_defs: EdgeDef[] = $state([]);
 
   function update_graph() {
     graph_str = chosen_autograd.format_graph_for_mermaid();
+    ({node_defs, edge_defs} = chosen_autograd.format_graph_for_dagre());
   }
 
 	let descenter = $derived(
@@ -234,5 +239,5 @@
 		</div>
 	</div>
 
-  <Mermaid string={graph_str} config={{fontFamily: "Consolas, monospace"}}></Mermaid>
+  <DagreGraph rankdir="LR" {node_defs} {edge_defs}></DagreGraph>
 </div>

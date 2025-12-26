@@ -1,12 +1,13 @@
 import { rand, randint } from '$lib';
+import type { EdgeDef, NodeDef } from './dagre-graph/dagre-graph';
 import type { Sample } from './data';
 import { test_inference, type InferenceResult } from './ml';
 
 type Feature = keyof Sample;
 export type ComputedFeature = {
-  signature: string;
-  fn: (sample: Sample) => number;
-}
+	signature: string;
+	fn: (sample: Sample) => number;
+};
 
 export type DT_Node = DT_Decision | DT_Choice;
 
@@ -41,16 +42,16 @@ const DUMMY_DECISION: DT_Decision = {
 	id: -2,
 	kind: 'decision',
 	fallback_choice: DUMMY_CHOICE,
-	feature: {signature: "?", fn: (sample) => 0},
+	feature: { signature: '?', fn: (sample) => 0 },
 	value: 0,
 	left: DUMMY_CHOICE,
 	right: DUMMY_CHOICE
 };
 
 export enum SplitMode {
-  DISCRETIZE,
-  ON_DATA,
-  RANDOM,
+	DISCRETIZE,
+	ON_DATA,
+	RANDOM
 }
 
 export function build_DT(
@@ -59,11 +60,11 @@ export function build_DT(
 	data: Sample[],
 	heuristic: DT_Heuristic,
 	heuristic_threshold: number,
-  allow_same_category_split: boolean,
-  feature_candidates: ComputedFeature[],
-  split_mode: SplitMode,
-  grid_interval: number,
-  rng_search_depth: number
+	allow_same_category_split: boolean,
+	feature_candidates: ComputedFeature[],
+	split_mode: SplitMode,
+	grid_interval: number,
+	rng_search_depth: number
 ): DT_Node {
 	let id = 0;
 	function generate_id() {
@@ -87,11 +88,11 @@ export function build_DT(
 		init_heuristic.heuristic,
 		heuristic_threshold,
 		generate_id,
-    allow_same_category_split,
-    feature_candidates,
-    split_mode,
-    grid_interval,
-    rng_search_depth,
+		allow_same_category_split,
+		feature_candidates,
+		split_mode,
+		grid_interval,
+		rng_search_depth
 	);
 }
 
@@ -106,10 +107,10 @@ export function grow_DT(
 	heuristic_threshold: number,
 	generate_id: () => number,
 	allow_same_category_split: boolean,
-  feature_candidates: ComputedFeature[],
-  split_mode: SplitMode,
-  grid_interval: number,
-  rng_search_depth: number,
+	feature_candidates: ComputedFeature[],
+	split_mode: SplitMode,
+	grid_interval: number,
+	rng_search_depth: number
 ): DT_Node {
 	// console.log(`depth: ${depth} of ${max_depth}`);
 	if (
@@ -121,56 +122,56 @@ export function grow_DT(
 
 	let candidate_result: ReturnType<typeof split_with_heuristic>;
 
-  const collect_candidate = (feature: ComputedFeature, sample: Sample) => {
-    // console.log(`Try split ${feature}: ${sample[feature]}`);
-    const result = split_with_heuristic(
-      n_categories,
-      feature,
-      feature.fn(sample),
-      data,
-      prev_heuristic,
-      heuristic
-    );
+	const collect_candidate = (feature: ComputedFeature, sample: Sample) => {
+		// console.log(`Try split ${feature}: ${sample[feature]}`);
+		const result = split_with_heuristic(
+			n_categories,
+			feature,
+			feature.fn(sample),
+			data,
+			prev_heuristic,
+			heuristic
+		);
 
-    if (
-      (allow_same_category_split || result.left_category !== result.right_category) && // should actually categorize!)
-      (!candidate_result || // if there is no result yet
-        result.delta_heuristic > candidate_result.delta_heuristic) // should be a better split than before
-    ) {
-      candidate_result = result;
-    }
-  }
+		if (
+			(allow_same_category_split || result.left_category !== result.right_category) && // should actually categorize!)
+			(!candidate_result || // if there is no result yet
+				result.delta_heuristic > candidate_result.delta_heuristic) // should be a better split than before
+		) {
+			candidate_result = result;
+		}
+	};
 
 	// collect candidate results and store them
 	// if they improve on previous result
-  switch (split_mode) {
-    case SplitMode.DISCRETIZE: {
-      for (let x = 0; x <= 1; x += grid_interval) {
-        for (let y = 0; y <= 1; y += grid_interval) {
-          for (let feature of feature_candidates) {
-            collect_candidate(feature, {category: -1, x, y});
-          }
-        }
-      }
-    }
-    case SplitMode.ON_DATA: {
-      for (const sample of data) {
-        for (let feature of feature_candidates) {
-          collect_candidate(feature, sample);
-        }
-      }
-    }
-    case SplitMode.RANDOM: {
-      for (let i = 0; i < rng_search_depth; i++) {
-        const feature = feature_candidates[randint(0, feature_candidates.length)];
-        const sample: Sample = {category: -1, x: rand(0, 1), y: rand(0, 1)}
-        collect_candidate(feature, sample);
-      }
-    }
-  }
+	switch (split_mode) {
+		case SplitMode.DISCRETIZE: {
+			for (let x = 0; x <= 1; x += grid_interval) {
+				for (let y = 0; y <= 1; y += grid_interval) {
+					for (let feature of feature_candidates) {
+						collect_candidate(feature, { category: -1, x, y });
+					}
+				}
+			}
+		}
+		case SplitMode.ON_DATA: {
+			for (const sample of data) {
+				for (let feature of feature_candidates) {
+					collect_candidate(feature, sample);
+				}
+			}
+		}
+		case SplitMode.RANDOM: {
+			for (let i = 0; i < rng_search_depth; i++) {
+				const feature = feature_candidates[randint(0, feature_candidates.length)];
+				const sample: Sample = { category: -1, x: rand(0, 1), y: rand(0, 1) };
+				collect_candidate(feature, sample);
+			}
+		}
+	}
 
 	// create a new split if candidate result meets heuristic threshold
-  // @ts-ignore this is fine, WE WILL FIND AT LEAST ONE RESULT!
+	// @ts-ignore this is fine, WE WILL FIND AT LEAST ONE RESULT!
 	if (candidate_result && candidate_result.delta_heuristic > heuristic_threshold) {
 		// we are splitting here!
 		const new_dec: DT_Decision = {
@@ -195,11 +196,11 @@ export function grow_DT(
 				candidate_result.left_heuristic,
 				heuristic_threshold,
 				generate_id,
-        allow_same_category_split,
-        feature_candidates,
-        split_mode,
-        grid_interval,
-        rng_search_depth
+				allow_same_category_split,
+				feature_candidates,
+				split_mode,
+				grid_interval,
+				rng_search_depth
 			),
 			right: grow_DT(
 				max_depth,
@@ -217,11 +218,11 @@ export function grow_DT(
 				candidate_result.right_heuristic,
 				heuristic_threshold,
 				generate_id,
-        allow_same_category_split,
-        feature_candidates,
-        split_mode,
-        grid_interval,
-        rng_search_depth
+				allow_same_category_split,
+				feature_candidates,
+				split_mode,
+				grid_interval,
+				rng_search_depth
 			)
 		};
 		return new_dec;
@@ -396,7 +397,7 @@ export const step_impurity: DT_Heuristic = (n_categories: number, data: Sample[]
 	let step = 0;
 	for (const [c, count] of result.categories.entries()) {
 		const pi = count / result.n_data;
-		const add = (pi < 0.8) ? 1 : 0;
+		const add = pi < 0.8 ? 1 : 0;
 		step += add;
 	}
 
@@ -450,4 +451,68 @@ export function prune_tree(sub_tree: DT_Node, n_categories: number, validation_d
 			console.log(`Pruned at: ${candidate.id}`);
 		}
 	}
+}
+
+export function format_DT_for_dagre(
+	root: DT_Node,
+	colors: [string, string][],
+	pruned: boolean,
+	show_id = true
+): { node_defs: NodeDef[]; edge_defs: EdgeDef[] } {
+	let id = 0;
+
+	function id_provider() {
+		return `n${id++}`;
+	}
+
+	const node_defs: NodeDef[] = [];
+	const edge_defs: EdgeDef[] = [];
+
+  const shiny_shadow =
+			'box-shadow: 2px 2px 2px rgba(0, 0, 0, 0.2), 2px 2px 2px inset rgba(255, 255, 255, 0.4);';
+
+	function add_DT_Node(node: DT_Node) {
+		const node_id = id_provider();
+		switch (node.kind) {
+			case 'decision': {
+				if (node.severed && pruned) {
+					node_defs.push({
+						name: node_id,
+						label: `${node.fallback_choice.chosen_category} ✂️`,
+            cls: ['border-2', 'rounded-md', 'overflow-clip', 'pl-2', 'pr-2'],
+						style: `background-color: ${colors[node.fallback_choice.chosen_category][1]}; ${shiny_shadow}`
+					});
+					return node_id;
+				}
+				node_defs.push({
+					name: node_id,
+					label: `${node.feature.signature} < ${node.value.toFixed(3)}`,
+					cls: ['border-2', 'rounded-full', 'overflow-clip', 'p-1', 'pl-3', 'pr-3'],
+          style: shiny_shadow
+				});
+				edge_defs.push({ from: node_id, to: add_DT_Node(node.left), label: 'true' });
+				edge_defs.push({ from: node_id, to: add_DT_Node(node.right), label: 'false' });
+				return node_id;
+			}
+			case 'choice': {
+        console.log(colors[node.chosen_category]);
+				node_defs.push({
+					name: node_id,
+					label: `${node.chosen_category}`,
+          cls: ['border-2', 'rounded-md', 'overflow-clip', 'pl-2', 'pr-2'],
+					style: `background-color: ${colors[node.chosen_category][1]}; ${shiny_shadow}`
+				});
+				return node_id;
+			}
+		}
+	}
+
+  add_DT_Node(root);
+
+  node_defs.push({name: "start", label: "START"});
+  edge_defs.push({from: "start", to: "n0", label: ""})
+
+  console.log(node_defs);
+
+	return { node_defs, edge_defs };
 }
