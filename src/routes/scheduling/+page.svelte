@@ -135,6 +135,10 @@
 	}
 </script>
 
+<head>
+  <title>Scheduling via DPLL</title>
+</head>
+
 <div class="flex flex-col gap-2 p-2">
 	<div class="flex flex-row gap-5">
 		<h1>Scheduling via DPLL | <a href="../">back</a></h1>

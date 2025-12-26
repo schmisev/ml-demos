@@ -124,6 +124,10 @@
 	}
 </script>
 
+<head>
+  <title>Gradient Descent</title>
+</head>
+
 <div class="flex flex-col gap-2 p-2">
 	<h2>Gradient descent | <a href="..">back</a></h2>
 

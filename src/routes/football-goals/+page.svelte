@@ -211,6 +211,10 @@
 	});
 </script>
 
+<head>
+  <title>Football Goals</title>
+</head>
+
 <div class="flex flex-col gap-2 p-2">
 	<h1>Scoring points | <a href="../">back</a></h1>
 	<div class="flex flex-col gap-2">

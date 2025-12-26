@@ -51,6 +51,10 @@
 	}
 </script>
 
+<head>
+  <title>Markov Chains</title>
+</head>
+
 <div class="flex flex-col gap-2 p-2">
 	<div class="flex flex-row gap-5 items-center">
 		<h1 class="grow">Hidden Markov Models | <a href="../">back</a></h1>

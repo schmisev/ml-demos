@@ -1,4 +1,5 @@
 import {is_empty} from "$lib";
+import type { EdgeDef, NodeDef } from "./dagre-graph/dagre-graph";
 
 export enum BN {
 	TRUE = 0,
@@ -314,6 +315,28 @@ export class BN_Graph {
     }
 
     return preamble + "\n" + nodes.join("\n") + "\n" + conns.join("\n") + "\n";
+  }
+
+  format_graph_for_dagre(step?: number): { node_defs: NodeDef[], edge_defs: EdgeDef[] } {
+    const node_defs: NodeDef[] = [];
+    const edge_defs: EdgeDef[] = [];
+
+    const shiny_shadow =
+			'box-shadow: 2px 2px 2px rgba(0, 0, 0, 0.2), 2px 2px 2px inset rgba(255, 255, 255, 0.4);';
+
+    for (const node of this.topo) {
+      node_defs.push({
+        name: node.name,
+        label: `<div><div><b>${node.name}</b>${node.description ? " : " + node.description : ""}</div><hr>${node.name}<sub>${step !== undefined ? step : "last"}</sub> = ${node.format_last()} ${node.format_html_table()}</div>`,
+        cls: [ "border-2", "rounded-xl", "p-2"],
+        style: shiny_shadow + " background-color: whitesmoke;",
+      });
+      for (const dep of node.deps) {
+        edge_defs.push({from: dep.name, to: node.name, label: ""});
+      }
+    }
+
+    return { node_defs, edge_defs }
   }
 }
 

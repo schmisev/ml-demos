@@ -332,6 +332,10 @@
 	}
 </script>
 
+<head>
+  <title>kNN / DT</title>
+</head>
+
 <div class="flex flex-col gap-2 p-2">
 	<h1>kNN & DT | <a href="../">back</a></h1>
 

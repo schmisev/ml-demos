@@ -39,6 +39,10 @@
 	}
 </script>
 
+<head>
+  <title>Wumpus</title>
+</head>
+
 <div class="grid h-dvh min-h-0 grid-cols-2 gap-5 p-2">
 	<div class="flex h-full min-h-0 flex-col gap-2">
 		<h1>Wumpus World | <a href="../">back</a></h1>

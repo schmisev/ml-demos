@@ -21,6 +21,10 @@
   ]);
 </script>
 
+<head>
+  <title>Utils : Dagre Graphs</title>
+</head>
+
 <div class="w-1/2 p-10">
   <DagreGraph rankdir="BT" ranker="longest-path" {node_defs} {edge_defs}>
   </DagreGraph>

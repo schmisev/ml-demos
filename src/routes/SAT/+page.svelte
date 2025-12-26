@@ -83,6 +83,10 @@
 	}
 </script>
 
+<head>
+  <title>CSP</title>
+</head>
+
 <div class="grid grid-cols-2 gap-2">
 	<div class="flex flex-col gap-2 p-2">
 		<div class="flex flex-row gap-5">

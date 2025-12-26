@@ -190,6 +190,10 @@
 	});
 </script>
 
+<head>
+  <title>Coin Toss</title>
+</head>
+
 <div class="flex flex-col gap-2 p-2">
 	<h1>Flipping coins | <a href="../">back</a></h1>
 	<div class="flex flex-col gap-2">

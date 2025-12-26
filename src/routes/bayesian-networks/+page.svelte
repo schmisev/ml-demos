@@ -10,8 +10,8 @@
 	} from '$lib/bayesian-networks';
 	import ChartView from '$lib/components/ChartView.svelte';
 	import { tex } from '$lib/mathjax';
-	import { Mermaid } from '@friendofsvelte/mermaid';
   import * as fmt from '$lib/fmt';
+	import DagreGraph from '$lib/dagre-graph/DagreGraph.svelte';
 
   let early_out = $state(false);
 
@@ -21,7 +21,8 @@
 	let evidence_settings = $derived(chosen_graph.get_query_settings());
 
 	let chart: ChartView;
-	let mermaid_str = $state(chosen_graph.format_graph_for_mermaid());
+	// let mermaid_str = $state(chosen_graph.format_graph_for_mermaid());
+  let { node_defs, edge_defs } = $state(chosen_graph.format_graph_for_dagre());
 
 	let N = $state(0);
 	let W = $state(0);
@@ -84,9 +85,13 @@
 	}
 
 	function update_diagram() {
-		mermaid_str = chosen_graph.format_graph_for_mermaid(N);
+    ({ node_defs, edge_defs } = chosen_graph.format_graph_for_dagre(N));
 	}
 </script>
+
+<head>
+  <title>Bayesian Network</title>
+</head>
 
 <div class="flex flex-col gap-2 p-2">
 	<div class="grid grid-cols-2 gap-2">
@@ -170,7 +175,8 @@
         <label class="light-border">Early out? <input type="checkbox" bind:checked={early_out}></label>
 			</div>
 
-			<Mermaid config={{ htmlLabels: true, theme: 'neutral' }} string={mermaid_str}></Mermaid>
+			<!--Mermaid config={{ htmlLabels: true, theme: 'neutral' }} string={mermaid_str}></Mermaid-->
+      <DagreGraph rankdir="LR" {edge_defs} {node_defs}></DagreGraph>
 		</div>
 
 		<div>

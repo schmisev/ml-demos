@@ -2,6 +2,10 @@
   import { resolve } from "$app/paths";
 </script>
 
+<head>
+  <title>ML/AI demos</title>
+</head>
+
 <div class="p-2">
   <h1>ML/AI demos</h1>
   <div>Disclaimer: these demos are in no way optimized and just here for my own amusement</div>

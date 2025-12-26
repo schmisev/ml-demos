@@ -41,6 +41,10 @@
   }
 </script>
 
+<head>
+  <title>Linear classification</title>
+</head>
+
 <div class="flex flex-col gap-2 p-2">
 	<h2>Linear classification</h2>
   <Data3DView colormap={[0x00FF00, 0xFF0000, 0x0000FF, 0x00FFFF, 0xFFFF00, 0xFF00FF]} w={500} h={500} data={samples} planes={planes}></Data3DView>
