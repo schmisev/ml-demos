@@ -1,16 +1,28 @@
 <script lang="ts">
-	import { build_hmm, evidence_to_1_hot, HiddenMarkovModel, RAIN_TEMP_UMBRELLA_TSHIRT_HMM, RAIN_UMBRELLA_HMM, SLEEPY_STUDENTS_HMM, TRIP_PLANNING_HMM } from '$lib/hmm.svelte';
-	import { col_vec, matrix, MatrixND, row_vec } from '$lib/matrix2';
-	import { Mermaid } from '@friendofsvelte/mermaid';
-	import * as fmt from '$lib/fmt';
+	import { evidence_to_1_hot, RAIN_TEMP_UMBRELLA_TSHIRT_HMM, RAIN_UMBRELLA_HMM, SLEEPY_STUDENTS_HMM, TRIP_PLANNING_HMM } from '$lib/hmm.svelte';
+	import { row_vec } from '$lib/matrix2';
 	import MatrixView from '$lib/components/MatrixView.svelte';
 	import { tex } from '$lib/mathjax';
 	import TraceView from '$lib/components/TraceView.svelte';
-  import { browser } from "$app/environment";
-	import { onMount } from 'svelte';
+	import ElkGraph from '$lib/dagre-graph/HuiElkGraph.svelte';
 
-  let show_evidence = $state(true);
-  let chosen_model = $state(TRIP_PLANNING_HMM);
+  const colormap = [
+			'lightcoral',
+			'lightgreen',
+			'lightblue',
+			'orange',
+			'lightgrey',
+			'pink',
+			'aquamarine',
+			'beige',
+			'lightcoral',
+			'bisque',
+			'gainsboro',
+			'lavender'
+		];
+
+  let show_evidence = $state(false);
+  let chosen_model = $state(SLEEPY_STUDENTS_HMM);
 
 	let { model: hmm, evidence_templates } = $state(
 		chosen_model()
@@ -20,10 +32,12 @@
 		evidence_to_1_hot(evidence_templates)
 	);
 
-	let graph_str = $state(hmm.format_graph_for_mermaid('filter', show_evidence));
+	// let graph_str = $state(hmm.format_graph_for_mermaid('filter', show_evidence));
+  let {node_defs, edge_defs} = $state(hmm.format_graph_for_dagre('filter', show_evidence, colormap));
 
 	function update_graphs() {
-		graph_str = hmm.format_graph_for_mermaid('filter', show_evidence);
+		// graph_str = hmm.format_graph_for_mermaid('filter', show_evidence);
+    ({node_defs, edge_defs} = hmm.format_graph_for_dagre('filter', show_evidence, colormap));
 	}
 
 	function filter() {
@@ -70,11 +84,14 @@
 	</div>
 	<div class="flex flex-row">
     <div class="flex flex-col grow">
-		<Mermaid
+		<!--Mermaid
 			class="w-full"
-			config={{ flowchart: { curve: 'catmullRom' }, theme: 'neutral' }}
+			config={{ flowchart: { curve: 'catmullRom' }, theme: 'neutral' }} 
 			string={graph_str}
-		></Mermaid>
+		></Mermaid-->
+    <div class="flex flex-col max-h-100 items-center">
+      <ElkGraph {edge_defs} {node_defs}></ElkGraph>
+    </div>
     <div class="flex flex-row flex-wrap gap-2">
       <button class="negative border" onclick={reset}>Reset</button>
       <button class="border" onclick={predict}>Predict ▷</button>

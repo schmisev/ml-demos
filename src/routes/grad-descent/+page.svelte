@@ -2,8 +2,8 @@
 	import * as ag from '$lib/autograd';
 	import GradDescentView from '$lib/components/GradDescentView.svelte';
 	import VectorView from '$lib/components/VectorView.svelte';
-	import type { EdgeDef, NodeDef } from '$lib/dagre-graph/dagre-graph';
-	import DagreGraph from '$lib/dagre-graph/DagreGraph.svelte';
+	import type { EdgeDef, NodeDef } from '$lib/dagre-graph/hui-graphs';
+	import DagreGraph from '$lib/dagre-graph/HuiDagreGraph.svelte';
 	import {
 		AdamGradientDescender,
 		Descender,
@@ -14,7 +14,6 @@
 	} from '$lib/grad-descent.svelte';
 	import { tex } from '$lib/mathjax';
 	import type { Vec2D } from '$lib/vector';
-	import { Mermaid } from '@friendofsvelte/mermaid';
 
 	// example functions
 	let available_functions: ag.Function2D[] = [

@@ -1,4 +1,4 @@
-import type { EdgeDef, NodeDef } from './dagre-graph/dagre-graph';
+import type { EdgeDef, NodeDef } from './dagre-graph/hui-graphs';
 import type { Vec2D } from './vector';
 
 type ValueType =
@@ -689,9 +689,6 @@ export class Function2D extends Function {
 		const node_defs: NodeDef[] = [];
 		const edge_defs: EdgeDef[] = [];
 
-		const shiny_shadow =
-			'box-shadow: 2px 2px 2px rgba(0, 0, 0, 0.2), 2px 2px 2px inset rgba(255, 255, 255, 0.4);';
-
 		for (const val of this.topo) {
 			let name = '';
 			let value = val.value.toFixed(3);
@@ -703,8 +700,7 @@ export class Function2D extends Function {
 					node_defs.push({
 						name,
 						label: `<div><div>${var_name}<b>${value}</b></div><div class="border-t-2 bg-amber-300">&nabla; = ${grad}</div></div>`,
-						cls: ['border-2', 'rounded-xl', 'min-w-30', 'overflow-clip'],
-						style: shiny_shadow
+						cls: ['border-2', 'rounded-xl', 'min-w-30', 'overflow-clip', 'shiny-shadow'],
 					});
 					break;
 				}
@@ -713,8 +709,7 @@ export class Function2D extends Function {
 					node_defs.push({
 						name,
 						label: `<div>${var_name}<b>${value}</b></div>`,
-						cls: ['border-2', 'rounded-xl', 'min-w-30', 'overflow-clip', 'bg-gray-200'],
-						style: shiny_shadow
+						cls: ['border-2', 'rounded-xl', 'min-w-30', 'overflow-clip', 'bg-gray-200', 'shiny-shadow'],
 					});
 					break;
 				}
@@ -737,8 +732,7 @@ export class Function2D extends Function {
 					node_defs.push({
 						name: next_name,
 						label: `<div>${var_name}<b>${value}</b></div><div class="border-t-2 bg-amber-100">&nabla; = ${grad}</div>`,
-						cls: ['border-2', 'rounded-xl', 'min-w-30', 'overflow-clip'],
-						style: shiny_shadow
+						cls: ['border-2', 'rounded-xl', 'min-w-30', 'overflow-clip', 'shiny-shadow'],
 					});
 					node_defs.push({
 						name,
@@ -756,9 +750,9 @@ export class Function2D extends Function {
 							'bg-blue-200',
 							'font-bold',
               'pl-2',
-              'pr-2'
+              'pr-2',
+              'shiny-shadow'
 						],
-						style: shiny_shadow
 					});
 					edge_defs.push({
 						from: name,

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import './dagre-graph.css';
+	import './hui-graph.css';
 	import dagre, { graphlib } from '@dagrejs/dagre';
 	import {
 		pick_edge_marker,
@@ -9,19 +9,21 @@
 		zip,
 		type EdgeDef,
 		type NodeDef
-	} from './dagre-graph';
+	} from './hui-graphs';
 	import { onMount, untrack } from 'svelte';
 
 	let {
 		rankdir = 'TB',
 		ranker = 'network-simplex',
 		align = undefined,
+		label_padding = 10,
 		node_defs,
 		edge_defs
 	}: {
 		rankdir?: 'TB' | 'BT' | 'LR' | 'RL';
 		ranker?: 'network-simplex' | 'tight-tree' | 'longest-path';
 		align?: 'UL' | 'UR' | 'DL' | 'DR';
+		label_padding?: number;
 		node_defs: NodeDef[];
 		edge_defs: EdgeDef[];
 	} = $props();
@@ -70,7 +72,7 @@
 	});
 </script>
 
-<svg bind:this={svg} viewBox="0 0 {vb_width} {vb_height}" xmlns="http://www.w3.org/2000/svg">
+<svg bind:this={svg} style="max-height: 100%; max-width: 100%;" viewBox="0 0 {vb_width} {vb_height}" xmlns="http://www.w3.org/2000/svg">
 	<defs>
 		<marker
 			id="arrow"
@@ -102,19 +104,19 @@
 		</marker>
 	</defs>
 
-	{#each zip(edge_defs, graph_edges) as [raw_edge, graph_edge]}
+	{#each zip(edge_defs, graph_edges) as [edge_def, graph_edge]}
 		<g>
 			<path
 				fill="transparent"
-				stroke={raw_edge.stroke || 'black'}
-				stroke-width={raw_edge.width || 2}
-				style={raw_edge.arrow_style || ''}
-				d={generate_edge_d(graph_edge.points, raw_edge.corner_radius)}
-				marker-end={pick_edge_marker('end', raw_edge)}
-				marker-start={pick_edge_marker('start', raw_edge)}
+				stroke={edge_def.stroke || 'black'}
+				stroke-width={edge_def.width || 2}
+				style={edge_def.arrow_style || ''}
+				d={generate_edge_d(graph_edge.points, edge_def.corner_radius)}
+				marker-end={pick_edge_marker('end', edge_def)}
+				marker-start={pick_edge_marker('start', edge_def)}
 			>
 			</path>
-			{#if raw_edge.label}
+			{#if edge_def.label}
 				<rect
 					fill="rgba(255, 255, 255, 0.8)"
 					x={graph_edge.x - graph_edge.width / 2}
@@ -124,29 +126,33 @@
 				></rect>
 				<foreignObject
 					xmlns="http://www.w3.org/1999/xhtml"
-					x={graph_edge.x - graph_edge.width / 2}
-					y={graph_edge.y - graph_edge.height / 2}
-					width={graph_edge.width + 20}
-					height={graph_edge.height + 20}
+					x={graph_edge.x - graph_edge.width / 2 - label_padding}
+					y={graph_edge.y - graph_edge.height / 2 - label_padding}
+					width={graph_edge.width + label_padding * 2}
+					height={graph_edge.height + label_padding * 2}
 				>
-					{@html graph_edge.label}
+					<div style="padding: {label_padding}px;">
+						{@html graph_edge.label}
+					</div>
 				</foreignObject>
 			{/if}
 		</g>
 	{/each}
 
 	<g bind:this={all_elements}>
-		{#each zip(node_defs, graph_nodes) as [raw_node, graph_node]}
+		{#each zip(node_defs, graph_nodes) as [node_def, graph_node]}
 			<g>
 				<foreignObject
-          style="overflow: visible;"
+					style="overflow: visible;"
 					xmlns="http://www.w3.org/1999/xhtml"
-					x={graph_node.x - graph_node.width / 2}
-					y={graph_node.y - graph_node.height / 2}
-					width={graph_node.width}
-					height={graph_node.height}
+					x={graph_node.x - graph_node.width / 2 - label_padding}
+					y={graph_node.y - graph_node.height / 2 - label_padding}
+					width={graph_node.width + label_padding * 2}
+					height={graph_node.height + label_padding * 2}
 				>
-					{@html graph_node.label}
+					<div style="padding: {label_padding}px;">
+						{@html graph_node.label}
+					</div>
 				</foreignObject>
 			</g>
 		{/each}

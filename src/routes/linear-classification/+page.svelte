@@ -2,7 +2,6 @@
 	import { rand, randint } from '$lib';
 	import Data3DView from '$lib/components/Data3DView.svelte';
 	import { ClassND, PlaneND, SampleND } from '$lib/data';
-	import { m_print } from '$lib/matrix';
 
   const N_classes = 5;
   const classes: ClassND[] = [];

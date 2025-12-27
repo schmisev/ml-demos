@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { euclid, rand } from '$lib';
-	import type { EdgeDef, NodeDef } from '$lib/dagre-graph/dagre-graph';
-	import DagreGraph from '$lib/dagre-graph/DagreGraph.svelte';
+	import type { EdgeDef, NodeDef } from '$lib/dagre-graph/hui-graphs';
+	import DagreGraph from '$lib/dagre-graph/HuiDagreGraph.svelte';
 	import { type Sample, type Category, generateNewCategories, generateNewData } from '$lib/data';
 	import {
 		build_DT,

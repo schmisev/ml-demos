@@ -11,7 +11,7 @@
 	import ChartView from '$lib/components/ChartView.svelte';
 	import { tex } from '$lib/mathjax';
   import * as fmt from '$lib/fmt';
-	import DagreGraph from '$lib/dagre-graph/DagreGraph.svelte';
+	import DagreGraph from '$lib/dagre-graph/HuiDagreGraph.svelte';
 
   let early_out = $state(false);
 

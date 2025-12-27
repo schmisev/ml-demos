@@ -1,8 +1,9 @@
-import { hex } from '$lib';
+import { hex, mod } from '$lib';
 import * as fmt from '$lib/fmt';
+import type { EdgeDef, NodeDef } from './dagre-graph/hui-graphs';
 import { col_vec, diag, matrix, MatrixND, ones_like, row_vec } from './matrix2';
 
-export type HMM_GraphDir = "TD" | "LR" | "RL";
+export type HMM_GraphDir = 'TD' | 'LR' | 'RL';
 export type HMM_Mode = 'predict' | 'filter' | 'init' | 'backward';
 
 export type HMM_Value = number | string | boolean;
@@ -23,14 +24,14 @@ export interface HMM_BinaryVariable {
 }
 
 export interface HMM_ValuedBinaryVariable extends HMM_BinaryVariable {
-  prob: number;
-  mode: HMM_Mode;
+	prob: number;
+	mode: HMM_Mode;
 }
 
 export interface HMM_LabeledDistro {
-  distro: MatrixND,
-  smoothed?: MatrixND,
-  mode: HMM_Mode,
+	distro: MatrixND;
+	smoothed?: MatrixND;
+	mode: HMM_Mode;
 }
 
 function domain_combinations(
@@ -95,25 +96,28 @@ export function create_binary_variables(vars: HMM_Variable[]) {
 	return bin_vars;
 }
 
-export function evidence_to_1_hot(evidence_templates: HMM_ValuedVariable[]): { one_hot: number[], index: number } {
-  // product of all domains
-  const N = evidence_templates.map(t => t.domain.length).reduce((a, b) => a*b, 1);
-  const one_hot = new Array(N).fill(0);
+export function evidence_to_1_hot(evidence_templates: HMM_ValuedVariable[]): {
+	one_hot: number[];
+	index: number;
+} {
+	// product of all domains
+	const N = evidence_templates.map((t) => t.domain.length).reduce((a, b) => a * b, 1);
+	const one_hot = new Array(N).fill(0);
 
-  // finding the fitting input
-  let base = N;
-  let index = 0;
-  for (const template of evidence_templates) {
-    base /= template.domain.length;
-    const pos = template.domain.findIndex((v) => v === template.value);
-    index += pos * base;
-  }
+	// finding the fitting input
+	let base = N;
+	let index = 0;
+	for (const template of evidence_templates) {
+		base /= template.domain.length;
+		const pos = template.domain.findIndex((v) => v === template.value);
+		index += pos * base;
+	}
 
-  one_hot[index] = 1;
-  return {
-    index,
-    one_hot
-  };
+	one_hot[index] = 1;
+	return {
+		index,
+		one_hot
+	};
 }
 
 export function build_hmm(
@@ -122,12 +126,13 @@ export function build_hmm(
 	transition_model: number[],
 	evidence_vars: HMM_Variable[],
 	sensor_model: number[],
-  graph_dir: HMM_GraphDir = "LR",
-): { model: HiddenMarkovModel; evidence_templates: HMM_ValuedVariable[]; } {
+	graph_dir: HMM_GraphDir = 'LR'
+): { model: HiddenMarkovModel; evidence_templates: HMM_ValuedVariable[] } {
 	const hidden_labels = create_binary_variables(hidden_vars);
 	const h = hidden_labels.length;
 	if (init_variables.length !== h) throw `Initial state p is not fully defined!`;
-	if (transition_model.length !== h ** 2) throw `Transition matrix T is not fully defined! Expected (${h},${h}) matrix, i.e. ${h*h} values.`;
+	if (transition_model.length !== h ** 2)
+		throw `Transition matrix T is not fully defined! Expected (${h},${h}) matrix, i.e. ${h * h} values.`;
 	const T = new MatrixND(h, h, transition_model);
 
 	// checking sums
@@ -139,18 +144,26 @@ export function build_hmm(
 
 	const sensor_labels = create_binary_variables(evidence_vars);
 	const e = sensor_labels.length;
-	if (sensor_model.length !== h * e) throw `Sensor matrix H is not fully defined! Expected (${e},${h}) matrix, i.e. ${e*h} values.`;
+	if (sensor_model.length !== h * e)
+		throw `Sensor matrix H is not fully defined! Expected (${e},${h}) matrix, i.e. ${e * h} values.`;
 	const H = new MatrixND(e, h, sensor_model);
 
 	// checking sums
 	for (let i = 0; i < H.cols; i++) {
-    let col = H.col_at(i);
+		let col = H.col_at(i);
 		let sum = col.reduce((a, b) => a + b);
 		if (Math.abs(sum - 1) > 0.001)
 			throw `Columns of sensor matrix H do not sum up to 1, (${i}, ${sum.toFixed(10)}, [${col}])`;
 	}
 
-	const model = new HiddenMarkovModel(col_vec(init_variables), hidden_labels, T, H, sensor_labels, graph_dir);
+	const model = new HiddenMarkovModel(
+		col_vec(init_variables),
+		hidden_labels,
+		T,
+		H,
+		sensor_labels,
+		graph_dir
+	);
 
 	const evidence_templates: HMM_ValuedVariable[] = evidence_vars.map((v) => {
 		return { value: v.domain[0], ...v };
@@ -165,7 +178,7 @@ export function build_hmm(
 export class HiddenMarkovModel {
 	var_count: number;
 	sensor_count: number;
-  graph_dir: HMM_GraphDir;
+	graph_dir: HMM_GraphDir;
 
 	p0: MatrixND;
 	// p: MatrixNxM = $state(new MatrixNxM(1, 1, []));
@@ -175,19 +188,19 @@ export class HiddenMarkovModel {
 	e: MatrixND = $state(new MatrixND(1, 1, []));
 	e_labels: HMM_BinaryVariable[];
 
-  b: MatrixND = $state(new MatrixND(1, 1, []));
-  s: MatrixND = $state(new MatrixND(1, 1, []));
+	b: MatrixND = $state(new MatrixND(1, 1, []));
+	s: MatrixND = $state(new MatrixND(1, 1, []));
 
 	// p_trace: MatrixNxM[] = [];
 	f_trace: HMM_LabeledDistro[] = $state([]);
 	e_trace: HMM_LabeledDistro[] = $state([]);
 
-  t = $derived(this.f_trace.length);
-  s_pos = $state(0);
-  s_end = $state(0);
+	t = $derived(this.f_trace.length);
+	s_pos = $state(0);
+	s_end = $state(0);
 
-  b_rev_trace: MatrixND[] = $state([]);
-  // s_rev_trace: HMM_LabeledDistro[] = $state([]);
+	b_rev_trace: MatrixND[] = $state([]);
+	// s_rev_trace: HMM_LabeledDistro[] = $state([]);
 
 	T: MatrixND;
 	H: MatrixND;
@@ -198,9 +211,9 @@ export class HiddenMarkovModel {
 		transition_model: MatrixND,
 		sensor_model: MatrixND,
 		sensor_labels: HMM_BinaryVariable[],
-    graph_dir: HMM_GraphDir = "LR",
+		graph_dir: HMM_GraphDir = 'LR'
 	) {
-    this.graph_dir = graph_dir;
+		this.graph_dir = graph_dir;
 
 		// state
 		this.var_count = init_state.rows;
@@ -210,7 +223,7 @@ export class HiddenMarkovModel {
 		this.f = init_state.copy();
 
 		// this.p_trace.push(this.p);
-		this.f_trace.push({ distro: this.f, mode: "init" });
+		this.f_trace.push({ distro: this.f, mode: 'init' });
 
 		if (state_labels.length !== this.f.rows) throw `Every variable has to be labeled!`;
 		this.p_labels = state_labels;
@@ -227,28 +240,28 @@ export class HiddenMarkovModel {
 		this.e_labels = sensor_labels;
 		this.e = matrix(this.sensor_count, 1, []);
 
-    // initialize b
-    this.b = ones_like(this.f);
+		// initialize b
+		this.b = ones_like(this.f);
 
-    // set "time step"
-    this.t = this.f_trace.length;
+		// set "time step"
+		this.t = this.f_trace.length;
 	}
 
 	clear(): void {
 		this.f = this.p0;
-		this.f_trace = [{ distro: this.p0, mode: 'init'} ];
+		this.f_trace = [{ distro: this.p0, mode: 'init' }];
 		this.e_trace = [];
-    this.b_rev_trace = [];
-    // this.s_rev_trace = [];
-    this.s_end = 0;
-    this.s_pos = 0;
+		this.b_rev_trace = [];
+		// this.s_rev_trace = [];
+		this.s_end = 0;
+		this.s_pos = 0;
 	}
 
 	predict(): { p: MatrixND; e: MatrixND } {
 		this.f = this.T.mul(this.f);
-		this.f_trace.push({distro: this.f, mode: "predict"});
+		this.f_trace.push({ distro: this.f, mode: 'predict' });
 		this.e = this.H.mul(this.f);
-		this.e_trace.push({ distro: this.e, mode: "predict" });
+		this.e_trace.push({ distro: this.e, mode: 'predict' });
 		return {
 			p: this.f,
 			e: this.e
@@ -262,96 +275,96 @@ export class HiddenMarkovModel {
 		const obs_vec = row_vec(obs); // Sx1
 		const O = obs_vec.mul(this.H).diag(); // 1xN => NxN
 		this.f = O.mul(this.T).mul(this.f).norm1();
-		this.f_trace.push({distro: this.f, mode: "filter"});
+		this.f_trace.push({ distro: this.f, mode: 'filter' });
 		this.e = col_vec(obs);
-		this.e_trace.push({ distro: this.e, mode: "filter" });
+		this.e_trace.push({ distro: this.e, mode: 'filter' });
 		return {
 			e: this.e,
 			f: this.f
 		};
 	}
-  
-  backward(): { b: MatrixND; s: MatrixND } {
-    const t = this.f_trace.length;
 
-    if (t !== this.s_end || this.s_end < this.s_pos) {
-      // this.s_rev_trace = []; // clear last smoothing
-      // restart
-      this.s_end = t;
-      this.s_pos = t-1;
+	backward(): { b: MatrixND; s: MatrixND } {
+		const t = this.f_trace.length;
 
-      this.b = ones_like(this.f); // set to ones-vector
-    }
+		if (t !== this.s_end || this.s_end < this.s_pos) {
+			// this.s_rev_trace = []; // clear last smoothing
+			// restart
+			this.s_end = t;
+			this.s_pos = t - 1;
 
-    // run out of evidence
-    if (this.s_pos-1 < 0) return { b: this.b, s: this.s };
+			this.b = ones_like(this.f); // set to ones-vector
+		}
 
-    const prev_e = this.e_trace[this.s_pos-1].distro.transpose();
+		// run out of evidence
+		if (this.s_pos - 1 < 0) return { b: this.b, s: this.s };
 
-    const O = prev_e.mul(this.H).diag(); // Nx1 => NxN
+		const prev_e = this.e_trace[this.s_pos - 1].distro.transpose();
 
-    const prev_f = this.f_trace[this.s_pos].distro;
+		const O = prev_e.mul(this.H).diag(); // Nx1 => NxN
 
-    this.s = prev_f.hadamard(this.b).norm1();
+		const prev_f = this.f_trace[this.s_pos].distro;
 
-    this.b = this.T.transpose().mul(O).mul(this.b);
+		this.s = prev_f.hadamard(this.b).norm1();
 
-    this.b_rev_trace.push(this.b);
+		this.b = this.T.transpose().mul(O).mul(this.b);
 
-    this.f_trace[this.s_pos].smoothed = this.s;
+		this.b_rev_trace.push(this.b);
 
-    this.s_pos--;
-    
-    return {
-      b: this.b,
-      s: this.s,
-    }
-  }
+		this.f_trace[this.s_pos].smoothed = this.s;
 
-  // most likely values
-  *most_likely_f(): Generator<HMM_ValuedBinaryVariable, void, unknown> {
-    for (const f of this.f_trace) {
-      const { index, value } = f.distro.max_val();
-      const variable = this.p_labels[index];
-      const out: HMM_ValuedBinaryVariable = {
-        ...variable,
-        prob: value,
-        mode: f.mode
-      }
-      yield out;
-    } 
-  }
+		this.s_pos--;
 
-  *most_likely_e(): Generator<HMM_ValuedBinaryVariable | undefined, void, unknown> {
-    yield undefined; // first value will always be empty
-    for (const e of this.e_trace) {
-      const { index, value } = e.distro.max_val();
-      const variable = this.e_labels[index];
-      const out: HMM_ValuedBinaryVariable = {
-        ...variable,
-        prob: value,
-        mode: e.mode
-      }
-      yield out;
-    } 
-  }
+		return {
+			b: this.b,
+			s: this.s
+		};
+	}
 
-  *most_likely_s(): Generator<HMM_ValuedBinaryVariable | undefined, void, unknown> {
-    for (const f of this.f_trace) {
-      if (!f.smoothed) {
-        yield undefined;
-        continue;
-      }
-      const { index, value } = f.smoothed.max_val();
-      const variable = this.p_labels[index];
-      const out: HMM_ValuedBinaryVariable = {
-        ...variable,
-        prob: value,
-        mode: f.mode
-      }
-      yield out;
-    } 
-  }
+	// most likely values
+	*most_likely_f(): Generator<HMM_ValuedBinaryVariable, void, unknown> {
+		for (const f of this.f_trace) {
+			const { index, value } = f.distro.max_val();
+			const variable = this.p_labels[index];
+			const out: HMM_ValuedBinaryVariable = {
+				...variable,
+				prob: value,
+				mode: f.mode
+			};
+			yield out;
+		}
+	}
+
+	*most_likely_e(): Generator<HMM_ValuedBinaryVariable | undefined, void, unknown> {
+		yield undefined; // first value will always be empty
+		for (const e of this.e_trace) {
+			const { index, value } = e.distro.max_val();
+			const variable = this.e_labels[index];
+			const out: HMM_ValuedBinaryVariable = {
+				...variable,
+				prob: value,
+				mode: e.mode
+			};
+			yield out;
+		}
+	}
+
+	*most_likely_s(): Generator<HMM_ValuedBinaryVariable | undefined, void, unknown> {
+		for (const f of this.f_trace) {
+			if (!f.smoothed) {
+				yield undefined;
+				continue;
+			}
+			const { index, value } = f.smoothed.max_val();
+			const variable = this.p_labels[index];
+			const out: HMM_ValuedBinaryVariable = {
+				...variable,
+				prob: value,
+				mode: f.mode
+			};
+			yield out;
+		}
+	}
 
 	// printing stuff
 	format_prob(kind: 'P(x)' | 'P(e)' | 'P(x|e)') {
@@ -390,15 +403,15 @@ export class HiddenMarkovModel {
 			switch (mode) {
 				case 'predict':
 				case 'filter':
-        case 'init':
-        case 'backward':
-          value_label = `<b>p<sub>${i}</sub></b> = ${fmt.num(this.f.v(i))}`;
+				case 'init':
+				case 'backward':
+					value_label = `<b>p<sub>${i}</sub></b> = ${fmt.num(this.f.v(i))}`;
 					break;
 				default:
 					const NEVER: never = mode;
 			}
 
-      const label = this.p_labels[i];
+			const label = this.p_labels[i];
 			const node_name = `h${i}(["<b>x<sub>${i}</sub></b> ≙  (${label.name}) \n${value_label}"])`;
 			nodes.push(node_name);
 			// nodes.push(`d${i}((x<sub>${i}</sub>))`);
@@ -410,160 +423,295 @@ export class HiddenMarkovModel {
 			}
 		}
 
-    let E = this.e_labels.length;
-    if (show_evidence) {
-      for (let j = 0; j < E; j++) {
-        let value_label = '';
-        switch (mode) {
-          case 'predict':
-          case 'filter':
-          case 'init':
-          case 'backward':
-            value_label = `<b>p<sub>${j}</sub></b> = ${fmt.num(this.e.v(j))}`;
-            break;
-          default:
-            const NEVER: never = mode;
-        }
+		let E = this.e_labels.length;
+		if (show_evidence) {
+			for (let j = 0; j < E; j++) {
+				let value_label = '';
+				switch (mode) {
+					case 'predict':
+					case 'filter':
+					case 'init':
+					case 'backward':
+						value_label = `<b>p<sub>${j}</sub></b> = ${fmt.num(this.e.v(j))}`;
+						break;
+					default:
+						const NEVER: never = mode;
+				}
 
-        nodes.push(`e${j}{{"<b>e<sub>${j}</sub></b> ≙  (${this.e_labels[j].name}) \n${value_label}"}}`)
+				nodes.push(
+					`e${j}{{"<b>e<sub>${j}</sub></b> ≙  (${this.e_labels[j].name}) \n${value_label}"}}`
+				);
 
-        for (const [i, p] of this.H.row_at(j).entries()) {
-          if (p === 0) continue;
-          conns.push(`h${i} -.->|${p}| e${j}`);
-        }
-      }
-    }
+				for (const [i, p] of this.H.row_at(j).entries()) {
+					if (p === 0) continue;
+					conns.push(`h${i} -.->|${p}| e${j}`);
+				}
+			}
+		}
 
 		const out = [premable, ...nodes, ...conns, ...styles].join('\n');
 
 		return out;
 	}
+
+	format_graph_for_dagre(
+		mode: HMM_Mode,
+		show_evidence: boolean,
+    colormap: string[],
+	): { node_defs: NodeDef[]; edge_defs: EdgeDef[] } {
+		const node_defs: NodeDef[] = [];
+		const edge_defs: EdgeDef[] = [];
+
+		const N = this.p_labels.length;
+		for (let i = 0; i < N; i++) {
+			let value_label = '';
+			switch (mode) {
+				case 'predict':
+				case 'filter':
+				case 'init':
+				case 'backward':
+					value_label = `<b>p<sub>${i}</sub></b> = ${fmt.num(this.f.v(i))}`;
+					break;
+				default:
+					const NEVER: never = mode;
+			}
+
+			const label = this.p_labels[i];
+			const node_id = `h${i}`;
+			const node_name = `
+        <div class="p-2 rounded-t-xl shiny-shadow" style="background-color: ${colormap[mod(i, colormap.length)]}"><b>x<sub>${i}</sub></b> ≙  (${label.name})</div>
+        <div class="border-t-2 p-2">${value_label}</div>`;
+			node_defs.push({
+				name: node_id,
+				label: node_name,
+				cls: ['border-2', 'rounded-2xl', 'shiny-shadow', 'overflow-hidden'],
+				style: `background-color: whitesmoke;`
+			});
+
+			for (const [j, p] of this.T.col_at(i).entries()) {
+				if (p === 0) continue;
+				edge_defs.push({
+					from: `h${i}`,
+					to: `h${j}`,
+					label: `${p}`,
+					width: 3
+				});
+			}
+		}
+
+		let E = this.e_labels.length;
+		if (show_evidence) {
+			for (let j = 0; j < E; j++) {
+				let value_label = '';
+				switch (mode) {
+					case 'predict':
+					case 'filter':
+					case 'init':
+					case 'backward':
+						value_label = `<b>p<sub>${j}</sub></b> = ${fmt.num(this.e.v(j))}`;
+						break;
+					default:
+						const NEVER: never = mode;
+				}
+
+				node_defs.push({
+					name: `e${j}`,
+					label: `
+            <div class="p-2"><b>e<sub>${j}</sub></b> ≙  (${this.e_labels[j].name})</div>
+            <div class="border-t-2 p-2">${value_label}<div>`,
+					cls: ['border-2', 'shiny-shadow', 'rounded-md'],
+					style: `background-color: whitesmoke;`
+				});
+
+				for (const [i, p] of this.H.row_at(j).entries()) {
+					if (p === 0) continue;
+					edge_defs.push({
+						from: `h${i}`,
+						to: `e${j}`,
+						label: `${p}`,
+						width: 3,
+						stroke: 'gray',
+						arrow_style: `stroke-dasharray: 0 10 0;`
+					});
+				}
+			}
+		}
+
+		return { node_defs, edge_defs };
+	}
 }
 
 export function FALLBACK_HMM() {
-  return build_hmm(
-    [
-      {name: "Error", domain: [true, false]}
-    ],
-    [0.5, 0.5],
-    [
-      0.5, 0.5,
-      0.5, 0.5,
-    ],
-    [
-      {name: "Blue Screen", domain: [true, false]}
-    ],
-    [
-      0.8, 0,
-      0.2, 1
-    ]
-  )
+	return build_hmm(
+		[{ name: 'Error', domain: [true, false] }],
+		[0.5, 0.5],
+		[0.5, 0.5, 0.5, 0.5],
+		[{ name: 'Blue Screen', domain: [true, false] }],
+		[0.8, 0, 0.2, 1]
+	);
 }
 
 export function RAIN_TEMP_UMBRELLA_TSHIRT_HMM() {
-  return build_hmm(
-    [
-      { name: 'Rain', domain: [true, false] },
-      { name: 'T', domain: ['cold', 'hot'] }
-    ],
-    [0.25, 0.25, 0.25, 0.25],
-    [
-  //  R c  R h -R c -R h --> TO
-      0.4, 0.6, 0.7, 0.1, // R c 
-      0.1, 0.3, 0.1, 0.1, // R h
-      0.4, 0.0, 0.1, 0.1, // -R c
-      0.1, 0.1, 0.1, 0.7  // -R h
-    ],
-    [
-      { name: 'Umbrella', domain: [true, false] },
-      { name: 'T-Shirt', domain: [true, false] }
-    ],
-    [
-  //  R c  R h -R c -R h
-      0.1, 0.7, 0.05, 0.3, // umbrella, t-shirt
-      0.6, 0.2, 0.3, 0.05, // umbrella, -t-shirt
-      0.1, 0.05, 0.5, 0.4, // -umbrella, t-shirt
-      0.2, 0.05, 0.15, 0.25  // -umbrella, -t-shirt
-    ]
-  )
+	return build_hmm(
+		[
+			{ name: 'Rain', domain: [true, false] },
+			{ name: 'T', domain: ['cold', 'hot'] }
+		],
+		[0.25, 0.25, 0.25, 0.25],
+		[
+			//  R c  R h -R c -R h --> TO
+			0.4,
+			0.6,
+			0.7,
+			0.1, // R c
+			0.1,
+			0.3,
+			0.1,
+			0.1, // R h
+			0.4,
+			0.0,
+			0.1,
+			0.1, // -R c
+			0.1,
+			0.1,
+			0.1,
+			0.7 // -R h
+		],
+		[
+			{ name: 'Umbrella', domain: [true, false] },
+			{ name: 'T-Shirt', domain: [true, false] }
+		],
+		[
+			//  R c  R h -R c -R h
+			0.1,
+			0.7,
+			0.05,
+			0.3, // umbrella, t-shirt
+			0.6,
+			0.2,
+			0.3,
+			0.05, // umbrella, -t-shirt
+			0.1,
+			0.05,
+			0.5,
+			0.4, // -umbrella, t-shirt
+			0.2,
+			0.05,
+			0.15,
+			0.25 // -umbrella, -t-shirt
+		]
+	);
 }
 
 export function SLEEPY_STUDENTS_HMM() {
-  return build_hmm(
-    [
-      {name: 'Enough sleep', domain: [true, false]}
-    ],
-    [0.7, 0.3],
-    [
-      0.8, 0.3,
-      0.2, 0.7,
-    ],
-    [
-      { name: "red eyes", domain: [true, false] },
-      { name: "sleeping", domain: [true, false] }
-    ],
-    [
-      0.02, 0.21,
-      0.18, 0.49,
-      0.08, 0.09,
-      0.72, 0.21
-    ]
-  )
+	return build_hmm(
+		[{ name: 'Enough sleep', domain: [true, false] }],
+		[0.7, 0.3],
+		[0.8, 0.3, 0.2, 0.7],
+		[
+			{ name: 'red eyes', domain: [true, false] },
+			{ name: 'sleeping', domain: [true, false] }
+		],
+		[0.02, 0.21, 0.18, 0.49, 0.08, 0.09, 0.72, 0.21]
+	);
 }
 
 export function RAIN_UMBRELLA_HMM() {
-  return build_hmm(
-    [
-      {name: 'Rain', domain: [true, false]}
-    ],
-    [0.5, 0.5],
-    [
-      0.7, 0.3,
-      0.3, 0.7,
-    ],
-    [
-      { name: "Umbrella", domain: [true, false] },
-    ],
-    [
-      0.9, 0.2,
-      0.1, 0.8,
-    ]
-  )
+	return build_hmm(
+		[{ name: 'Rain', domain: [true, false] }],
+		[0.5, 0.5],
+		[0.7, 0.3, 0.3, 0.7],
+		[{ name: 'Umbrella', domain: [true, false] }],
+		[0.9, 0.2, 0.1, 0.8]
+	);
 }
 
 export function TRIP_PLANNING_HMM() {
-  try {
-  const hmm = build_hmm(
-    [
-      {name: 'Purpose', domain: ["Home", "Work", "Leasure"]},
-      {name: 'By', domain: ["Car", "Bike"]},
-    ],
-    [0.5, 0.5, 0, 0, 0, 0],
-    [
-    //HC   HB   WC   WB   LC   LB
-      0.0, 0.0, 0.5, 0.0, 0.8, 0.0, // HC
-      0.0, 0.0, 0.0, 0.4, 0.0, 0.6, // HB
-      0.5, 0.5, 0.0, 0.0, 0.2, 0.0, // WC
-      0.3, 0.3, 0.0, 0.0, 0.0, 0.1, // WB
-      0.1, 0.1, 0.5, 0.0, 0.0, 0.0, // LC
-      0.1, 0.1, 0.0, 0.6, 0.0, 0.3, // LB
-    ],
-    [
-      { name: "Location", domain: ["Home", "Office", "Gym", "Bar", "Lake"] },
-    ],
-    [
-    //HC   HB   WC   WB   LC   LB
-      1.0, 1.0, 0.0, 0.0, 0.0, 0.0, // Home
-      0.0, 0.0, 1.0, 1.0, 0.0, 0.0, // Office
-      0.0, 0.0, 0.0, 0.0, 0.3, 0.5, // Gym
-      0.0, 0.0, 0.0, 0.0, 0.1, 0.4, // Bar
-      0.0, 0.0, 0.0, 0.0, 0.6, 0.1, // Lake
-    ],
-    "TD"
-  )
-  return hmm;
-  } catch(e) {
-    console.error(e);
-    return FALLBACK_HMM();
-  }
+	try {
+		const hmm = build_hmm(
+			[
+				{ name: 'Purpose', domain: ['Home', 'Work', 'Leasure'] },
+				{ name: 'By', domain: ['Car', 'Bike'] }
+			],
+			[0.5, 0.5, 0, 0, 0, 0],
+			[
+				//HC   HB   WC   WB   LC   LB
+				0.0,
+				0.0,
+				0.5,
+				0.0,
+				0.8,
+				0.0, // HC
+				0.0,
+				0.0,
+				0.0,
+				0.4,
+				0.0,
+				0.6, // HB
+				0.5,
+				0.5,
+				0.0,
+				0.0,
+				0.2,
+				0.0, // WC
+				0.3,
+				0.3,
+				0.0,
+				0.0,
+				0.0,
+				0.1, // WB
+				0.1,
+				0.1,
+				0.5,
+				0.0,
+				0.0,
+				0.0, // LC
+				0.1,
+				0.1,
+				0.0,
+				0.6,
+				0.0,
+				0.3 // LB
+			],
+			[{ name: 'Location', domain: ['Home', 'Office', 'Gym', 'Bar', 'Lake'] }],
+			[
+				//HC   HB   WC   WB   LC   LB
+				1.0,
+				1.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0, // Home
+				0.0,
+				0.0,
+				1.0,
+				1.0,
+				0.0,
+				0.0, // Office
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.3,
+				0.5, // Gym
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.1,
+				0.4, // Bar
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.6,
+				0.1 // Lake
+			],
+			'TD'
+		);
+		return hmm;
+	} catch (e) {
+		console.error(e);
+		return FALLBACK_HMM();
+	}
 }

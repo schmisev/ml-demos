@@ -1,5 +1,5 @@
 import { rand, randint } from '$lib';
-import type { EdgeDef, NodeDef } from './dagre-graph/dagre-graph';
+import type { EdgeDef, NodeDef } from './dagre-graph/hui-graphs';
 import type { Sample } from './data';
 import { test_inference, type InferenceResult } from './ml';
 
@@ -241,7 +241,7 @@ export function DT_inference(
 	switch (sub_tree.kind) {
 		case 'decision':
 			if (prune_at && sub_tree.id === prune_at.id) {
-				console.log(`stopped at prune stop ${sub_tree.id}`);
+				// console.log(`stopped at prune stop ${sub_tree.id}`);
 				return sub_tree.fallback_choice;
 			}
 
@@ -415,7 +415,7 @@ export function prune_tree(sub_tree: DT_Node, n_categories: number, validation_d
 		DT_inference(sub_tree, sample, false)
 	);
 
-	console.log(`==> Correctly categorized: ${first_result.correctly_categorized}`);
+	// console.log(`==> Correctly categorized: ${first_result.correctly_categorized}`);
 
 	let node_candidates: DT_Decision[] = [];
 	let most_matches: number[] = [first_result.correctly_categorized];
@@ -429,7 +429,7 @@ export function prune_tree(sub_tree: DT_Node, n_categories: number, validation_d
 			DT_inference(sub_tree, sample, false, prune_at)
 		);
 
-		console.log(`@ ${prune_at.id} => ${result.correctly_categorized}`);
+		// console.log(`@ ${prune_at.id} => ${result.correctly_categorized}`);
 
 		// TODO: this should be some sort of error function
 		if (result.correctly_categorized >= most_matches[0]) {
@@ -448,7 +448,7 @@ export function prune_tree(sub_tree: DT_Node, n_categories: number, validation_d
 	if (node_candidates.length >= 0) {
 		for (const candidate of node_candidates) {
 			candidate.severed = true;
-			console.log(`Pruned at: ${candidate.id}`);
+			// console.log(`Pruned at: ${candidate.id}`);
 		}
 	}
 }
@@ -468,9 +468,6 @@ export function format_DT_for_dagre(
 	const node_defs: NodeDef[] = [];
 	const edge_defs: EdgeDef[] = [];
 
-  const shiny_shadow =
-			'box-shadow: 2px 2px 2px rgba(0, 0, 0, 0.2), 2px 2px 2px inset rgba(255, 255, 255, 0.4);';
-
 	function add_DT_Node(node: DT_Node) {
 		const node_id = id_provider();
 		switch (node.kind) {
@@ -479,28 +476,28 @@ export function format_DT_for_dagre(
 					node_defs.push({
 						name: node_id,
 						label: `${node.fallback_choice.chosen_category} ✂️`,
-            cls: ['border-2', 'rounded-md', 'overflow-clip', 'pl-2', 'pr-2'],
-						style: `background-color: ${colors[node.fallback_choice.chosen_category][1]}; ${shiny_shadow}`
+            cls: ['border-2', 'rounded-md', 'overflow-clip', 'pl-2', 'pr-2', 'shiny-shadow'],
+						style: `background-color: ${colors[node.fallback_choice.chosen_category][1]};`
 					});
 					return node_id;
 				}
 				node_defs.push({
 					name: node_id,
 					label: `${node.feature.signature} < ${node.value.toFixed(3)}`,
-					cls: ['border-2', 'rounded-full', 'overflow-clip', 'p-1', 'pl-3', 'pr-3'],
-          style: shiny_shadow
+					cls: ['border-2', 'rounded-full', 'overflow-clip', 'p-1', 'pl-3', 'pr-3', 'shiny-shadow'],
+          style: `background-color: whitesmoke;`
 				});
 				edge_defs.push({ from: node_id, to: add_DT_Node(node.left), label: 'true' });
 				edge_defs.push({ from: node_id, to: add_DT_Node(node.right), label: 'false' });
 				return node_id;
 			}
 			case 'choice': {
-        console.log(colors[node.chosen_category]);
+        // log(colors[node.chosen_category]);
 				node_defs.push({
 					name: node_id,
 					label: `${node.chosen_category}`,
-          cls: ['border-2', 'rounded-md', 'overflow-clip', 'pl-2', 'pr-2'],
-					style: `background-color: ${colors[node.chosen_category][1]}; ${shiny_shadow}`
+          cls: ['border-2', 'rounded-md', 'overflow-clip', 'pl-2', 'pr-2', 'shiny-shadow'],
+					style: `background-color: ${colors[node.chosen_category][1]};`
 				});
 				return node_id;
 			}
@@ -511,8 +508,6 @@ export function format_DT_for_dagre(
 
   node_defs.push({name: "start", label: "START"});
   edge_defs.push({from: "start", to: "n0", label: ""})
-
-  console.log(node_defs);
 
 	return { node_defs, edge_defs };
 }

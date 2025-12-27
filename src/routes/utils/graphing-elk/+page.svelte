@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { EdgeDef, NodeDef } from '$lib/dagre-graph/hui-graphs';
-	import DagreGraph from '$lib/dagre-graph/HuiDagreGraph.svelte';
+	import ElkGraph from '$lib/dagre-graph/HuiElkGraph.svelte';
 
 	const node_defs: NodeDef[] = $state([
 		{ name: 'kspacey', label: 'Kevin Spacey', cls: ["hui", "node", "negative"]},
@@ -13,19 +13,19 @@
 
   const edge_defs: EdgeDef[] = $state([
     { from: 'kspacey', to: 'swilliams', label: '', arrow_end: "dot", arrow_start: "arrow" },
-    { from: 'kspacey', to: 'swilliams', label: '1' },
+    { from: 'kspacey', to: 'swilliams', label: 'Hello!' },
     { from: 'swilliams', to: 'kbacon', label: 'X' },
-    { from: 'bpitt', to: 'kbacon', label: '3' },
+    { from: 'bpitt', to: 'kbacon', label: 'Brassss' },
     { from: 'hford', to: 'lwilson', label: '4' },
     { from: 'lwilson', to: 'kbacon', label: '5', width: 5, stroke: "red" },
   ]);
 </script>
 
 <head>
-  <title>Utils : Dagre Graphs</title>
+  <title>Utils : Elk Graphs</title>
 </head>
 
 <div class="w-1/2 p-10">
-  <DagreGraph rankdir="BT" ranker="longest-path" {node_defs} {edge_defs}>
-  </DagreGraph>
+  <ElkGraph rankdir="BT" ranker="longest-path" {node_defs} {edge_defs}>
+  </ElkGraph>
 </div>
