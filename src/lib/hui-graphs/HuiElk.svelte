@@ -15,6 +15,12 @@
         layoutSettings?: ElkLayoutArguments,
     } = $props();
 
+    const defaultSettings: ELKConstructorArguments = {
+        defaultLayoutOptions: {
+            "elk.spacing.nodeSelfLoop": "30",
+        }
+    }
+
     let graph: HuiGraph | undefined = $state();
 
     let id = 0;
@@ -24,7 +30,7 @@
 
     async function layout() {
         id = 0;
-        graph = await layoutELK(graphDef, settings, layoutSettings, genId);
+        graph = await layoutELK(graphDef, {...defaultSettings, ...settings}, layoutSettings, genId);
     }
 
     onMount(() => {
