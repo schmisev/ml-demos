@@ -1,6 +1,6 @@
 import { hex, mod } from '$lib';
 import * as fmt from '$lib/fmt';
-import type { EdgeDef, NodeDef } from './dagre-graph/hui-graphs';
+import type { HuiEdgeDefinition, HuiGraphDefinition, HuiNodeDefinition } from './hui-graphs/hui-core';
 import { col_vec, diag, matrix, MatrixND, ones_like, row_vec } from './matrix2';
 
 export type HMM_GraphDir = 'TD' | 'LR' | 'RL';
@@ -454,13 +454,13 @@ export class HiddenMarkovModel {
 		return out;
 	}
 
-	format_graph_for_dagre(
+	format_graph_for_hui(
 		mode: HMM_Mode,
 		show_evidence: boolean,
-    colormap: string[],
-	): { node_defs: NodeDef[]; edge_defs: EdgeDef[] } {
-		const node_defs: NodeDef[] = [];
-		const edge_defs: EdgeDef[] = [];
+		colormap: string[],
+	): HuiGraphDefinition {
+		const nodes: HuiNodeDefinition[] = [];
+		const edges: HuiEdgeDefinition[] = [];
 
 		const N = this.p_labels.length;
 		for (let i = 0; i < N; i++) {
@@ -481,20 +481,20 @@ export class HiddenMarkovModel {
 			const node_name = `
         <div class="p-2 rounded-t-xl shiny-shadow" style="background-color: ${colormap[mod(i, colormap.length)]}"><b>x<sub>${i}</sub></b> ≙  (${label.name})</div>
         <div class="border-t-2 p-2">${value_label}</div>`;
-			node_defs.push({
-				name: node_id,
+			nodes.push({
+				id: node_id,
 				label: node_name,
-				cls: ['border-2', 'rounded-2xl', 'shiny-shadow', 'overflow-hidden'],
-				style: `background-color: whitesmoke;`
+				labelClasses: ['border-2', 'rounded-2xl', 'shiny-shadow', 'overflow-hidden'],
+				labelStyle: { "background-color": "whitesmoke" }
 			});
 
 			for (const [j, p] of this.T.col_at(i).entries()) {
 				if (p === 0) continue;
-				edge_defs.push({
-					from: `h${i}`,
-					to: `h${j}`,
+				edges.push({
+					fromId: `h${i}`,
+					toId: `h${j}`,
 					label: `${p}`,
-					width: 3
+					arrowWidth: 3
 				});
 			}
 		}
@@ -514,30 +514,33 @@ export class HiddenMarkovModel {
 						const NEVER: never = mode;
 				}
 
-				node_defs.push({
-					name: `e${j}`,
+				nodes.push({
+					id: `e${j}`,
 					label: `
             <div class="p-2"><b>e<sub>${j}</sub></b> ≙  (${this.e_labels[j].name})</div>
             <div class="border-t-2 p-2">${value_label}<div>`,
-					cls: ['border-2', 'shiny-shadow', 'rounded-md'],
-					style: `background-color: whitesmoke;`
+					labelClasses: ['border-2', 'shiny-shadow', 'rounded-md'],
+					labelStyle: { "background-color": "whitesmoke" }
 				});
 
 				for (const [i, p] of this.H.row_at(j).entries()) {
 					if (p === 0) continue;
-					edge_defs.push({
-						from: `h${i}`,
-						to: `e${j}`,
+					edges.push({
+						fromId: `h${i}`,
+						toId: `e${j}`,
 						label: `${p}`,
-						width: 3,
-						stroke: 'gray',
-						arrow_style: `stroke-dasharray: 0 10 0;`
+						arrowWidth: 3,
+						arrowStroke: 'gray',
+						arrowStyle: { "stroke-dasharray": "0 10 0" }
 					});
 				}
 			}
 		}
 
-		return { node_defs, edge_defs };
+		return {
+			edges,
+			nodes
+		}
 	}
 }
 

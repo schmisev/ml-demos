@@ -10,10 +10,12 @@
 	} from '$lib/bayesian-networks';
 	import ChartView from '$lib/components/ChartView.svelte';
 	import { tex } from '$lib/mathjax';
-  import * as fmt from '$lib/fmt';
-	import DagreGraph from '$lib/dagre-graph/HuiDagreGraph.svelte';
+	import * as fmt from '$lib/fmt';
+	import type { HuiGraphDefinition } from '$lib/hui-graphs/hui-core';
+	import HuiDagre from '$lib/hui-graphs/HuiDagre.svelte';
+	import { onMount } from 'svelte';
 
-  let early_out = $state(false);
+	let early_out = $state(false);
 
 	let chosen_graph_generator = $state(CLOUDY_BN_GRAPH);
 	let chosen_graph: BN_Graph = $state(chosen_graph_generator());
@@ -22,14 +24,14 @@
 
 	let chart: ChartView;
 	// let mermaid_str = $state(chosen_graph.format_graph_for_mermaid());
-  let { node_defs, edge_defs } = $state(chosen_graph.format_graph_for_dagre());
+	let graph: HuiGraphDefinition | undefined = $state();
 
 	let N = $state(0);
 	let W = $state(0);
 	let W_query = $state(0);
-  let dW = $state(0);
-  let dW_Query = $state(0);
-  let fulfilled = $state(false);
+	let dW = $state(0);
+	let dW_Query = $state(0);
+	let fulfilled = $state(false);
 	let current_query: BN_LinkedQuery = $state(chosen_graph.get_linked_query());
 	let current_evidence: BN_LinkedQuery = $state(chosen_graph.get_linked_query());
 	let current_query_str: string = $derived(format_linked_query(current_query, current_evidence));
@@ -47,9 +49,9 @@
 		N = 0;
 		W = 0;
 		W_query = 0;
-    dW = 0;
-    dW_Query = 0;
-    fulfilled = false;
+		dW = 0;
+		dW_Query = 0;
+		fulfilled = false;
 		update_diagram();
 		chart.reset_chart();
 		chart.update_title(current_query_str);
@@ -63,18 +65,17 @@
 			const r = chosen_graph.query(
 				strip_linked_query(current_query),
 				strip_linked_query(current_evidence),
-        early_out
+				early_out
 			);
 
 			if (r.fulfilled) dW_Query = r.weight;
-      else dW_Query = 0;
-      dW = r.weight;
+			else dW_Query = 0;
+			dW = r.weight;
 
-      W_query += dW_Query;
+			W_query += dW_Query;
 			W += dW;
-      
 
-      fulfilled = r.fulfilled;
+			fulfilled = r.fulfilled;
 			N++;
 			labels.push(N);
 			data.push(W_query / W);
@@ -85,12 +86,16 @@
 	}
 
 	function update_diagram() {
-    ({ node_defs, edge_defs } = chosen_graph.format_graph_for_dagre(N));
+		graph = chosen_graph.format_graph_for_hui(N);
 	}
+
+	onMount(() => {
+		update_diagram();
+	})
 </script>
 
 <head>
-  <title>Bayesian Network</title>
+	<title>Bayesian Network</title>
 </head>
 
 <div class="flex flex-col gap-2 p-2">
@@ -155,28 +160,28 @@
 		<div class="flex flex-row flex-wrap items-center gap-2">
 			{@html tex(`= ${current_query_str} = \\frac{W_{query}}{W}`)}
 			{@html tex(
-				`= \\frac{${fmt.num(W_query - dW_Query)}${dW_Query ? "+" + fmt.num(dW_Query) : ""}}{${fmt.num(W - dW)}${dW ? "+" + fmt.num(dW) : ""}}`
+				`= \\frac{${fmt.num(W_query - dW_Query)}${dW_Query ? '+' + fmt.num(dW_Query) : ''}}{${fmt.num(W - dW)}${dW ? '+' + fmt.num(dW) : ''}}`
 			)}
-      {@html tex(
-				`= \\frac{${fmt.num(W_query)}}{${fmt.num(W)}} = {${(W_query / W).toFixed(3)}}`
-			)}
+			{@html tex(`= \\frac{${fmt.num(W_query)}}{${fmt.num(W)}} = {${(W_query / W).toFixed(3)}}`)}
 		</div>
 	</div>
 
 	<div class="grid grid-cols-2 gap-4">
 		<div class="flex flex-col gap-2">
 			<div class="flex flex-row flex-wrap gap-2">
-				<button onclick={() => step()} class="border special">Random draw!</button>
+				<button onclick={() => step()} class="special border">Random draw!</button>
 				<button onclick={() => step(10)} class="border">Draw 10 times!</button>
 				<button onclick={() => step(100)} class="border">Draw 100 times!</button>
 				<button onclick={() => step(1000)} class="border">Draw 1000 times!</button>
-				<button onclick={reset} class="border negative">Reset</button>
-        <button onclick={reload} class="border negative">Empty query</button>
-        <label class="light-border">Early out? <input type="checkbox" bind:checked={early_out}></label>
+				<button onclick={reset} class="negative border">Reset</button>
+				<button onclick={reload} class="negative border">Empty query</button>
+				<label class="light-border"
+					>Early out? <input type="checkbox" bind:checked={early_out} /></label
+				>
 			</div>
 
 			<!--Mermaid config={{ htmlLabels: true, theme: 'neutral' }} string={mermaid_str}></Mermaid-->
-      <DagreGraph rankdir="LR" {edge_defs} {node_defs}></DagreGraph>
+			<HuiDagre graphDef={graph} settings={{rankdir: "LR", marginx: 10, marginy: 10}}></HuiDagre>
 		</div>
 
 		<div>

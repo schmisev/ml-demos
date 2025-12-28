@@ -1,6 +1,6 @@
 import { rand, randint } from '$lib';
-import type { EdgeDef, NodeDef } from './dagre-graph/hui-graphs';
 import type { Sample } from './data';
+import type { HuiEdgeDefinition, HuiGraphDefinition, HuiNodeDefinition } from './hui-graphs/hui-core';
 import { test_inference, type InferenceResult } from './ml';
 
 type Feature = keyof Sample;
@@ -453,61 +453,64 @@ export function prune_tree(sub_tree: DT_Node, n_categories: number, validation_d
 	}
 }
 
-export function format_DT_for_dagre(
+export function format_DT_for_hui(
 	root: DT_Node,
 	colors: [string, string][],
 	pruned: boolean,
 	show_id = true
-): { node_defs: NodeDef[]; edge_defs: EdgeDef[] } {
+): HuiGraphDefinition {
 	let id = 0;
 
 	function id_provider() {
 		return `n${id++}`;
 	}
 
-	const node_defs: NodeDef[] = [];
-	const edge_defs: EdgeDef[] = [];
+	const nodes: HuiNodeDefinition[] = [];
+	const edges: HuiEdgeDefinition[] = [];
 
 	function add_DT_Node(node: DT_Node) {
 		const node_id = id_provider();
 		switch (node.kind) {
 			case 'decision': {
 				if (node.severed && pruned) {
-					node_defs.push({
-						name: node_id,
+					nodes.push({
+						id: node_id,
 						label: `${node.fallback_choice.chosen_category} ✂️`,
-            cls: ['border-2', 'rounded-md', 'overflow-clip', 'pl-2', 'pr-2', 'shiny-shadow'],
-						style: `background-color: ${colors[node.fallback_choice.chosen_category][1]};`
+						labelClasses: ['border-2', 'rounded-md', 'overflow-clip', 'pl-2', 'pr-2', 'shiny-shadow'],
+						labelStyle: { "background-color": `${colors[node.fallback_choice.chosen_category][1]}` }
 					});
 					return node_id;
 				}
-				node_defs.push({
-					name: node_id,
+				nodes.push({
+					id: node_id,
 					label: `${node.feature.signature} < ${node.value.toFixed(3)}`,
-					cls: ['border-2', 'rounded-full', 'overflow-clip', 'p-1', 'pl-3', 'pr-3', 'shiny-shadow'],
-          style: `background-color: whitesmoke;`
+					labelClasses: ['border-2', 'rounded-full', 'overflow-clip', 'p-1', 'pl-3', 'pr-3', 'shiny-shadow'],
+					labelStyle: { "background-color": "whitesmoke" }
 				});
-				edge_defs.push({ from: node_id, to: add_DT_Node(node.left), label: 'true' });
-				edge_defs.push({ from: node_id, to: add_DT_Node(node.right), label: 'false' });
+				edges.push({ fromId: node_id, toId: add_DT_Node(node.left), label: 'true' });
+				edges.push({ fromId: node_id, toId: add_DT_Node(node.right), label: 'false' });
 				return node_id;
 			}
 			case 'choice': {
-        // log(colors[node.chosen_category]);
-				node_defs.push({
-					name: node_id,
+				// log(colors[node.chosen_category]);
+				nodes.push({
+					id: node_id,
 					label: `${node.chosen_category}`,
-          cls: ['border-2', 'rounded-md', 'overflow-clip', 'pl-2', 'pr-2', 'shiny-shadow'],
-					style: `background-color: ${colors[node.chosen_category][1]};`
+					labelClasses: ['border-2', 'rounded-md', 'overflow-clip', 'pl-2', 'pr-2', 'shiny-shadow'],
+					labelStyle: { "background-color": `${colors[node.chosen_category][1]}` }
 				});
 				return node_id;
 			}
 		}
 	}
 
-  add_DT_Node(root);
+	add_DT_Node(root);
 
-  node_defs.push({name: "start", label: "START"});
-  edge_defs.push({from: "start", to: "n0", label: ""})
+	nodes.push({ id: "start", label: "START" });
+	edges.push({ fromId: "start", toId: "n0" });
 
-	return { node_defs, edge_defs };
+	return {
+		nodes,
+		edges
+	};
 }

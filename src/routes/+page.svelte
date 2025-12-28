@@ -31,7 +31,6 @@
   <div class="light-border m-2">
     <h2>Utilities</h2>
     <div>Pages for testing</div>
-    <h3><a href={resolve(`/utils/graphing`)}>Dagre graph</a></h3>
-    <h3><a href={resolve(`/utils/graphing-elk`)}>Elk graph</a></h3>
+	<h3><a href={resolve(`/utils/graphing-hui`)}>Hui graph</a></h3>
   </div>
 </div>

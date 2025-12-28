@@ -1,13 +1,11 @@
 <script lang="ts">
 	import { euclid, rand } from '$lib';
-	import type { EdgeDef, NodeDef } from '$lib/dagre-graph/hui-graphs';
-	import DagreGraph from '$lib/dagre-graph/HuiDagreGraph.svelte';
 	import { type Sample, type Category, generateNewCategories, generateNewData } from '$lib/data';
 	import {
 		build_DT,
 		DT_inference,
 		entropy_impurity,
-		format_DT_for_dagre,
+		format_DT_for_hui,
 		gini_impurity,
 		misclassification_impurity,
 		prune_tree,
@@ -17,6 +15,8 @@
 		type DT_Heuristic,
 		type DT_Node
 	} from '$lib/dt';
+	import type { HuiGraphDefinition } from '$lib/hui-graphs/hui-core';
+	import HuiDagre from '$lib/hui-graphs/HuiDagre.svelte';
 	import {
 		inv_weight,
 		kNN_inference,
@@ -45,31 +45,28 @@
 	let k = $state(1);
 
 	// data & categories
-  let cell_size = $state(4);
+	let cell_size = $state(4);
 	let data: Sample[] = [];
 	let test_data: Sample[] = [];
 	let categories: Category[] = [];
 	let decision_tree: DT_Node | undefined = $state<DT_Node>();
 	// let diagram_svg: string = $state('');
 	// let pruned_diagram_svg: string = $state('');
-  let pruned_edge_defs: EdgeDef[] = $state([]);
-  let pruned_node_defs: NodeDef[] = $state([]);
-  let edge_defs: EdgeDef[] = $state([]);
-  let node_defs: NodeDef[] = $state([]);
-  
+	let graph: HuiGraphDefinition | undefined = $state();
+	let pruned_graph: HuiGraphDefinition | undefined = $state();
 
 	let chosen_inference: 'kNN' | 'DT' = $state('DT');
 	let chosen_impurity_measure: DT_Heuristic = $state(misclassification_impurity);
 	let impurity_threshold = $state(0.1);
 	let allow_same_category_split = $state(false);
-  let split_mode = $state(SplitMode.ON_DATA);
-  let test_grid_exp = $state(2);
-  let rng_search_depth = $state(20);
+	let split_mode = $state(SplitMode.ON_DATA);
+	let test_grid_exp = $state(2);
+	let rng_search_depth = $state(20);
 	let use_pruned_tree = $state(false);
 	let n_categories: number = $state(4);
 	let n_data: number = $state(100);
 	let n_test_data: number = $state(150);
-  let feature_tilt: number = $state(0);
+	let feature_tilt: number = $state(0);
 
 	let TP: number[] = $state([]);
 	let TN: number[] = $state([]);
@@ -80,42 +77,48 @@
 	// computed feature sets
 	let feature_sets: Record<string, ComputedFeature[]> = {
 		'x & y': [
-			{signature: "x", fn: (sample) => sample.x},
-			{signature: "y", fn: (sample) => sample.y},
+			{ signature: 'x', fn: (sample) => sample.x },
+			{ signature: 'y', fn: (sample) => sample.y }
 		],
 		'4-way': [
-			{signature: "x", fn: (sample) => sample.x},
-			{signature: "y", fn: (sample) => sample.y},
-			{signature: "(x - y)", fn: (sample) => sample.x - sample.y},
-			{signature: "(x + y)", fn: (sample) => sample.x + sample.y}
+			{ signature: 'x', fn: (sample) => sample.x },
+			{ signature: 'y', fn: (sample) => sample.y },
+			{ signature: '(x - y)', fn: (sample) => sample.x - sample.y },
+			{ signature: '(x + y)', fn: (sample) => sample.x + sample.y }
 		],
-    'distance from center': [
-			{signature: "||[x, y] - [0.5, 0.5]||", fn: (sample) => euclid(sample.x, sample.y, 0.5, 0.5)},
+		'distance from center': [
+			{ signature: '||[x, y] - [0.5, 0.5]||', fn: (sample) => euclid(sample.x, sample.y, 0.5, 0.5) }
 		],
-    'x & y with noise': [
-      {signature: "(x ∓ 0.05)", fn: (sample) => sample.x + rand(-0.05, 0.05)},
-      {signature: "(y ∓ 0.05)", fn: (sample) => sample.y + rand(-0.05, 0.05)},
-    ],
-    'x * y': [
-      {signature: "x * y", fn: (sample) => sample.x * sample.y},
-      {signature: "(1-x) * y", fn: (sample) => (1-sample.x) * sample.y},
-      {signature: "x * (1-y)", fn: (sample) => sample.x * (1-sample.y)},
-      {signature: "(1-x) * (1-y)", fn: (sample) => (1-sample.x) * (1-sample.y)},
-    ],
-    'distance from corners': [
-      {signature: "||[x, y] - [0, 1]||", fn: (sample) => euclid(sample.x, sample.y, 0, 1)},
-      {signature: "||[x, y] - [1, 0]||", fn: (sample) => euclid(sample.x, sample.y, 1, 0)},
-      {signature: "||[x, y] - [0, 0]||", fn: (sample) => euclid(sample.x, sample.y, 0, 0)},
-      {signature: "||[x, y] - [1, 1]||", fn: (sample) => euclid(sample.x, sample.y, 1, 1)},
-    ],
-    'tilted': [
-      {signature: "cos(θ) * x + sin(θ) * y", fn: (sample) => Math.cos(feature_tilt) * sample.x + Math.sin(feature_tilt) * sample.y},
-      {signature: "sin(θ) * x + cos(θ) * y", fn: (sample) => Math.sin(feature_tilt) * sample.x - Math.cos(feature_tilt) * sample.y},
-    ]
+		'x & y with noise': [
+			{ signature: '(x ∓ 0.05)', fn: (sample) => sample.x + rand(-0.05, 0.05) },
+			{ signature: '(y ∓ 0.05)', fn: (sample) => sample.y + rand(-0.05, 0.05) }
+		],
+		'x * y': [
+			{ signature: 'x * y', fn: (sample) => sample.x * sample.y },
+			{ signature: '(1-x) * y', fn: (sample) => (1 - sample.x) * sample.y },
+			{ signature: 'x * (1-y)', fn: (sample) => sample.x * (1 - sample.y) },
+			{ signature: '(1-x) * (1-y)', fn: (sample) => (1 - sample.x) * (1 - sample.y) }
+		],
+		'distance from corners': [
+			{ signature: '||[x, y] - [0, 1]||', fn: (sample) => euclid(sample.x, sample.y, 0, 1) },
+			{ signature: '||[x, y] - [1, 0]||', fn: (sample) => euclid(sample.x, sample.y, 1, 0) },
+			{ signature: '||[x, y] - [0, 0]||', fn: (sample) => euclid(sample.x, sample.y, 0, 0) },
+			{ signature: '||[x, y] - [1, 1]||', fn: (sample) => euclid(sample.x, sample.y, 1, 1) }
+		],
+		tilted: [
+			{
+				signature: 'cos(θ) * x + sin(θ) * y',
+				fn: (sample) => Math.cos(feature_tilt) * sample.x + Math.sin(feature_tilt) * sample.y
+			},
+			{
+				signature: 'sin(θ) * x + cos(θ) * y',
+				fn: (sample) => Math.sin(feature_tilt) * sample.x - Math.cos(feature_tilt) * sample.y
+			}
+		]
 	};
 
-	let chosen_feature_set = $state(feature_sets["x & y"]);
-  // console.log(chosen_feature_set);
+	let chosen_feature_set = $state(feature_sets['x & y']);
+	// console.log(chosen_feature_set);
 
 	const MAX_DATA: number = 300;
 	const MAX_TEST_DATA: number = 200;
@@ -141,25 +144,13 @@
 	function renderTrees() {
 		if (!decision_tree) return;
 
-    /*
-		render_DT('diagram', decision_tree, category_colors, false).then((v) => {
-			diagram_svg = v;
-			// console.log(v);
-		});
-
-		render_DT('diagram-pruned', decision_tree, category_colors, true).then((v) => {
-			pruned_diagram_svg = v;
-			// console.log(v);
-		});
-    */
-
-    ({edge_defs, node_defs} = format_DT_for_dagre(decision_tree, category_colors, false));
-    ({edge_defs: pruned_edge_defs, node_defs: pruned_node_defs} = format_DT_for_dagre(decision_tree, category_colors, true));
+		graph = format_DT_for_hui(decision_tree, category_colors, false);
+		pruned_graph = format_DT_for_hui(decision_tree, category_colors, true);
 	}
 
 	function update() {
 		makeUpData();
-    doTraining();
+		doTraining();
 		drawData();
 	}
 
@@ -181,9 +172,9 @@
 			impurity_threshold,
 			allow_same_category_split,
 			chosen_feature_set,
-      split_mode,
-      2**(-test_grid_exp),
-      rng_search_depth
+			split_mode,
+			2 ** -test_grid_exp,
+			rng_search_depth
 		);
 		prune_tree(dec_tree, n_categories, used_test_data);
 
@@ -333,7 +324,7 @@
 </script>
 
 <head>
-  <title>kNN / DT</title>
+	<title>kNN / DT</title>
 </head>
 
 <div class="flex flex-col gap-2 p-2">
@@ -341,18 +332,18 @@
 
 	<div class="flex flex-row gap-5 p-2">
 		<canvas class="h-120 w-120 border" bind:this={cvs}> </canvas>
-    <div class="grow grid grid-cols-2">
-		{#if decision_tree && chosen_inference === 'DT'}
-			<div class="flex max-h-120 flex-col items-center">
-				<div><h1>DT</h1></div>
-        <DagreGraph {edge_defs} {node_defs}></DagreGraph>
-			</div>
-			<div class="flex max-h-120 flex-col items-center">
-				<div><h1>DT pruned</h1></div>
-        <DagreGraph edge_defs={pruned_edge_defs} node_defs={pruned_node_defs}></DagreGraph>
-			</div>
-		{/if}
-    </div>
+		<div class="grid grow grid-cols-2">
+			{#if decision_tree && chosen_inference === 'DT'}
+				<div class="flex max-h-120 flex-col items-center">
+					<div><h1>DT</h1></div>
+					<HuiDagre graphDef={graph}></HuiDagre>
+				</div>
+				<div class="flex max-h-120 flex-col items-center">
+					<div><h1>DT pruned</h1></div>
+					<HuiDagre graphDef={pruned_graph}></HuiDagre>
+				</div>
+			{/if}
+		</div>
 	</div>
 
 	<hr />
@@ -371,7 +362,10 @@
 					<option value="DT">DT</option>
 				</select>
 			</label>
-      <label>Cell size: <input type="number" class="w-20" bind:value={cell_size} min="1" step="1"> (keep &geq; 4)</label>
+			<label
+				>Cell size: <input type="number" class="w-20" bind:value={cell_size} min="1" step="1" /> (keep
+				&geq; 4)</label
+			>
 		</div>
 
 		<div class="flex flex-row items-center gap-4">
@@ -388,13 +382,8 @@
 				>N = <input type="number" bind:value={n_data} max="200" min="1" onchange={drawData} /> / {MAX_DATA}</label
 			>
 			<label
-				>N<sub>val</sub> = <input
-					type="number"
-					bind:value={n_test_data}
-					max="200"
-					min="1"
-					onchange={drawData}
-				/>
+				>N<sub>val</sub> =
+				<input type="number" bind:value={n_test_data} max="200" min="1" onchange={drawData} />
 				/ {MAX_TEST_DATA}</label
 			>
 		</div>
@@ -428,7 +417,7 @@
 						<option value={misclassification_impurity}>misclassification</option>
 						<option value={entropy_impurity}>entropy</option>
 						<option value={gini_impurity}>gini</option>
-            <option value={step_impurity}>80-20</option>
+						<option value={step_impurity}>80-20</option>
 					</select>
 				</label>
 				<label
@@ -451,40 +440,53 @@
 					allow split on same category
 					<input type="checkbox" bind:checked={allow_same_category_split} />
 				</label>
-        <label>
-          feature set:
-          <select bind:value={chosen_feature_set}>
-            {#each Object.entries(feature_sets) as [name, set]}
-              <option value={set}>{name}</option>
-            {/each}
-          </select>
-        </label>
-        {#if chosen_feature_set === feature_sets['tilted']}
-          <label>θ =
-            <input bind:value={feature_tilt} class="w-30" type="number" min="0" max={Math.PI} step={Math.PI / 36}>
-          </label>
-        {/if}
+				<label>
+					feature set:
+					<select bind:value={chosen_feature_set}>
+						{#each Object.entries(feature_sets) as [name, set]}
+							<option value={set}>{name}</option>
+						{/each}
+					</select>
+				</label>
+				{#if chosen_feature_set === feature_sets['tilted']}
+					<label
+						>θ =
+						<input
+							bind:value={feature_tilt}
+							class="w-30"
+							type="number"
+							min="0"
+							max={Math.PI}
+							step={Math.PI / 36}
+						/>
+					</label>
+				{/if}
 			</div>
-      <div class="flex flex-row items-center gap-2">
-          <select bind:value={split_mode}>
-            <option value={SplitMode.DISCRETIZE}>discretize</option>
-            <option value={SplitMode.ON_DATA}>on data</option>
-            <option value={SplitMode.RANDOM}>random</option>
-          </select>
-        {#if split_mode == SplitMode.DISCRETIZE}
-          <label class="flex flex-row items-center gap-2">
-            test inverval
-            2^-<input type="number" min="1" max="8" step="1" bind:value={test_grid_exp} />
-            = {2**(-test_grid_exp)}
-          </label>
-        {/if}
-        {#if split_mode == SplitMode.RANDOM}
-          <label class="flex flex-row items-center gap-2">
-            random search depth:
-            <input type="number" bind:value={rng_search_depth} min="1" max="100">
-          </label>
-        {/if}
-      </div>
+			<div class="flex flex-row items-center gap-2">
+				<select bind:value={split_mode}>
+					<option value={SplitMode.DISCRETIZE}>discretize</option>
+					<option value={SplitMode.ON_DATA}>on data</option>
+					<option value={SplitMode.RANDOM}>random</option>
+				</select>
+				{#if split_mode == SplitMode.DISCRETIZE}
+					<label class="flex flex-row items-center gap-2">
+						test inverval 2^-<input
+							type="number"
+							min="1"
+							max="8"
+							step="1"
+							bind:value={test_grid_exp}
+						/>
+						= {2 ** -test_grid_exp}
+					</label>
+				{/if}
+				{#if split_mode == SplitMode.RANDOM}
+					<label class="flex flex-row items-center gap-2">
+						random search depth:
+						<input type="number" bind:value={rng_search_depth} min="1" max="100" />
+					</label>
+				{/if}
+			</div>
 		{/if}
 	</div>
 

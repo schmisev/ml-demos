@@ -1,4 +1,4 @@
-import type { EdgeDef, NodeDef } from './dagre-graph/hui-graphs';
+import type { HuiEdgeDefinition, HuiGraphDefinition, HuiNodeDefinition } from './hui-graphs/hui-core';
 import type { Vec2D } from './vector';
 
 type ValueType =
@@ -685,9 +685,9 @@ export class Function2D extends Function {
 		return out;
 	}
 
-	format_graph_for_dagre(): { node_defs: NodeDef[]; edge_defs: EdgeDef[] } {
-		const node_defs: NodeDef[] = [];
-		const edge_defs: EdgeDef[] = [];
+	format_graph_for_hui(): HuiGraphDefinition {
+		const nodes: HuiNodeDefinition[] = [];
+		const edges: HuiEdgeDefinition[] = [];
 
 		for (const val of this.topo) {
 			let name = '';
@@ -697,19 +697,19 @@ export class Function2D extends Function {
 			switch (val.type) {
 				case 'in': {
 					name = `v${val.id}`;
-					node_defs.push({
-						name,
+					nodes.push({
+						id: name,
 						label: `<div><div>${var_name}<b>${value}</b></div><div class="border-t-2 bg-amber-300">&nabla; = ${grad}</div></div>`,
-						cls: ['border-2', 'rounded-xl', 'min-w-30', 'overflow-clip', 'shiny-shadow'],
+						labelClasses: ['border-2', 'rounded-xl', 'min-w-30', 'overflow-clip', 'shiny-shadow'],
 					});
 					break;
 				}
 				case 'const': {
 					name = `v${val.id}`;
-					node_defs.push({
-						name,
+					nodes.push({
+						id: name,
 						label: `<div>${var_name}<b>${value}</b></div>`,
-						cls: ['border-2', 'rounded-xl', 'min-w-30', 'overflow-clip', 'bg-gray-200', 'shiny-shadow'],
+						labelClasses: ['border-2', 'rounded-xl', 'min-w-30', 'overflow-clip', 'bg-gray-200', 'shiny-shadow'],
 					});
 					break;
 				}
@@ -729,15 +729,15 @@ export class Function2D extends Function {
 				case 'log': {
 					name = `o${val.id}`;
 					let next_name = `v${val.id}`;
-					node_defs.push({
-						name: next_name,
+					nodes.push({
+						id: next_name,
 						label: `<div>${var_name}<b>${value}</b></div><div class="border-t-2 bg-amber-100">&nabla; = ${grad}</div>`,
-						cls: ['border-2', 'rounded-xl', 'min-w-30', 'overflow-clip', 'shiny-shadow'],
+						labelClasses: ['border-2', 'rounded-xl', 'min-w-30', 'overflow-clip', 'shiny-shadow'],
 					});
-					node_defs.push({
-						name,
+					nodes.push({
+						id: name,
 						label: `${val.type}`,
-						cls: [
+						labelClasses: [
 							'flex',
 							'flex-row',
 							'items-center',
@@ -754,12 +754,12 @@ export class Function2D extends Function {
               'shiny-shadow'
 						],
 					});
-					edge_defs.push({
-						from: name,
-						to: next_name,
+					edges.push({
+						fromId: name,
+						toId: next_name,
 						label: '',
-						arrow_style: 'stroke-width: 4; stroke: oklch(0.4378 0.105 251.813)',
-						arrow_start: 'dot',
+						arrowStyle: {'stroke-width': '3', 'stroke': 'oklch(0.4378 0.105 251.813)'},
+						arrowStart: 'dot',
 					});
 					break;
 				}
@@ -768,19 +768,19 @@ export class Function2D extends Function {
 			}
 
 			for (const child of val.children) {
-				edge_defs.push({
-					from: `v${child.id}`,
-					to: `${name}`,
+				edges.push({
+					fromId: `v${child.id}`,
+					toId: `${name}`,
 					label: '',
-					arrow_style: 'stroke-width: 2;',
-          corner_radius: 50,
+					arrowStyle: { 'stroke-width': '2' },
+          			cornerRadius: 50,
 				});
 			}
 		}
 
 		return {
-			node_defs,
-			edge_defs
-		};
+			edges,
+			nodes
+		}
 	}
 }

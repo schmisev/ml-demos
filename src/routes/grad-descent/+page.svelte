@@ -2,8 +2,6 @@
 	import * as ag from '$lib/autograd';
 	import GradDescentView from '$lib/components/GradDescentView.svelte';
 	import VectorView from '$lib/components/VectorView.svelte';
-	import type { EdgeDef, NodeDef } from '$lib/dagre-graph/hui-graphs';
-	import DagreGraph from '$lib/dagre-graph/HuiDagreGraph.svelte';
 	import {
 		AdamGradientDescender,
 		Descender,
@@ -12,6 +10,8 @@
 		type ObjectiveFunction,
 		type ObjectiveGradient
 	} from '$lib/grad-descent.svelte';
+	import type { HuiGraphDefinition } from '$lib/hui-graphs/hui-core';
+	import HuiElk from '$lib/hui-graphs/HuiElk.svelte';
 	import { tex } from '$lib/mathjax';
 	import type { Vec2D } from '$lib/vector';
 
@@ -66,12 +66,11 @@
 	let obj_fn: ObjectiveFunction = $derived(chosen_autograd.get_bound_fn2d());
 	let obj_grad: ObjectiveGradient = $derived(chosen_autograd.get_bound_grad2d());
   let graph_str: string = $state("");
-  let node_defs: NodeDef[] = $state([]);
-  let edge_defs: EdgeDef[] = $state([]);
+  let graph: HuiGraphDefinition | undefined = $state();
 
   function update_graph() {
-    graph_str = chosen_autograd.format_graph_for_mermaid();
-    ({node_defs, edge_defs} = chosen_autograd.format_graph_for_dagre());
+    // graph_str = chosen_autograd.format_graph_for_mermaid();
+    graph = chosen_autograd.format_graph_for_hui();
   }
 
 	let descenter = $derived(
@@ -242,5 +241,5 @@
 		</div>
 	</div>
 
-  <DagreGraph rankdir="LR" {node_defs} {edge_defs}></DagreGraph>
+	<HuiElk graphDef={graph}></HuiElk>
 </div>

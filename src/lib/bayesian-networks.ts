@@ -1,5 +1,5 @@
 import {is_empty} from "$lib";
-import type { EdgeDef, NodeDef } from "./dagre-graph/hui-graphs";
+import type { HuiEdgeDefinition, HuiGraphDefinition, HuiNodeDefinition } from "./hui-graphs/hui-core";
 
 export enum BN {
 	TRUE = 0,
@@ -317,23 +317,26 @@ export class BN_Graph {
     return preamble + "\n" + nodes.join("\n") + "\n" + conns.join("\n") + "\n";
   }
 
-  format_graph_for_dagre(step?: number): { node_defs: NodeDef[], edge_defs: EdgeDef[] } {
-    const node_defs: NodeDef[] = [];
-    const edge_defs: EdgeDef[] = [];
+  format_graph_for_hui(step?: number): HuiGraphDefinition {
+    const nodes: HuiNodeDefinition[] = [];
+    const edges: HuiEdgeDefinition[] = [];
 
     for (const node of this.topo) {
-      node_defs.push({
-        name: node.name,
+      nodes.push({
+        id: node.name,
         label: `<div><div><b>${node.name}</b>${node.description ? " : " + node.description : ""}</div><hr>${node.name}<sub>${step !== undefined ? step : "last"}</sub> = ${node.format_last()} ${node.format_html_table()}</div>`,
-        cls: [ "border-2", "rounded-xl", "p-2", "scale-on-hover", "shiny-shadow" ],
-        style: "background-color: whitesmoke;",
+        labelClasses: [ "border-2", "rounded-xl", "p-2", "scale-on-hover", "shiny-shadow" ],
+        labelStyle: {"background-color": "whitesmoke"},
       });
       for (const dep of node.deps) {
-        edge_defs.push({from: dep.name, to: node.name, label: ""});
+        edges.push({fromId: dep.name, toId: node.name, label: ""});
       }
     }
 
-    return { node_defs, edge_defs }
+    return {
+      nodes,
+      edges
+    }
   }
 }
 
