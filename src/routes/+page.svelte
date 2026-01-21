@@ -8,7 +8,7 @@
 
 <div class="p-2">
 	<h1>ML/AI demos</h1>
-	<div>Disclaimer: these demos are in no way optimized and just here for my own amusement</div>
+	<div class="light-border m-2">Disclaimer: these demos are in no way optimized and just here for my own amusement.<br>Not tested on Firefox & Internet Explorer or Mobile Browsers. Should run reasonably well in Chrome & Edge on PC.</div>
 	<h2>Classification</h2>
 	<h3><a href={resolve(`/kNN`)}>kNN & DT</a></h3>
 	<h2>Probabilistic Inference</h2>
