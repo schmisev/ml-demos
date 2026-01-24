@@ -27,7 +27,10 @@
 	<h2>Logical agents</h2>
 	<h3><a href={resolve(`/wumpus`)}>Wumpus-World</a></h3>
 	<h3><a href={resolve(`/scheduling`)}>Scheduling via resolution</a></h3>
-
+	<h3><a href={resolve(`/q-functions`)}>Q-Functions</a> (WIP) </h3>
+  <h2>Robotics</h2>
+  <h3><a href={resolve(`/robot-arm`)}>Robot arm</a> (WIP) </h3>
+  
   <div class="light-border m-2">
     <h2>Utilities</h2>
     <div>Pages for testing</div>
