@@ -1,4 +1,4 @@
-import { randint } from '$lib';
+import { rand_order, randint } from '$lib';
 import { SvelteMap } from 'svelte/reactivity';
 
 export interface Q_Cell {
@@ -10,12 +10,18 @@ export interface Q_Cell {
 	reward: number;
 }
 
+export interface Q_Bot {
+  x: number;
+  y: number;
+}
+
 export class Q_World {
   width: number;
   height: number;
 	grid: Q_Cell[][] = $state([]);
 	learning_rate: number = $state(0.1);
 	discount_factor: number = $state(0.6);
+  bot: Q_Bot = $state({x: 0, y: 0});
 
 	constructor(
 		width: number,
@@ -54,11 +60,37 @@ export class Q_World {
 		const y = randint(0, height);
 
     this.grid[y][x].reward = 1;
+
+    this.bot = {
+      x: randint(0, width),
+      y: randint(0, height),
+    }
 	}
+
+  reset_Q(value: number) {
+    for (const [y, row] of this.grid.entries()) {
+			for (const [x, cell] of row.entries()) {
+				for (const [move, Q] of cell.moves.entries()) {
+          cell.moves.set(move, value);
+        }
+			}
+		}
+  }
+
+  reset_R(value: number) {
+    for (const [y, row] of this.grid.entries()) {
+			for (const [x, cell] of row.entries()) {
+				for (const [move, Q] of cell.moves.entries()) {
+          cell.reward = value;
+        }
+			}
+		}
+  }
 
 	cell_step(x: number, y: number) {
 		const cell = this.grid[y][x];
     cell.next_moves.clear();
+    if (!cell.is_accesible) return;
 		for (const [move, old_Q] of cell.moves.entries()) {
 			const next_cell = this.get_cell_by_move(x, y, move);
 			if (next_cell === 'fail') continue;
@@ -131,4 +163,40 @@ export class Q_World {
 		}
 		return 'fail';
 	}
+
+  put_bot(x: number, y: number) {
+    const cell = this.get_cell(x, y);
+    if (cell === "fail") return;
+    this.put_bot_on_cell(cell);
+  }
+
+  put_bot_on_cell(cell: Q_Cell) {
+    this.bot.x = cell.x;
+    this.bot.y = cell.y;
+  }
+
+  bot_step() {
+    const cell = this.get_cell(this.bot.x, this.bot.y);
+    if (cell === "fail") return;
+    
+    let best_moves: string[] = [];
+    let best_Q: number = -Infinity;
+
+    for (let [move, Q] of cell.moves.entries()) {
+      if (Q > best_Q) {
+        best_moves = [move];
+        best_Q = Q;
+      }
+      if (Q === best_Q) {
+        best_moves.push(move);
+      }
+    }
+
+    for (const move of rand_order(best_moves)) {
+      const next_cell = this.get_cell_by_move(this.bot.x, this.bot.y, move);
+      if (next_cell === "fail") continue;
+      this.put_bot_on_cell(next_cell);
+      break;
+    }
+  }
 }

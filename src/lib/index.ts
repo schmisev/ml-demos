@@ -10,6 +10,17 @@ export function rand(from: number, to: number): number {
 	return Math.random() * (to - from) + from;
 }
 
+export function rand_order<T>(arr: Array<T>): Array<T> {
+  const work_arr = [...arr];
+  for (let j = 0; j < work_arr.length-1; j++) {
+    const i = randint(j, work_arr.length);
+    const tmp = work_arr[j];
+    work_arr[j] = work_arr[i];
+    work_arr[i] = tmp;
+  }
+  return work_arr;
+}
+
 export function euclid(x1: number, y1: number, x2: number, y2: number): number {
 	return Math.sqrt((x1 - x2) ** 2 + (y1 - y2) ** 2);
 }
