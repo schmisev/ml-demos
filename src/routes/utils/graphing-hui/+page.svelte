@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { convertAnyToGraph, junction } from '$lib/hui-graphs/hui-any';
 	import type {
 		HuiEdgeDefinition,
 		HuiGraphDefinition,
@@ -6,13 +7,14 @@
 	} from '$lib/hui-graphs/hui-core';
 	import HuiDagre from '$lib/hui-graphs/HuiDagre.svelte';
 	import HuiElk from '$lib/hui-graphs/HuiElk.svelte';
+	import { LogicContext } from '$lib/prop-logic';
 
 	const graph_def: HuiGraphDefinition = $state({
 		nodes: [
 			{
 				id: 'kspacey',
 				label: 'Kevin Spacey',
-				labelClasses: ['hui', 'node', 'negative'],
+				labelClasses: ['hui', 'node', 'negative']
 			},
 			{
 				id: 'swilliams',
@@ -43,7 +45,29 @@
 	<title>Utils : Hui Graphs</title>
 </head>
 
-<div class="w-1/2 p-10">
+<div class="gap-2 p-5 w-2/3">
 	<HuiDagre graphDef={graph_def}></HuiDagre>
+	<hr />
 	<HuiElk graphDef={graph_def}></HuiElk>
+	<hr />
+	<HuiDagre graphDef={convertAnyToGraph({ hello: 7, other: { some: 1, attr: 2 } })}></HuiDagre>
+	<hr />
+	<HuiDagre
+		settings={{ rankdir: 'LR' }}
+		graphDef={convertAnyToGraph(graph_def, 'graph_def', {
+			blacklist: ['labelClasses', 'id', 'labelStyle', 'fromId', 'toId']
+		})}
+	></HuiDagre>
+	<hr />
+	<HuiElk graphDef={convertAnyToGraph(new LogicContext(), 'ctx')}></HuiElk>
+	<hr />
+	<HuiDagre
+		graphDef={convertAnyToGraph(
+			{
+				'yes!': 'Good!',
+				'no...': 'Bad!'
+			},
+			'Is this what you wanted?'
+		)}
+	></HuiDagre>
 </div>

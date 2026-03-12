@@ -16,7 +16,7 @@
 		<marker
 			id="arrow"
 			viewBox="0 0 10 10"
-			refX="8"
+			refX="7.5"
 			refY="5"
 			markerWidth="5"
 			markerHeight="5"
@@ -46,6 +46,7 @@
 	{#each graph.edges as edge}
 		<g>
 			<path
+				stroke-linecap="round"
 				fill="transparent"
 				stroke={edge.def.arrowStroke || 'black'}
 				stroke-width={edge.def.arrowWidth || 2}
