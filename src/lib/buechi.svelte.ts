@@ -1,6 +1,7 @@
 import { randint } from "$lib";
 import { SvelteMap, SvelteSet } from "svelte/reactivity";
 import type { HuiGraphDefinition } from "./hui-graphs/hui-core";
+import { ALPHABET, ANY_CHAR } from "./regex/regex";
 
 export enum BuechiState {
   UNDECIDED = "UNDECIDED",
@@ -8,15 +9,15 @@ export enum BuechiState {
   REJECTED = "REJECTED",
 };
 
-export type BuechiActions = SvelteMap<string, SvelteSet<string>>;
+export type BuechiActions = Map<string, Set<string>>;
 
 export class BuechiAutomaton {
-  def: SvelteMap<string, BuechiActions>;
+  def: Map<string, BuechiActions>;
   rules: [string, string, string][];
   current_state: SvelteSet<string>;
   current_word: string;
   init_state: string;
-  accept_states: SvelteSet<string>;
+  accept_states: Set<string>;
 
   state: BuechiState = $state(BuechiState.UNDECIDED);
 
@@ -29,7 +30,7 @@ export class BuechiAutomaton {
     this.current_word = $state("");
     this.current_state = new SvelteSet([init_state]);
     this.init_state = $state(init_state);
-    this.accept_states = new SvelteSet(accept_states);
+    this.accept_states = new Set(accept_states);
 
     this.def = new SvelteMap();
 
@@ -48,6 +49,8 @@ export class BuechiAutomaton {
     }
 
     if (!this.def.has(init_state)) this.def.set(init_state, new SvelteMap());
+
+    this.reset();
   }
 
   eat_char(char: string): boolean {
@@ -57,17 +60,22 @@ export class BuechiAutomaton {
 
     for (const state of check_states) {
       const at_node = this.def.get(state);
-      console.log(at_node);
-      if (at_node === undefined || !at_node.has(char)) {
+      if (at_node === undefined) {
         continue;
       }
-      const to_nodes = at_node.get(char);
-      console.log(to_nodes);
-      if (!to_nodes) {
+      let via_char = at_node.get(char);
+      let via_any = at_node.get(ANY_CHAR);
+      
+      let to_nodes = new Set<string>();
+      
+      if (!via_char && !via_any) {
         continue;
       }
+
+      if (via_any) to_nodes = to_nodes.union(via_any);
+      if (via_char) to_nodes = to_nodes.union(via_char);
+
       for (const to_node of to_nodes){
-        console.log(to_node);
         this.current_state.add(to_node);}
       at_least_one_actions = true;
     }
@@ -89,12 +97,16 @@ export class BuechiAutomaton {
   }
 
   gen_char(): string {
-    const collected_chars = new Set<string>();
+    let collected_chars = new Set<string>();
     for (const state of this.current_state) {
       const at_node = this.def.get(state);
       if (at_node === undefined) return "";
-      for (const k of at_node!.keys())
-        collected_chars.add(k);
+      for (const k of at_node!.keys()) {
+        if (k === ANY_CHAR) {
+          // TODO: make this more general
+          collected_chars = collected_chars.union(ALPHABET);
+        } else collected_chars.add(k);
+      }  
     }
 
     const i = randint(0, collected_chars.size);
@@ -108,6 +120,10 @@ export class BuechiAutomaton {
     this.current_state.add(this.init_state);
     this.state = BuechiState.UNDECIDED;
     this.current_word = "";
+
+    if (this.accept_states.has(this.init_state)) {
+      this.state = BuechiState.ACCEPTED;
+    }
   }
 
   graph(): HuiGraphDefinition {
@@ -121,7 +137,7 @@ export class BuechiAutomaton {
     for (const [node, action] of this.def.entries()) {
       graph.nodes.push({
         id: node,
-        label: "S<sub>" + node + "</sub>",
+        label: "S<sub>" + node + "</sub> " + (this.accept_states.has(node) ? "✓" : ""),
         labelClasses: ["hui", "node", "rounded"]
       });
 
@@ -136,8 +152,6 @@ export class BuechiAutomaton {
         }
       }
     }
-
-    
 
     return graph;
   }

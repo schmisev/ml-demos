@@ -11,7 +11,7 @@
     const labelPadding = 20;
 </script>
 
-<svg style="max-height: 100%; max-width: 100%;" viewBox="0 0 {graph.width} {graph.height}" xmlns="http://www.w3.org/2000/svg">
+<svg style="height: 100%; width: 100%;" viewBox="0 0 {graph.width} {graph.height}" xmlns="http://www.w3.org/2000/svg">
 	<defs>
 		<marker
 			id="arrow"

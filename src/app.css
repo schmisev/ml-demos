@@ -31,11 +31,13 @@ select {
 }
 
 .border {
-	padding: 0.5rem;
+	/* padding: 0.5rem;
 	border: 2px solid black;
   border-radius: 0.4rem;
-  background-color: whitesmoke;
-	box-shadow: 2px 2px 2px rgba(0, 0, 0, 0.2), 2px 2px 2px inset rgba(255, 255, 255, 0.4); 
+  background-color: whitesmoke;*/
+	box-shadow: 2px 2px 6px rgba(0, 0, 0, 0.2), 2px 2px 2px inset rgba(255, 255, 255, 0.4); 
+  @apply border-2 rounded-md pl-3 pr-3 pt-2 pb-2;
+
 	/* translate: -2px -2px; */
 	transition: 0.1s;
 
@@ -78,10 +80,7 @@ button {
 }
 
 .light-border {
-	padding: 0.5rem 1rem;
-	border: 2px solid rgba(0, 0, 0, 0.2);
-  border-radius: 0.2rem;
-  background-color: rgba(0, 0, 0, 0.1);
+  @apply border-2 rounded-xl border-gray-200 bg-gray-100 pl-3 pr-3 pt-2 pb-2
 }
 
 :root {

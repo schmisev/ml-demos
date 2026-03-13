@@ -9,6 +9,8 @@ export enum RegexTokenKind {
 	DOT,
 	LPAREN,
 	RPAREN,
+  LBRACKET,
+  RBRACKET,
 	CHAR,
 	EOF,
 	EMPTY
@@ -66,7 +68,9 @@ export function regex_tokenize(src: string): RegexToken[] {
 				token(RegexTokenKind.RPAREN);
 				break;
 			case '\\':
-				token(RegexTokenKind.EMPTY);
+        chars.shift()!;
+        if (chars.length <= 0) throw `Letter should follow after \\ `;
+				token(RegexTokenKind.CHAR);
 				break;
 			default:
 				if (is_alpha(at()) || is_digit(at())) {
@@ -93,6 +97,9 @@ export type RegexNode =
 	| RegexChoice
 	| RegexSequence
 	| RegexEmpty;
+
+export const ANY_CHAR = "any";
+export const ALPHABET = new Set("abcdefghijklmnopqrstuvwxyz".split(''));
 
 export interface RegexCharSet {
   descriptor: string;
@@ -202,7 +209,7 @@ export function regex_parse(tokens: RegexToken[]): [RegexNode, Map<string, Regex
 	}
 
 	function parse_right_unop(): RegexNode {
-		let left = parse_atomic_regex();
+		let left = parse_primary_regex();
 		while (
 			at().kind === RegexTokenKind.PLUS ||
 			at().kind === RegexTokenKind.STAR ||
@@ -234,13 +241,13 @@ export function regex_parse(tokens: RegexToken[]): [RegexNode, Map<string, Regex
 		return left;
 	}
 
-	function parse_atomic_regex(): RegexNode {
+	function parse_primary_regex(): RegexNode {
 		switch (at().kind) {
 			case RegexTokenKind.DOT:
 				eat();
 				const any: RegexAnyChar = {
 					kind: 'ANY',
-          descriptor: ".",
+          descriptor: ANY_CHAR,
           alias: get_alias(),
 				};
         store_alias(any);
@@ -254,7 +261,7 @@ export function regex_parse(tokens: RegexToken[]): [RegexNode, Map<string, Regex
 				const value = eat().content;
         const char: RegexChar = {
 					kind: 'CHAR',
-          descriptor: value, 
+          descriptor: value,
 					value,
           alias: get_alias()
 				};
@@ -291,7 +298,7 @@ export function make_regex_graph(node: RegexNode): HuiGraphDefinition {
 				graph.nodes.push({
 					id: this_id,
 					label: `<b>${node.value}</b><sub>${node.alias}</sub>`,
-					labelClasses: ['hui', 'node', 'rect']
+					labelClasses: ['hui', 'node', 'rounded']
 				});
 				return this_id;
 			case 'STAR':
@@ -299,7 +306,7 @@ export function make_regex_graph(node: RegexNode): HuiGraphDefinition {
 				graph.nodes.push({
 					id: this_id,
 					label: (node.kind === "STAR" ? "*" : "+"),
-					labelClasses: ['hui', 'node', 'ellipse']
+					labelClasses: ['hui', 'node', 'ellipse', 'special']
 				});
 
 				const val_id = traverse_tree(node.value);
@@ -313,8 +320,8 @@ export function make_regex_graph(node: RegexNode): HuiGraphDefinition {
 			case 'CHOICE':
 				graph.nodes.push({
 					id: this_id,
-					label: '|',
-					labelClasses: ['hui', 'node', 'ellipse']
+					label: '&nbsp;|&nbsp;',
+					labelClasses: ['hui', 'node', 'ellipse', 'positive']
 				});
 
 				for (const val of node.nodes) {
@@ -331,7 +338,7 @@ export function make_regex_graph(node: RegexNode): HuiGraphDefinition {
 			case 'CONCAT':
 				graph.nodes.push({
 					id: this_id,
-					label: '∙',
+					label: '&nbsp;‿&nbsp;',
 					labelClasses: ['hui', 'node', 'ellipse']
 				});
 
