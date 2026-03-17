@@ -2,10 +2,10 @@
 	import { BuechiAutomaton, BuechiState } from '$lib/buechi.svelte';
 	import HuiDagre from '$lib/hui-graphs/HuiDagre.svelte';
 	import HuiElk from '$lib/hui-graphs/HuiElk.svelte';
-	import { find_pdfl, make_pdfl_automaton } from '$lib/regex/grushkov';
+	import { delambla_pdfl, find_pdfl, make_pdfl_automaton } from '$lib/regex/grushkov';
 	import { make_regex_graph, regex_parse, regex_tokenize, type RegexCharSet, type RegexEmpty, type RegexNode } from '$lib/regex/regex';
 
-	let regex_input: string = $state('(a|b)*');
+	let regex_input: string = $state('(a.?b)+');
 	let [regex_ast, regex_charset_map, regex_error] = $derived.by(() => {
     try {
       const [ast, charset_map] = regex_parse(regex_tokenize(regex_input));
@@ -18,14 +18,14 @@
       return [ast, new Map<string, RegexCharSet>(), "" + e];
     }
   });
-  let {P, D, F, L} = $derived(find_pdfl(regex_ast));
+  let pdfl = $derived(delambla_pdfl(find_pdfl(regex_ast)));
 	let regex_graph = $derived.by(() => {
     const graph = make_regex_graph(regex_ast)
     return graph;
   });
   let [automaton, automaton_error] = $derived.by(() => {
     try {
-      const automaton = make_pdfl_automaton(regex_charset_map, P, D, F, L);
+      const automaton = make_pdfl_automaton(regex_charset_map, pdfl);
       return [automaton, "Automaton initialized!"];
     } catch(e) {
       return [new BuechiAutomaton("init", ["end"], ["init", "x", "end"]), "" + e]
@@ -33,16 +33,6 @@
   });
 
 	let input_word: string = $state('abba');
-
-	// let automaton = $state(
-	// 	new BuechiAutomaton(
-	// 		'1',
-	// 		['2'],
-	// 		['1', { 'a,b': '1', b: '2', c: '3' }],
-	// 		['2', { b: '2' }],
-	// 		['3', { c: '1' }]
-	// 	)
-	// );
 
 	let graph = $derived.by(() => {
     const graph = automaton.graph();
@@ -96,7 +86,7 @@
                 {automaton.accept_states.has(node) ? "✓" : ""}
               </div>
 							{#each actions.entries() as [single_char, to_node]}
-								<div>{single_char} → {[...to_node.values()]}</div>
+								<div><b>'{single_char}'</b> → S<sub>{[...to_node.values()]}</sub></div>
 							{/each}
 						</div>
 					</div>
@@ -105,7 +95,7 @@
 		</div>
 		
     <div class="grow min-h-0">
-      <HuiElk graphDef={graph} settings={ {defaultLayoutOptions: {"elk.direction": "RIGHT"}} }></HuiElk>
+      <HuiDagre graphDef={graph} settings={{rankdir: "LR"}}></HuiDagre>
     </div>
   </div>
 
@@ -135,10 +125,10 @@
     <div class="light-border">
     <table>
       <tbody>
-        <tr><td><b>begins with</b></td> <td><b>P</b> = {@render print_set(P, regex_charset_map)}</td></tr>
-        <tr><td><b>ends with</b></td>   <td><b>D</b> = {@render print_set(D, regex_charset_map)}</td></tr>
-        <tr><td><b>2-factors</b></td>   <td><b>F</b> = {@render print_joined_set(F, regex_charset_map)}</td></tr>
-        <tr><td><b>contains ε?</b></td> <td><b>Λ</b> = {@render print_set(L, regex_charset_map)}</td></tr>
+        <tr><td><b>begins with</b></td> <td><b>P</b> = {@render print_set(pdfl.P, regex_charset_map)}</td></tr>
+        <tr><td><b>ends with</b></td>   <td><b>D</b> = {@render print_set(pdfl.D, regex_charset_map)}</td></tr>
+        <tr><td><b>2-factors</b></td>   <td><b>F</b> = {@render print_joined_set(pdfl.F, regex_charset_map)}</td></tr>
+        <tr><td><b>contains ε?</b></td> <td><b>Λ</b> = {@render print_set(pdfl.L, regex_charset_map)}</td></tr>
       </tbody>
     </table>
     </div>
@@ -150,7 +140,7 @@
     &lcub;
     {#each S as s, i}
       {@const v = s || ""}
-      {@const c = M.get(s)?.descriptor || "ε" }
+      {@const c = M.get(s)?.trigger || "ε" }
       <span>
         {i > 0 ? ", " : ""}{c}<sub>{v}</sub>
       </span>
@@ -164,7 +154,7 @@
     &lcub;
     {#each S as s, i}
       {@const comps = s.split(":")}
-      {@const descr = comps.map((c) => M.get(c)?.descriptor || "ε") }
+      {@const descr = comps.map((c) => M.get(c)?.trigger || "ε") }
 
       {i > 0 ? "," : ""}
       <span>

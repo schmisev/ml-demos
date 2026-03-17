@@ -1,5 +1,6 @@
 import { BuechiAutomaton } from '$lib/buechi.svelte';
 import type { HuiGraphDefinition } from '$lib/hui-graphs/hui-core';
+import { char_alias } from './character-alias';
 
 export enum RegexTokenKind {
 	STAR,
@@ -9,11 +10,15 @@ export enum RegexTokenKind {
 	DOT,
 	LPAREN,
 	RPAREN,
-  LBRACKET,
-  RBRACKET,
-	CHAR,
+	LBRACKET,
+	RBRACKET,
+	LCURLY,
+	RCURLY,
+	CHARSET,
 	EOF,
-	EMPTY
+	EMPTY,
+	DASH,
+	SELF
 }
 
 export interface RegexToken {
@@ -38,6 +43,7 @@ export function regex_tokenize(src: string): RegexToken[] {
 	}
 
 	function token(kind: RegexTokenKind) {
+		if (chars.length <= 0) throw `No character left to consume!`;
 		tokens.push({
 			content: chars.shift()!,
 			kind
@@ -46,6 +52,9 @@ export function regex_tokenize(src: string): RegexToken[] {
 
 	while (chars.length > 0) {
 		switch (at()) {
+			case '^':
+				token(RegexTokenKind.SELF);
+				break;
 			case '*':
 				token(RegexTokenKind.STAR);
 				break;
@@ -67,17 +76,42 @@ export function regex_tokenize(src: string): RegexToken[] {
 			case ')':
 				token(RegexTokenKind.RPAREN);
 				break;
+			case '[':
+				token(RegexTokenKind.LBRACKET);
+				break;
+			case ']':
+				token(RegexTokenKind.RBRACKET);
+				break;
+			case '{':
+				token(RegexTokenKind.LCURLY);
+				break;
+			case '}':
+				token(RegexTokenKind.RCURLY);
+				break;
 			case '\\':
-        chars.shift()!;
-        if (chars.length <= 0) throw `Letter should follow after \\ `;
-				token(RegexTokenKind.CHAR);
+				chars.shift()!;
+				if (chars.length <= 0) throw `Letter should follow after \\`;
+				switch (at()) {
+					case '(':
+					case ')':
+					case '[':
+					case ']':
+					case '{':
+					case '}':
+					case '|':
+					case '*':
+					case '+':
+					case '?':
+					case '\\':
+						token(RegexTokenKind.CHARSET);
+						break;
+					default:
+						throw `${at()} is not escapable`;
+				}
 				break;
 			default:
-				if (is_alpha(at()) || is_digit(at())) {
-					token(RegexTokenKind.CHAR);
-					break;
-				}
-				throw `Illegal character in REGEX!`;
+				token(RegexTokenKind.CHARSET);
+				break;
 		}
 	}
 
@@ -91,24 +125,30 @@ export function regex_tokenize(src: string): RegexToken[] {
 
 export type RegexNode =
 	| RegexStar
-  | RegexPlus
+	| RegexPlus
 	| RegexAnyChar
 	| RegexChar
 	| RegexChoice
 	| RegexSequence
-	| RegexEmpty;
+	| RegexEmpty
+	| RegexSelf;
 
-export const ANY_CHAR = "any";
-export const ALPHABET = new Set("abcdefghijklmnopqrstuvwxyz".split(''));
+export const ANY_CHAR = 'any';
+export const SELF_REF = 'self';
+export const ALPHABET = new Set('abcdefghijklmnopqrstuvwxyz'.split(''));
 
 export interface RegexCharSet {
-  descriptor: string;
-  alias: string;
+	trigger: string;
+	alias: string;
+}
+
+export interface RegexSelf extends RegexCharSet {
+	kind: 'SELF';
 }
 
 export interface RegexChar extends RegexCharSet {
 	kind: 'CHAR';
-  value: string;
+	value: string;
 }
 
 export interface RegexAnyChar extends RegexCharSet {
@@ -142,17 +182,17 @@ export interface RegexSequence {
 
 export function regex_parse(tokens: RegexToken[]): [RegexNode, Map<string, RegexCharSet>] {
 	let charset_id = 0;
-  const charset_map = new Map<string, RegexCharSet>();
-  
-  function get_alias(): string {
-    return "" + charset_id++;
-  }
+	const charset_map = new Map<string, RegexCharSet>();
 
-  function store_alias(charset: RegexCharSet) {
-    charset_map.set(charset.alias, charset);
-  }
+	function get_alias(): string {
+		return '' + charset_id++;
+	}
 
-  function eat() {
+	function store_alias(charset: RegexCharSet) {
+		charset_map.set(charset.alias, charset);
+	}
+
+	function eat() {
 		return tokens.shift()!;
 	}
 
@@ -217,25 +257,25 @@ export function regex_parse(tokens: RegexToken[]): [RegexNode, Map<string, Regex
 		) {
 			if (at().kind === RegexTokenKind.QUESTION) {
 				eat();
-        left = {
+				left = {
 					kind: 'CHOICE',
 					nodes: [{ kind: 'EMPTY' }, left]
 				};
 			} else if (at().kind === RegexTokenKind.PLUS) {
 				eat();
-        left = {
+				left = {
 					kind: 'PLUS',
 					value: left
 				};
 			} else if (at().kind === RegexTokenKind.STAR) {
-        eat();
-        left = {
+				eat();
+				left = {
 					kind: 'STAR',
 					value: left
 				};
 			} else {
-        break;
-      }
+				break;
+			}
 		}
 
 		return left;
@@ -247,37 +287,66 @@ export function regex_parse(tokens: RegexToken[]): [RegexNode, Map<string, Regex
 				eat();
 				const any: RegexAnyChar = {
 					kind: 'ANY',
-          descriptor: ANY_CHAR,
-          alias: get_alias(),
+					trigger: ANY_CHAR,
+					alias: get_alias()
 				};
-        store_alias(any);
-        return any;
+				store_alias(any);
+				return any;
 			case RegexTokenKind.EMPTY:
 				eat();
 				return {
 					kind: 'EMPTY'
 				};
-			case RegexTokenKind.CHAR:
-				const value = eat().content;
-        const char: RegexChar = {
-					kind: 'CHAR',
-          descriptor: value,
-					value,
+			case RegexTokenKind.SELF:
+				eat();
+				return {
+					kind: 'SELF',
+          trigger: SELF_REF,
           alias: get_alias()
 				};
-        store_alias(char);
-        return char;
+			case RegexTokenKind.CHARSET:
+				return parse_char_regex();
 			case RegexTokenKind.LPAREN:
 				eat();
 				const expr = parse_regex();
 				expect(RegexTokenKind.RPAREN);
 				return expr;
+			case RegexTokenKind.LBRACKET:
+				eat();
+				const charset = parse_char_regex();
+				expect(RegexTokenKind.RBRACKET);
+				return charset;
 			default:
 				throw `Unexpected TOKEN: ${at().content}`;
 		}
 	}
 
-  const ast = parse_regex();
+	function parse_charset_regex(): RegexNode {
+		const nodes: RegexNode[] = [];
+
+		while (at().kind !== RegexTokenKind.RBRACKET) {
+			parse_char_regex;
+		}
+
+		return {
+			kind: 'CHOICE',
+			nodes
+		};
+	}
+
+	function parse_char_regex(): RegexNode {
+		const value = eat().content;
+		const char: RegexChar = {
+			kind: 'CHAR',
+			trigger: value,
+			value,
+			alias: get_alias()
+		};
+		store_alias(char);
+		return char;
+	}
+
+	const ast = parse_regex();
 	return [ast, charset_map];
 }
 
@@ -297,15 +366,15 @@ export function make_regex_graph(node: RegexNode): HuiGraphDefinition {
 			case 'CHAR':
 				graph.nodes.push({
 					id: this_id,
-					label: `<b>${node.value}</b><sub>${node.alias}</sub>`,
+					label: `<b>${char_alias(node.value)}</b><sub>${node.alias}</sub>`,
 					labelClasses: ['hui', 'node', 'rounded']
 				});
 				return this_id;
 			case 'STAR':
-      case 'PLUS':
+			case 'PLUS':
 				graph.nodes.push({
 					id: this_id,
-					label: (node.kind === "STAR" ? "*" : "+"),
+					label: node.kind === 'STAR' ? '*' : '+',
 					labelClasses: ['hui', 'node', 'ellipse', 'special']
 				});
 
@@ -358,7 +427,7 @@ export function make_regex_graph(node: RegexNode): HuiGraphDefinition {
 			case 'ANY':
 				graph.nodes.push({
 					id: this_id,
-					label: `<b>.</b><sub>${node.alias}</sub>`,
+					label: `<b>any</b><sub>${node.alias}</sub>`,
 					labelClasses: ['hui', 'node', 'ellipse']
 				});
 
@@ -367,6 +436,14 @@ export function make_regex_graph(node: RegexNode): HuiGraphDefinition {
 				graph.nodes.push({
 					id: this_id,
 					label: 'ε',
+					labelClasses: ['hui', 'node', 'ellipse']
+				});
+
+				return this_id;
+			case 'SELF':
+				graph.nodes.push({
+					id: this_id,
+					label: '↺',
 					labelClasses: ['hui', 'node', 'ellipse']
 				});
 

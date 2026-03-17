@@ -2,6 +2,7 @@ import { randint } from "$lib";
 import { SvelteMap, SvelteSet } from "svelte/reactivity";
 import type { HuiGraphDefinition } from "./hui-graphs/hui-core";
 import { ALPHABET, ANY_CHAR } from "./regex/regex";
+import { char_alias } from "./regex/character-alias";
 
 export enum BuechiState {
   UNDECIDED = "UNDECIDED",
@@ -147,7 +148,7 @@ export class BuechiAutomaton {
             id: "" + edge_id++,
             fromId: node,
             toId: to_node,
-            label: trigger
+            label: char_alias(trigger)
           })
         }
       }
