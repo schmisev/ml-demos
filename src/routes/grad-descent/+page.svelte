@@ -13,7 +13,7 @@
 	import type { HuiGraphDefinition } from '$lib/hui-graphs/hui-core';
 	import HuiElk from '$lib/hui-graphs/HuiElk.svelte';
 	import { tex } from '$lib/mathjax';
-	import type { Vec2D } from '$lib/vector';
+	import { vmul, type Vec2D } from '$lib/vector';
 
 	// example functions
 	let available_functions: ag.Function2D[] = [
