@@ -47,6 +47,10 @@
 	}
 </script>
 
+<head>
+	<title>Regex</title>
+</head>
+
 <div class="grid h-dvh grid-cols-2 gap-2 p-2">
 	<div class="flex flex-col gap-2 min-h-0">
 		<div class="flex flex-col gap-2">
