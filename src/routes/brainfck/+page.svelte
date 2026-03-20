@@ -12,6 +12,7 @@
 	import { onMount } from 'svelte';
 	import { replaceState } from '$app/navigation';
 	import { vmul } from '$lib/vector';
+	import { MediaQuery } from 'svelte/reactivity';
 
 	let compress_inputs = $state(false);
 	let src = $state(BF_HELLO_WORLD);
@@ -83,45 +84,39 @@
 		is_autostepping = false;
 		if (autostep_timer) clearInterval(autostep_timer);
 	}
+
+  const large = new MediaQuery('min-width: 800px');
 </script>
 
 <head>
 	<title>Super-Brainf*ck</title>
 </head>
 
-<div class="flex h-dvh flex-col gap-2 p-2">
-	<div class="grid grid-cols-2 gap-2">
-		<div class="flex flex-row gap-5">
-			<h1>Super-Brainf*ck | <a href="../">back</a></h1>
-		</div>
-	</div>
+<div class="flex {large.current ? "h-dvh" : ""} flex-col gap-2 p-2">
+	<h1>Super-Brainf*ck | <a href="../">back</a></h1>
 
-	<div class="flex flex-row items-center gap-2">
-		<div class="light-border flex grow flex-row gap-2">
+	<div class="flex flex-row items-center flex-wrap gap-2">
 			<div>{error}</div>
 			<!--label><input type="checkbox" bind:checked={compress_inputs} /> Compress commands</label-->
-		</div>
 
-		<div class="flex flex-row gap-2">
-			<button
-				class="special border"
-				onclick={() => {
-					stop_autostep();
-					step();
-				}}>Do</button
-			>
-			<button class="border" onclick={run}>Run</button>
-			<button class="border" onclick={execute}>Execute</button>
-			<button class="negative border" onclick={reset}>Reset</button>
-		</div>
-		<label>Input:</label><input bind:value={vm.input} />
+		<button
+			class="special border"
+			onclick={() => {
+				stop_autostep();
+				step();
+			}}>Do</button
+		>
+		<button class="border" onclick={run}>Run</button>
+		<button class="border" onclick={execute}>Execute</button>
+		<button class="negative border" onclick={reset}>Reset</button>
+		<div>Input:</div><input bind:value={vm.input} />
 	</div>
 
 	<div class="flex flex-col gap-2">
-		<div class="flex flex-row items-center gap-2">
+		<div class="flex flex-row flex-wrap items-center gap-2">
 			<h2>Tape</h2>
 			<div class="light-border">
-				<b class="text-blue-500">blue</b> = Instruction Pointer,
+				<b class="text-blue-500">blue</b> = Instruction Pointer, 
 				<b class="text-red-500">red</b> = Data Pointer, is in {#if vm.in_cmd_mode}
 					<b>INSTR</b>
 				{:else}
@@ -130,10 +125,7 @@
 			</div>
 		</div>
 
-		<div class="grid grid-cols-32 gap-1.5 p-2 text-xs">
-			{#each new Array(32) as v, i}
-				<div class="text-center">{i}</div>
-			{/each}
+		<div class="flex flex-row flex-wrap gap-1.5 p-2 text-xs">
 			{#each vm.tape as val, tape_ptr}
 				{@const name = BF_OP_TO_SPEC.get(val.instr)?.char || val.instr}
 				<div
@@ -141,7 +133,7 @@
 					class="rounded text-center font-mono outline-2"
 				>
 					<div
-						class="{val.instr === BF_Cmd.END ? 'bg-gray-300' : ''} {tape_ptr === vm.instr_ptr
+						class="pl-1 pr-1 {val.instr === BF_Cmd.END ? 'bg-gray-300' : ''} {tape_ptr === vm.instr_ptr
 							? 'rounded font-black text-blue-500 outline-3 -outline-offset-3 outline-blue-500'
 							: ''} {tape_ptr === vm.data_ptr && vm.in_cmd_mode ? 'bg-red-300' : ''}"
 					>
@@ -161,9 +153,10 @@
 		{vm.output}
 	</div>
 
-	<div class="grid min-h-0 grow grid-cols-2 gap-2">
-		<textarea class="w-full border font-mono" bind:value={src}></textarea>
-		<div class="light-border min-h-0 overflow-auto">
+	<div class="grid min-h-0 grow {large.current ? "grid-cols-2" : "grid-cols-1"} gap-2">
+
+		<textarea class="w-full {large.current ? "" : "min-h-50"} border font-mono" bind:value={src}></textarea>
+		<div class="min-h-0 overflow-auto">
 			<h2>Rules</h2>
 			<table class="w-full overflow-hidden rounded-md border-2 shadow">
 				<thead>
@@ -184,5 +177,6 @@
 				</tbody>
 			</table>
 		</div>
+
 	</div>
 </div>
