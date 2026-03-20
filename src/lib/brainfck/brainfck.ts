@@ -18,6 +18,8 @@ export enum BF_Cmd {
   GOTO,
   HERE,
   TOGGLE,
+  LOAD,
+  ABSLOAD,
 }
 
 export type BF_Spec = {
@@ -47,12 +49,13 @@ export const BF_NAME_TO_SPEC: Record<string, BF_Spec> = {
   "&": { char:  "&", op: BF_Cmd.REF, description: "Reference operator, sets value at <code><b>data_ptr</b></code> equal to <code><b>data_ptr</b></code>" },
   "^": { char:  "^", op: BF_Cmd.GOTO, description: "Goto operator, sets <code><b>instr_ptr</b></code> to value at <code><b>data_ptr</b></code>" },
   "@": { char:  "@", op: BF_Cmd.HERE, description: "Here operator, sets value at <code><b>data_ptr</b></code> equal to <code><b>instr_ptr</b></code>" },
+  "%": { char:  "%", op: BF_Cmd.LOAD, description: "Load operator, sets <code><b>data_ptr</b></code> to the data field of the instruction cell. Created automatically when using a-z to address cells offset from the end of the compiled instructions by 1-26. <code><b>%</b></code> alone jumps to offset 0. <code><b>ß</b></code> on the other hand will create a jump to the very first cell of the tape, i.e. the first compiled instruction. You can use this simple mnemonic: ßtart" },
 }
 
 export const BF_OP_TO_SPEC = new Map(Object.entries(BF_NAME_TO_SPEC).map(([name, spec]) => [spec.op, spec]));
 
 export interface BF_TapeCell {
-  kind: BF_Cmd;
+  instr: BF_Cmd;
   data: number;
 }
 
@@ -66,6 +69,8 @@ export function compile(src: string, config: { compress_inputs: boolean }): BF_P
   let char_ptr: number = 0;
   let instr_ptr: number = 0;
   const chars = src.split("");
+  let variable_index = 0;
+  let variable_map = new Map<string, number>();
 
   const program: BF_Program = {
     cmds: []
@@ -107,7 +112,7 @@ export function compile(src: string, config: { compress_inputs: boolean }): BF_P
         }
 
         program.cmds.push({
-          kind: BF_NAME_TO_SPEC[c].op,
+          instr: BF_NAME_TO_SPEC[c].op,
           data: count,
         });
         break;
@@ -117,7 +122,7 @@ export function compile(src: string, config: { compress_inputs: boolean }): BF_P
         ptr_stack.push(instr_ptr);
         adv();
         program.cmds.push({
-          kind: BF_NAME_TO_SPEC[c].op,
+          instr: BF_NAME_TO_SPEC[c].op,
           data
         });
         break;
@@ -130,7 +135,7 @@ export function compile(src: string, config: { compress_inputs: boolean }): BF_P
         
         adv();
         program.cmds.push({
-          kind: BF_NAME_TO_SPEC[c].op,
+          instr: BF_NAME_TO_SPEC[c].op,
           data: ptr_to_opening_bracket,
         });
 
@@ -139,7 +144,7 @@ export function compile(src: string, config: { compress_inputs: boolean }): BF_P
       case "~": {
         adv();
         program.cmds.push({
-          kind: BF_NAME_TO_SPEC[c].op,
+          instr: BF_NAME_TO_SPEC[c].op,
           data: 0
         })
         break;
@@ -153,7 +158,7 @@ export function compile(src: string, config: { compress_inputs: boolean }): BF_P
         // reference & dereference
         adv();
         program.cmds.push({
-          kind: BF_NAME_TO_SPEC[c].op,
+          instr: BF_NAME_TO_SPEC[c].op,
           data: 0
         })
         break;
@@ -163,7 +168,7 @@ export function compile(src: string, config: { compress_inputs: boolean }): BF_P
         rnd_ptr_stack.push(instr_ptr);
         adv();
         program.cmds.push({
-          kind: BF_NAME_TO_SPEC[c].op,
+          instr: BF_NAME_TO_SPEC[c].op,
           data
         });
         break;
@@ -176,18 +181,59 @@ export function compile(src: string, config: { compress_inputs: boolean }): BF_P
         
         adv();
         program.cmds.push({
-          kind: BF_NAME_TO_SPEC[c].op,
+          instr: BF_NAME_TO_SPEC[c].op,
           data: ptr_to_question_mark,
         });
         break;
       }
+      case "%": {
+        adv();
+
+        program.cmds.push({
+          instr: BF_NAME_TO_SPEC[c].op,
+          data: 0
+        });
+        break;
+      }
+      case "ß": {
+        adv();
+
+        program.cmds.push({
+          instr: BF_Cmd.LOAD,
+          data: -1
+        });
+        break;
+      }
       default: {
+        const var_index = "abcdefghijklmnopqrstuvwxyz".indexOf(c);
+        if (var_index >= 0) {
+          adv();
+
+          program.cmds.push({
+            instr: BF_Cmd.LOAD,
+            data: var_index+1
+          });
+
+          break;
+        }
+
         consume();
       }
     }
   }
 
-  program.cmds.push({kind: BF_Cmd.END, data: 0});
+  for (const cmd of program.cmds) {
+    switch (cmd.instr) {
+      case BF_Cmd.LOAD:
+        if (cmd.data < 0) cmd.data = 0;
+        else cmd.data += instr_ptr+1;
+        break;
+      default:
+        break;
+    }
+  }
+
+  program.cmds.push({instr: BF_Cmd.END, data: 0});
   if (ptr_stack.length > 0) throw `Unclosed [`;
   if (rnd_ptr_stack.length > 0) throw `Unclosed ?`;
 
@@ -198,20 +244,20 @@ export const BF_HELLO_WORLD = `
 ++++++++++
 [
 >+++++++>++++++++++>+++>+<<<<-
-]                       Schleife zur Vorbereitung der Textausgabe
->++.                    Ausgabe von 'H'
->+.                     Ausgabe von 'e'
-+++++++.                'l'
-.                       'l'
-+++.                    'o'
->++.                    Leerzeichen
-<<+++++++++++++++.      'W'
->.                      'o'
-+++.                    'r'
-------.                 'l'
---------.               'd'
->+.                     Ausrufezeichen
->.                      Zeilenvorschub
-+++.                    Wagenrücklauf
+]                       
+>++.                    
+>+.                     
++++++++.                
+.                       
++++.                    
+>++.                    
+<<+++++++++++++++.      
+>.                      
++++.                    
+------.                 
+--------.               
+>+.
+>.
++++.
 `
 

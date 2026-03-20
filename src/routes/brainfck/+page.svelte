@@ -20,7 +20,7 @@
 			const program = compile(src, { compress_inputs });
 			return [program, 'Compiled successfully!'];
 		} catch (e) {
-			return [{ cmds: [{ kind: BF_Cmd.END, data: 0 }] }, '' + e];
+			return [{ cmds: [{ instr: BF_Cmd.END, data: 0 }] }, '' + e];
 		}
 	});
 
@@ -39,7 +39,7 @@
 	});
 
 	let vm = $derived(
-		new BF_VM(program, "Hallo", () => {
+		new BF_VM(program, 'Hallo', () => {
 			stop_autostep();
 		})
 	);
@@ -86,7 +86,7 @@
 </script>
 
 <head>
-	<title>Super-Brainf*k</title>
+	<title>Super-Brainf*ck</title>
 </head>
 
 <div class="flex h-dvh flex-col gap-2 p-2">
@@ -130,17 +130,24 @@
 			</div>
 		</div>
 
-		<div class="grid grid-cols-32 gap-2 p-2 text-xs">
+		<div class="grid grid-cols-32 gap-1.5 p-2 text-xs">
+			{#each new Array(32) as v, i}
+				<div class="text-center">{i}</div>
+			{/each}
 			{#each vm.tape as val, tape_ptr}
-				<div class="rounded text-center font-mono outline-2">
+				{@const name = BF_OP_TO_SPEC.get(val.instr)?.char || val.instr}
+				<div
+					title={`${name}(${val.data}) @ ${tape_ptr}`}
+					class="rounded text-center font-mono outline-2"
+				>
 					<div
-						class="{val.kind === BF_Cmd.END ? 'bg-gray-300' : ''} {tape_ptr === vm.instr_ptr
+						class="{val.instr === BF_Cmd.END ? 'bg-gray-300' : ''} {tape_ptr === vm.instr_ptr
 							? 'rounded font-black text-blue-500 outline-3 -outline-offset-3 outline-blue-500'
-							: ''} {tape_ptr === vm.data_ptr && vm.in_cmd_mode ? 'bg-red-300' : ''} pr-1 pl-1"
+							: ''} {tape_ptr === vm.data_ptr && vm.in_cmd_mode ? 'bg-red-300' : ''}"
 					>
-						<b>{BF_OP_TO_SPEC.get(val.kind)?.char || val.kind}</b>
+						<b>{name}</b>
 					</div>
-					<div class="{tape_ptr === vm.data_ptr && !vm.in_cmd_mode ? 'bg-red-300' : ''} pr-1 pl-1">
+					<div class="border-t-1 {tape_ptr === vm.data_ptr && !vm.in_cmd_mode ? 'bg-red-300' : ''}">
 						{val.data}
 					</div>
 				</div>
