@@ -54,7 +54,7 @@
 <div class="grid h-dvh grid-cols-2 gap-2 p-2">
 	<div class="flex flex-col gap-2 min-h-0">
 		<div class="flex flex-col gap-2">
-			<h1>Büchi-Automata | <a href="../">back</a></h1>
+			<h1>Regex via Grushkov | <a href="../">back</a></h1>
 			<div class="flex flex-row flex-wrap items-center gap-2"></div>
 
 			<div>

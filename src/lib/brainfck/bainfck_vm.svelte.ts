@@ -1,4 +1,4 @@
-import { rand } from '$lib';
+import { mod, rand } from '$lib';
 import { BF_Cmd, BF_OP_TO_SPEC, type BF_Program, type BF_TapeCell } from './brainfck';
 
 export class BF_VM {
@@ -31,8 +31,7 @@ export class BF_VM {
 
 	set_mem(value: number) {
 		const cell = this.tape[this.data_ptr];
-		value = value % 255;
-		if (this.in_cmd_mode) {
+    if (this.in_cmd_mode) {
 			cell.instr = value;
 		} else {
 			cell.data = value;
@@ -170,14 +169,14 @@ export class BF_VM {
 				this.set_mem(value);
 				break;
 			}
-			case BF_Cmd.LBRACKET: {
+			case BF_Cmd.JMP_ZERO: {
 				const value = this.get_mem();
 				if (value === 0) {
 					this.set_instr_ptr(curr_cmd.data);
 				}
 				break;
 			}
-			case BF_Cmd.RBRACKET: {
+			case BF_Cmd.JMP_NONZERO: {
 				const value = this.get_data();
 				if (value !== 0) {
 					this.set_instr_ptr(curr_cmd.data);
@@ -193,6 +192,7 @@ export class BF_VM {
 				}
 				break;
 			case BF_Cmd.ENDRAND:
+        break;
 			case BF_Cmd.DEREF:
 				this.set_data_ptr(this.get_mem());
 				break;
@@ -217,9 +217,19 @@ export class BF_VM {
 			case BF_Cmd.LOAD:
 				this.set_data_ptr(curr_cmd.data);
 				break;
-			default:
+      case BF_Cmd.WRAP:
+        this.set_mem(mod(this.get_mem(), curr_cmd.data));
+        break;
+			case BF_Cmd.EQUAL_DATA:
+        this.set_instr_ptr(this.data_ptr);
+        return;
+      case BF_Cmd.EQUAL_INSTR:
+        this.set_data_ptr(this.instr_ptr);
+        break;
+      default:
 				break;
 		}
-		this.instr_ptr++;
+
+    this.set_instr_ptr(++this.instr_ptr);
 	}
 }

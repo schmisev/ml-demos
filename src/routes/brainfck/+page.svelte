@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { BF_VM } from '$lib/brainfck/bainfck_vm.svelte';
 	import {
+	ALPHABET,
 		BF_Cmd,
 		BF_HELLO_WORLD,
 		BF_NAME_TO_SPEC,
@@ -9,7 +10,7 @@
 		type BF_Program
 	} from '$lib/brainfck/brainfck';
 	import { page } from '$app/state';
-	import { onMount } from 'svelte';
+	import { onMount, untrack } from 'svelte';
 	import { replaceState } from '$app/navigation';
 	import { vmul } from '$lib/vector';
 	import { MediaQuery } from 'svelte/reactivity';
@@ -69,12 +70,23 @@
 	// autostepping
 	let is_autostepping = $state(false);
 	let autostep_timer: number | undefined = undefined;
+  const MAX_AUTOSTEP_DT = 100;
+  let autostep_time: number = $state(MAX_AUTOSTEP_DT * 0.5);
+
+  $effect(() => {
+    $state.snapshot(autostep_time);
+    untrack(() => {
+      if (!is_autostepping) return;
+      stop_autostep();
+      autostep();
+    })
+  })
 
 	function autostep() {
 		is_autostepping = !is_autostepping;
 
 		if (is_autostepping) {
-			autostep_timer = setInterval(step, 100);
+			autostep_timer = setInterval(step, MAX_AUTOSTEP_DT - autostep_time + 1);
 		} else if (autostep_timer !== undefined) {
 			clearInterval(autostep_timer);
 		}
@@ -107,6 +119,7 @@
 			}}>Do</button
 		>
 		<button class="border" onclick={run}>Run</button>
+    <input type="range" min="1" max={MAX_AUTOSTEP_DT} bind:value={autostep_time}>
 		<button class="border" onclick={execute}>Execute</button>
 		<button class="negative border" onclick={reset}>Reset</button>
 		<div>Input:</div><input bind:value={vm.input} />

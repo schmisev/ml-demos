@@ -8,8 +8,8 @@ export enum BF_Cmd {
   PUT,
   PUTINT,
   READ,
-  LBRACKET,
-  RBRACKET,
+  JMP_ZERO,
+  JMP_NONZERO,
   SWAP,
   RAND,
   ENDRAND,
@@ -20,27 +20,31 @@ export enum BF_Cmd {
   TOGGLE,
   LOAD,
   ABSLOAD,
+  WRAP,
+  EQUAL_DATA,
+  EQUAL_INSTR,
 }
 
 export type BF_Spec = {
   char: string,
   op: BF_Cmd,
   description: string,
+  short?: string,
   untypeable?: true,
 }
 
 export const BF_NAME_TO_SPEC: Record<string, BF_Spec> = {
-  "<": { char:  "<", op: BF_Cmd.LEFT, description: "Moves <code><b>data_ptr</b></code> left, i.e. <code><b>data_ptr--</b></code>" },
-  ">": { char:  ">", op: BF_Cmd.RIGHT, description: "Moves <code><b>data_ptr</b></code> right, i.e. <code><b>data_ptr++</b></code>" },
-  "+": { char:  "+", op: BF_Cmd.INCR, description: "Adds 1 to value at <code><b>data_ptr</b></code>" },
-  "-": { char:  "-", op: BF_Cmd.DECR, description: "Subtracts 1 from value at <code><b>data_ptr</b></code>" },
+  "<": { char:  "<", op: BF_Cmd.LEFT, description: "Moves <code><b>data_ptr</b></code> left by the value in its data field, by default this value is 1." },
+  ">": { char:  ">", op: BF_Cmd.RIGHT, description: "Moves <code><b>data_ptr</b></code> right by the value in its data field, by default this value is 1." },
+  "+": { char:  "+", op: BF_Cmd.INCR, description: "Adds value of the data field to value at <code><b>data_ptr</b></code>" },
+  "-": { char:  "-", op: BF_Cmd.DECR, description: "Subtracts value of the data field from value <code><b>data_ptr</b></code>" },
   ".": { char:  ".", op: BF_Cmd.PUT, description: "Prints value at <code><b>data_ptr</b></code> as character" },
   ":": { char:  ":", op: BF_Cmd.PUTINT, description: "Prints value at <code><b>data_ptr</b></code> as base-10 number" },
   ",": { char:  ",", op: BF_Cmd.READ, description: "Reads character code from input and writes it to <code><b>data_ptr</b></code>" },
-  "[": { char:  "[", op: BF_Cmd.LBRACKET, description: "Jumps to address in its data field if value at <code><b>data_ptr</b></code> is 0. This address corresponds to the closing <code><b>]</b></code> after compilation." },
-  "]": { char:  "]", op: BF_Cmd.RBRACKET, description: "Jumps to address in its data field if value at <code><b>data_ptr</b></code> is unequal to 0. This address corresponds to the opening <code><b>[</b></code> after compilation." },
+  "[": { char:  "[", op: BF_Cmd.JMP_ZERO, description: "Jumps to address in its data field if value at <code><b>data_ptr</b></code> is 0. This address corresponds to the closing <code><b>]</b></code> after compilation." },
+  "]": { char:  "]", op: BF_Cmd.JMP_NONZERO, description: "Jumps to address in its data field if value at <code><b>data_ptr</b></code> is unequal to 0. This address corresponds to the opening <code><b>[</b></code> after compilation." },
   "~": { char:  "~", op: BF_Cmd.NOOP, description: "Does nothing and is passed over" },
-  "ε": { char:  "ε", op: BF_Cmd.END, description: "Stops the program. New cells are initialized with this instruction" },
+  "'": { char:  "'", op: BF_Cmd.END, description: "Stops the program. New cells are initialized with this instruction" },
   "$": { char:  "$", op: BF_Cmd.SWAP, description: "Swaps data and instruction value of a cell" },
   "/": { char:  "/", op: BF_Cmd.TOGGLE, description: "Toggles between data write mode, where the <code><b>data_ptr</b></code> points at the data field of a cell, and the instruction write mode, where the <code><b>data_ptr</b></code> points at the instruction field of a cell." },
   "?": { char:  "?", op: BF_Cmd.RAND, description: "Jumps to address in its data field with a 50% chance. Is otherwise passed over. The address corresponds to matching ! after compilation." },
@@ -49,7 +53,10 @@ export const BF_NAME_TO_SPEC: Record<string, BF_Spec> = {
   "&": { char:  "&", op: BF_Cmd.REF, description: "Reference operator, sets value at <code><b>data_ptr</b></code> equal to <code><b>data_ptr</b></code>" },
   "^": { char:  "^", op: BF_Cmd.GOTO, description: "Goto operator, sets <code><b>instr_ptr</b></code> to value at <code><b>data_ptr</b></code>" },
   "@": { char:  "@", op: BF_Cmd.HERE, description: "Here operator, sets value at <code><b>data_ptr</b></code> equal to <code><b>instr_ptr</b></code>" },
-  "%": { char:  "%", op: BF_Cmd.LOAD, description: "Load operator, sets <code><b>data_ptr</b></code> to the data field of the instruction cell. Created automatically when using a-z to address cells offset from the end of the compiled instructions by 1-26. <code><b>%</b></code> alone jumps to offset 0. <code><b>ß</b></code> on the other hand will create a jump to the very first cell of the tape, i.e. the first compiled instruction. You can use this simple mnemonic: ßtart" },
+  "#": { char:  "#", op: BF_Cmd.LOAD, description: "Load operator, sets <code><b>data_ptr</b></code> to the data field of the instruction cell. Created automatically when using a-z to address cells offset from the end of the compiled instructions by 1-26. <code><b>#</b></code> alone jumps to offset 0. <code><b>ß</b></code> on the other hand will create a jump to the very first cell of the tape, i.e. the first compiled instruction. You can use this simple mnemonic: ßtart" },
+  "%": { char:  "%", op: BF_Cmd.WRAP, description: "Wrap operator, wraps value at <code><b>data_ptr</b></code> such that it is mapped onto the range between 0 and the value in the instructions data field. By default, this value is 256. This makes it possible to use both wrapping and nonwrapping algorithms", short: "<code><b>tape[data_ptr] = tape[data_ptr] % tape[instr_ptr].data</b></code>" },
+  "=": { char:  "=", op: BF_Cmd.EQUAL_DATA, description: "Sets <code><b>instr_ptr</b></code> equal to <code><b>data_ptr</b></code>" },
+  "°": { char:  "°", op: BF_Cmd.EQUAL_INSTR, description: "Sets <code><b>data_ptr</b></code> equal to <code><b>instr_ptr</b></code>" },
 }
 
 export const BF_OP_TO_SPEC = new Map(Object.entries(BF_NAME_TO_SPEC).map(([name, spec]) => [spec.op, spec]));
@@ -62,6 +69,8 @@ export interface BF_TapeCell {
 export interface BF_Program {
 	cmds: BF_TapeCell[];
 }
+
+export const ALPHABET = "abcdefghijklmnopqrstuvwxyz";
 
 export function compile(src: string, config: { compress_inputs: boolean }): BF_Program {
   const ptr_stack: number[] = [];
@@ -154,13 +163,25 @@ export function compile(src: string, config: { compress_inputs: boolean }): BF_P
       case "*":
       case "&":
       case "@":
-      case "^": {
+      case "^":
+      case "=":
+      case "°":
+      case "'": {
         // reference & dereference
         adv();
         program.cmds.push({
           instr: BF_NAME_TO_SPEC[c].op,
           data: 0
         })
+        break;
+      }
+      case "%": {
+        adv();
+        program.cmds.push({
+          instr: BF_NAME_TO_SPEC[c].op,
+          data: 256
+        });
+
         break;
       }
       case "?": {
@@ -186,7 +207,7 @@ export function compile(src: string, config: { compress_inputs: boolean }): BF_P
         });
         break;
       }
-      case "%": {
+      case "#": {
         adv();
 
         program.cmds.push({
@@ -205,7 +226,7 @@ export function compile(src: string, config: { compress_inputs: boolean }): BF_P
         break;
       }
       default: {
-        const var_index = "abcdefghijklmnopqrstuvwxyz".indexOf(c);
+        const var_index = ALPHABET.indexOf(c);
         if (var_index >= 0) {
           adv();
 
