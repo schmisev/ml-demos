@@ -17,19 +17,19 @@ export class BuechiAutomaton {
   rules: [string, string, string][];
   current_state: SvelteSet<string>;
   current_word: string;
-  init_state: string;
+  init_state: string[];
   accept_states: Set<string>;
 
   state: BuechiState = $state(BuechiState.UNDECIDED);
 
   constructor(
-    init_state: string,
+    init_state: string[],
     accept_states: string[],
     ...rules: [string, string, string][]
   ) {
     this.rules = rules;
     this.current_word = $state("");
-    this.current_state = new SvelteSet([init_state]);
+    this.current_state = new SvelteSet(init_state);
     this.init_state = $state(init_state);
     this.accept_states = new Set(accept_states);
 
@@ -49,7 +49,8 @@ export class BuechiAutomaton {
       if (!this.def.has(state)) this.def.set(state, new SvelteMap());
     }
 
-    if (!this.def.has(init_state)) this.def.set(init_state, new SvelteMap());
+    for (const ini of init_state)
+      if (!this.def.has(ini)) this.def.set(ini, new SvelteMap());
 
     this.reset();
   }
@@ -118,13 +119,21 @@ export class BuechiAutomaton {
 
   reset() {
     this.current_state.clear();
-    this.current_state.add(this.init_state);
+    for (const ini of this.init_state)
+      this.current_state.add(ini);
     this.state = BuechiState.UNDECIDED;
     this.current_word = "";
 
-    if (this.accept_states.has(this.init_state)) {
+    if (this.accepted()) {
       this.state = BuechiState.ACCEPTED;
     }
+  }
+
+  accepted() {
+    for (const state of this.current_state) {
+      if (this.accept_states.has(state)) return true;
+    }
+    return false;
   }
 
   graph(): HuiGraphDefinition {

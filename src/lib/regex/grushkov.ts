@@ -178,7 +178,7 @@ export function make_pdfl_automaton(M: Map<string, RegexCharSet>, pdfl: PDFL): B
   if (L.size > 0) accepted.push(INIT);
 
   return new BuechiAutomaton(
-    INIT,
+    [INIT],
     accepted,
     ...rules
   );

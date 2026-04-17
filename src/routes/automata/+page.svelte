@@ -28,7 +28,7 @@
       const automaton = make_pdfl_automaton(regex_charset_map, pdfl);
       return [automaton, "Automaton initialized!"];
     } catch(e) {
-      return [new BuechiAutomaton("init", ["end"], ["init", "x", "end"]), "" + e]
+      return [new BuechiAutomaton(["init"], ["end"], ["init", "x", "end"]), "" + e]
     }
   });
 
