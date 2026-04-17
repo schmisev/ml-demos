@@ -33,7 +33,7 @@
   <h2>Robotics</h2>
   <h3><a href={resolve(`/robot-arm`)}>Robot arm</a> (WIP) </h3>
   <h2>Finite Automata</h2>
-  <h3><a href={resolve(`/automata`)}>Regex via Grushkov</a></h3>
+  <h3><a href={resolve(`/automata`)}>Regex via Glushkov</a></h3>
   <h3><a href={resolve(`/min-graphs`)}>Very minimal automata markup</a></h3>
   <h2>Programming Languages</h2>
   <h3><a href={resolve(`/brainfck`)}>Extended Brainf*ck VM</a></h3>

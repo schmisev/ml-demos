@@ -2,7 +2,7 @@
 	import { BuechiAutomaton, BuechiState } from '$lib/buechi.svelte';
 	import HuiDagre from '$lib/hui-graphs/HuiDagre.svelte';
 	import HuiElk from '$lib/hui-graphs/HuiElk.svelte';
-	import { delambla_pdfl, find_pdfl, make_pdfl_automaton } from '$lib/regex/grushkov';
+	import { delambla_pdfl, find_pdfl, make_pdfl_automaton } from '$lib/regex/glushkov';
 	import { make_regex_graph, regex_parse, regex_tokenize, type RegexCharSet, type RegexEmpty, type RegexNode } from '$lib/regex/regex';
 
 	let regex_input: string = $state('(a.?b)+');
@@ -54,7 +54,7 @@
 <div class="grid h-dvh grid-cols-2 gap-2 p-2">
 	<div class="flex flex-col gap-2 min-h-0">
 		<div class="flex flex-col gap-2">
-			<h1>Regex via Grushkov | <a href="../">back</a></h1>
+			<h1>Regex via Glushkov | <a href="../">back</a></h1>
 			<div class="flex flex-row flex-wrap items-center gap-2"></div>
 
 			<div>
