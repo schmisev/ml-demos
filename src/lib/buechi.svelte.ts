@@ -154,7 +154,7 @@ export class BuechiAutomaton {
             id: "" + edge_id++,
             fromId: node,
             toId: to_node,
-            label: isClass ? trigger.slice(1) : char_alias(trigger),
+            label: char_alias(trigger),
             labelClasses: isClass ? ["rounded", "bg-blue-200", "pl-1", "pr-1", "font-bold"] : []
           })
         }

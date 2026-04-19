@@ -4,7 +4,7 @@
 	import HuiElk from '$lib/hui-graphs/HuiElk.svelte';
 	import { char_alias } from '$lib/regex/character-alias';
 	import { delambla_pdfl, find_pdfl, make_pdfl_automaton } from '$lib/regex/glushkov';
-	import { re_alias, make_regex_graph, regex_optimize, regex_parse, regex_tokenize, type RegexCharSet, type RegexEmpty, type RegexNode } from '$lib/regex/regex';
+	import { re_alias, make_regex_graph, regex_optimize, format_regex, regex_parse, regex_tokenize, type RegexCharSet, type RegexEmpty, type RegexNode } from '$lib/regex/regex';
 
   let optimize: boolean = $state(false);
 	let regex_input: string = $state('(a.?b)+');
@@ -123,7 +123,10 @@
 			<div class="flex flex-row flex-wrap items-center gap-2">
         <input bind:value={regex_input} />
         <div class="light-border">{regex_error}</div>
-        <div class="light-border"><input type="checkbox" bind:checked={optimize}> optimize </div>
+        <label class="light-border"><input class="font-mono" type="checkbox" bind:checked={optimize}> optimize </label>
+        {#if optimize}
+          <button onclick={() => regex_input = format_regex(regex_ast)} class="border">Replace with: <code>{format_regex(regex_ast)}</code></button>
+        {/if}
       </div>
     </div>
     
@@ -170,7 +173,7 @@
           {@const d = descr[j]}
           {@const isClass = d[0] === "\\"}
           <span class="{isClass ? "bg-blue-200 rounded pl-1 pr-1 font-bold" : ""}">
-            {isClass ? d.slice(1) : char_alias(d)}<sub class="font-normal">{c}</sub>
+            {char_alias(d)}<sub class="font-normal">{c}</sub>
           </span>
         {/each}
       </span>

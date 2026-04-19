@@ -136,6 +136,10 @@ export function regex_tokenize(src: string): RegexToken[] {
             eat();
             token(RegexTokenKind.CHARSET)
 						break;
+          case 'e':
+            eat();
+            token(RegexTokenKind.EMPTY)
+            break;
 					default:
 						throw `${at()} is not escapable`;
 				}
@@ -520,16 +524,34 @@ export function head_tail(node: RegexNode): [RegexNode, RegexNode] {
 
 export function regex_optimize(node: RegexNode): RegexNode {
   switch (node.kind) {
-    case 'STAR':
+    case 'STAR': {
+      const opt = regex_optimize(node.value);
+      switch (opt.kind) {
+        case 'EMPTY':
+          return opt;
+        case 'STAR':
+        case 'PLUS':
+          return {...opt, kind: 'STAR'};
+      }
       return {
         kind: "STAR",
         value: regex_optimize(node.value)
       }
-    case 'PLUS':
+    }
+    case 'PLUS': {
+      const opt = regex_optimize(node.value);
+      switch (opt.kind) {
+        case 'EMPTY':
+          return opt;
+        case 'STAR':
+        case 'PLUS':
+          return regex_optimize(node.value);
+      }
       return {
         kind: "PLUS",
         value: regex_optimize(node.value)
       }
+    }
     case 'CHOICE':
       // TODO: probably does too much work right now
       const new_choice: RegexChoice = {
@@ -543,6 +565,25 @@ export function regex_optimize(node: RegexNode): RegexNode {
       }
       return zipped_choice;
     case 'CONCAT':
+      const left = regex_optimize(node.left);
+      const right = regex_optimize(node.right);
+
+      if (left.kind === "CONCAT") {
+        return {
+          kind: "CONCAT",
+          left: left.left,
+          right: { kind: "CONCAT", left: left.right, right: right }
+        }
+      }
+      
+      if (left.kind === "EMPTY") {
+        return right;
+      }
+
+      if (right.kind === "EMPTY") {
+        return left;
+      }
+
       return {
         kind: "CONCAT",
         left: regex_optimize(node.left),
@@ -574,7 +615,7 @@ export function make_regex_graph(node: RegexNode): HuiGraphDefinition {
         const isClass = node.trigger[0] === "\\";
 				graph.nodes.push({
 					id: this_id,
-					label: `<b>${isClass ? node.trigger.slice(1) : char_alias(node.trigger)}</b><sub>${node.alias}</sub>`,
+					label: `<b>${char_alias(node.trigger)}</b><sub>${node.alias}</sub>`,
 					labelClasses: ['hui', 'node', 'rounded', isClass ? 'special' : 'negative']
 				});
 				return this_id;
@@ -643,4 +684,37 @@ export function make_regex_graph(node: RegexNode): HuiGraphDefinition {
 
 	traverse_tree(node);
 	return graph;
+}
+
+
+export function format_regex(node: RegexNode): string {
+  switch (node.kind) {
+    case 'STAR':
+    case 'PLUS': {
+      const op = (node.kind === "PLUS" ? "+" : "*");
+      const in_paren = (node.value.kind === "CONCAT");
+      if (in_paren) return "(" + format_regex(node.value) + ")" + op;
+      return format_regex(node.value) + op;
+    }
+    case 'CHOICE': {
+      const non_empty_nodes: RegexNode[] = [];
+      let has_empty = false;
+      for (const n of node.nodes) {
+        if (n.kind === "EMPTY") {
+          has_empty = true;
+        } else non_empty_nodes.push(n);
+      }
+      const question = (has_empty ? "?" : "");
+      const in_paren = non_empty_nodes.length > 1 || non_empty_nodes[0].kind === "CONCAT";
+      if (!in_paren) return format_regex(non_empty_nodes[0]) + question;
+      return "(" + non_empty_nodes.map(n => format_regex(n)).join("|") + ")" + question;
+    }
+    case 'CONCAT':
+      return format_regex(node.left) + format_regex(node.right);
+    case 'EMPTY':
+      return `\\e`;
+    case 'CHAR':
+      if (node.trigger === "\\.") return ".";
+      return node.trigger;
+  }
 }
