@@ -4,12 +4,14 @@
 	import HuiElk from '$lib/hui-graphs/HuiElk.svelte';
 	import { char_alias } from '$lib/regex/character-alias';
 	import { delambla_pdfl, find_pdfl, make_pdfl_automaton } from '$lib/regex/glushkov';
-	import { make_regex_graph, regex_parse, regex_tokenize, type RegexCharSet, type RegexEmpty, type RegexNode } from '$lib/regex/regex';
+	import { re_alias, make_regex_graph, regex_optimize, regex_parse, regex_tokenize, type RegexCharSet, type RegexEmpty, type RegexNode } from '$lib/regex/regex';
 
+  let optimize: boolean = $state(false);
 	let regex_input: string = $state('(a.?b)+');
 	let [regex_ast, regex_charset_map, regex_error] = $derived.by(() => {
     try {
-      const [ast, charset_map] = regex_parse(regex_tokenize(regex_input));
+      let [ast, charset_map] = regex_parse(regex_tokenize(regex_input));
+      if (optimize) [ast, charset_map] = re_alias(regex_optimize(ast));
       return [ast, charset_map, "Parsing successful!"];
     } catch(e) {
       console.error(e);
@@ -121,6 +123,7 @@
 			<div class="flex flex-row flex-wrap items-center gap-2">
         <input bind:value={regex_input} />
         <div class="light-border">{regex_error}</div>
+        <div class="light-border"><input type="checkbox" bind:checked={optimize}> optimize </div>
       </div>
     </div>
     

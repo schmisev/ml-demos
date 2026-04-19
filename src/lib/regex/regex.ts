@@ -196,6 +196,44 @@ export interface RegexSequence {
 	right: RegexNode;
 }
 
+export function re_alias(node: RegexNode): [RegexNode, Map<string, RegexCharSet>] {
+  let charset_id = 0;
+	const charset_map = new Map<string, RegexCharSet>();
+
+  function get_alias(): string {
+		return '' + charset_id++;
+	}
+
+  function store_alias(charset: RegexCharSet) {
+    charset_map.set(charset.alias, charset);
+  }
+
+  function traverse(node: RegexNode): RegexNode {
+    switch (node.kind) {
+      case 'STAR':
+        return {...node, value: traverse(node.value)}
+      case 'PLUS':
+        return {...node, value: traverse(node.value)}
+      case 'CHOICE':
+        return {...node, nodes: node.nodes.map(n => traverse(n))}
+      case 'CONCAT':
+        return {...node, left: traverse(node.left), right: traverse(node.right)}
+      case 'EMPTY':
+        return {...node};
+      case 'CHAR':
+        const new_node: RegexCharSet = {
+          ...node,
+          alias: get_alias()
+        }
+        store_alias(new_node);
+        return new_node;
+    }
+  }
+
+  const new_node = traverse(node);
+  return [new_node, charset_map]
+}
+
 export function regex_parse(tokens: RegexToken[]): [RegexNode, Map<string, RegexCharSet>] {
 	let charset_id = 0;
 	const charset_map = new Map<string, RegexCharSet>();
@@ -246,22 +284,20 @@ export function regex_parse(tokens: RegexToken[]): [RegexNode, Map<string, Regex
 	function parse_sequence(): RegexNode {
 		let left = parse_right_unop();
 
-		while (true) {
-			switch (at().kind) {
-				case RegexTokenKind.PIPE:
-				case RegexTokenKind.EOF:
-				case RegexTokenKind.RPAREN:
-					return left;
-			}
+    switch (at().kind) {
+      case RegexTokenKind.PIPE:
+      case RegexTokenKind.EOF:
+      case RegexTokenKind.RPAREN:
+        return left;
+    }
 
-			let right = parse_right_unop();
+    let right = parse_sequence();
 
-			left = {
-				kind: 'CONCAT',
-				left,
-				right
-			};
-		}
+    return {
+      kind: 'CONCAT',
+      left,
+      right
+    };
 	}
 
 	function parse_right_unop(): RegexNode {
@@ -356,6 +392,169 @@ export function regex_parse(tokens: RegexToken[]): [RegexNode, Map<string, Regex
 
 	const ast = parse_regex();
 	return [ast, charset_map];
+}
+
+function same<A extends RegexNode>(a: A, b: RegexNode): A {
+  return b as A;
+}
+
+export function in_choice(a: RegexChoice, b: RegexChoice) {
+  outer: for (const a_choice of a.nodes) {
+    for (const b_choice of b.nodes) {
+      if (regex_equal(a_choice, b_choice)) {
+        continue outer;
+      }
+    }
+    return false;
+  }
+  return true;
+}
+
+export function equal_choice(a: RegexChoice, b: RegexChoice) {
+  return in_choice(a, b) && in_choice(b, a);
+}
+
+export function regex_equal(a: RegexNode, b: RegexNode): boolean {
+  if (a.kind !== b.kind) return false;
+
+  switch (a.kind) {
+    case 'STAR':
+      return regex_equal(a.value, same(a, b).value);
+    case 'PLUS':
+      return regex_equal(a.value, same(a, b).value);
+    case 'CHOICE':
+      return equal_choice(a, same(a, b));
+    case 'CONCAT':
+      return regex_equal(a.left, same(a, b).left) 
+      && regex_equal(a.right, same(a, b).right)
+    case 'EMPTY':
+      return true;
+    case 'CHAR':
+      return a.trigger === same(a, b).trigger;
+  }
+}
+
+export function merge_choice(a: RegexChoice): RegexChoice {
+  const nodes: RegexNode[] = [];
+  for (const node of a.nodes) {
+    if (node.kind === "CHOICE") {
+      const merged_choice = merge_choice(node);
+      nodes.push(...merged_choice.nodes);
+    } else {
+      nodes.push(node);
+    }
+  }
+
+  return {
+    kind: "CHOICE",
+    nodes
+  }
+}
+
+export function zip_choice(a: RegexChoice): RegexNode {
+  const paths: [RegexNode, RegexNode[]][] = [];
+
+  outer: for (const option of a.nodes) {
+    const [head, tail] = head_tail(option);
+    if (paths.length === 0) {
+      paths.push([head, [tail]]);
+      continue;
+    }
+
+    for (const [key, list] of paths) {
+      if (regex_equal(head, key)) {
+        list.push(tail);
+        continue outer;
+      }
+    }
+
+    paths.push([head, [tail]]);
+  }
+
+  return zip_paths(paths);
+}
+
+export function zip_paths(paths: [RegexNode, RegexNode[]][]): RegexNode {
+  if (paths.length === 0) return {kind: "EMPTY"}; // this should never happen, as it would require an empty choice
+  if (paths.length === 1) {
+    const key = paths[0][0];
+    const next = paths[0][1];
+    if (key.kind === "EMPTY") return key;
+    if (next.length === 0) return key;
+    let all_empty = true;
+    let has_empty = false;
+    for (const n of next) {
+      if (n.kind !== "EMPTY") {
+        all_empty = false;
+        break;
+      } else {
+        has_empty = true;
+      }
+    }
+    if (all_empty) {
+      return key;
+    }
+    return {kind: "CONCAT", left: key, right: regex_optimize({kind: "CHOICE", nodes: next})}; // we can zip to one single concatenation
+  }
+  if (paths.length > 1) {
+    return {
+      kind: "CHOICE",
+      nodes: paths.map(p => zip_paths([p]))
+    }
+  }
+  return {kind: "EMPTY"}
+}
+
+export function head_tail(node: RegexNode): [RegexNode, RegexNode] {
+  switch (node.kind) {
+    case 'CONCAT':
+      return [node.left, node.right];
+    case 'PLUS':
+    case 'STAR':
+    case 'CHOICE':
+    case 'EMPTY':
+    case 'CHAR':
+      return [node, {kind: "EMPTY"}];
+  }
+}
+
+export function regex_optimize(node: RegexNode): RegexNode {
+  switch (node.kind) {
+    case 'STAR':
+      return {
+        kind: "STAR",
+        value: regex_optimize(node.value)
+      }
+    case 'PLUS':
+      return {
+        kind: "PLUS",
+        value: regex_optimize(node.value)
+      }
+    case 'CHOICE':
+      // TODO: probably does too much work right now
+      const new_choice: RegexChoice = {
+        kind: "CHOICE",
+        nodes: node.nodes.map(n => regex_optimize(n))
+      }
+      const merged_choice = merge_choice(new_choice);
+      const zipped_choice = zip_choice(merged_choice);
+      if (zipped_choice.kind === "CHOICE") {
+        return merge_choice(zipped_choice);
+      }
+      return zipped_choice;
+    case 'CONCAT':
+      return {
+        kind: "CONCAT",
+        left: regex_optimize(node.left),
+        right: regex_optimize(node.right),
+      }
+    case 'EMPTY':
+      return {
+        kind: "EMPTY",
+      }
+    case 'CHAR':
+      return {...node}
+  }
 }
 
 export function make_regex_graph(node: RegexNode): HuiGraphDefinition {
