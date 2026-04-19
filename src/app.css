@@ -42,23 +42,23 @@ select {
 	transition: 0.1s;
 
 	&.negative {
-		background-color: lightcoral;
+    @apply bg-red-400;
 	}
 
   &.positive {
-    background-color: lightgreen;
+    @apply bg-green-300;
   }
 
   &.inactive {
-    background-color: lightgray;
+    @apply bg-gray-400;
   }
 
   &.special {
-    background-color: lightblue;
+    @apply bg-blue-300;
   }
 
   &.special-2 {
-    background-color: plum;
+    @apply bg-purple-400;
   }
 
   &.rounded {
@@ -69,7 +69,7 @@ select {
 button {
 	&.border {
 		&:hover {
-			background-color: bisque;
+      @apply bg-orange-200;
 		}
 
 		&:active {

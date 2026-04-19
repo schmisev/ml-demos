@@ -2,6 +2,7 @@
 	import { BuechiAutomaton, BuechiState } from '$lib/buechi.svelte';
 	import HuiDagre from '$lib/hui-graphs/HuiDagre.svelte';
 	import HuiElk from '$lib/hui-graphs/HuiElk.svelte';
+	import { char_alias } from '$lib/regex/character-alias';
 	import { delambla_pdfl, find_pdfl, make_pdfl_automaton } from '$lib/regex/glushkov';
 	import { make_regex_graph, regex_parse, regex_tokenize, type RegexCharSet, type RegexEmpty, type RegexNode } from '$lib/regex/regex';
 
@@ -109,7 +110,7 @@
 			<div class="light-border min-h-11 wrap-anywhere">{automaton.current_word}</div>
 		</div>
 
-		<div class="flex flex-row gap-2">
+		<div class="flex flex-row flex-wrap gap-2">
 			<button class="border" title="Generate letter!" onclick={() => automaton.gen_char()}> → <b class="inline-block rotate-10">A</b> </button>
 			<button class="border" title="Consume letter!" onclick={consume_from_input}> 👄 ← <b class="inline-block rotate-340">C</b> </button>
 			<input bind:value={input_word} />
@@ -117,7 +118,7 @@
 
 		<div>
       <h2>Regex</h2>
-			<div class="flex flex-row items-center gap-2">
+			<div class="flex flex-row flex-wrap items-center gap-2">
         <input bind:value={regex_input} />
         <div class="light-border">{regex_error}</div>
       </div>
@@ -161,9 +162,13 @@
       {@const descr = comps.map((c) => M.get(c)?.trigger || "ε") }
 
       {i > 0 ? "," : ""}
-      <span>
+      <span class="inline-flex flex-row gap-0.5">
         {#each comps as c, j}
-          {descr[j]}<sub>{c}</sub>
+          {@const d = descr[j]}
+          {@const isClass = d[0] === "\\"}
+          <span class="{isClass ? "bg-blue-200 rounded pl-1 pr-1 font-bold" : ""}">
+            {isClass ? d.slice(1) : char_alias(d)}<sub class="font-normal">{c}</sub>
+          </span>
         {/each}
       </span>
     {/each}

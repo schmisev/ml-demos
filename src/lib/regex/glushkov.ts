@@ -69,16 +69,10 @@ export function find_pdfl(e: RegexNode): {
       next.L = L;
 			break;
 		}
-		case 'ANY':
 		case 'CHAR':
 			next.P.add(e.alias);
 			next.D.add(e.alias);
 			break;
-    case 'SELF':
-      next.P.add(RECURSE + e.alias)
-      next.D.add(RETURN + e.alias)
-      next.L.add(LAMBDA);
-      break;
 		case 'CHOICE':
 			for (const opt of e.nodes) {
 				let { P, D, F, L } = find_pdfl(opt);

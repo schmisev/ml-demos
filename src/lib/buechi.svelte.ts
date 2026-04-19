@@ -1,8 +1,9 @@
 import { randint } from "$lib";
 import { SvelteMap, SvelteSet } from "svelte/reactivity";
 import type { HuiGraphDefinition } from "./hui-graphs/hui-core";
-import { ALPHABET, ANY_CHAR } from "./regex/regex";
+import { ALPHABET } from "./regex/regex";
 import { char_alias } from "./regex/character-alias";
+import { ANY_CHAR, check_class_match } from "./regex/character-classes";
 
 export enum BuechiState {
   UNDECIDED = "UNDECIDED",
@@ -65,17 +66,9 @@ export class BuechiAutomaton {
       if (at_node === undefined) {
         continue;
       }
-      let via_char = at_node.get(char);
-      let via_any = at_node.get(ANY_CHAR);
-      
-      let to_nodes = new Set<string>();
-      
-      if (!via_char && !via_any) {
-        continue;
-      }
 
-      if (via_any) to_nodes = to_nodes.union(via_any);
-      if (via_char) to_nodes = to_nodes.union(via_char);
+      let to_nodes = check_class_match(at_node, char);
+      if (to_nodes.size === 0) continue;
 
       for (const to_node of to_nodes){
         this.current_state.add(to_node);}
@@ -148,16 +141,21 @@ export class BuechiAutomaton {
       graph.nodes.push({
         id: node,
         label: "S<sub>" + node + "</sub> " + (this.accept_states.has(node) ? "✓" : ""),
-        labelClasses: ["hui", "node", "rounded"]
+        labelClasses: ["hui", "node", "rounded", this.current_state.has(node) ? "positive" : "neutral"]
       });
 
+      
+
       for (const [trigger, to_nodes] of action.entries()) {
+        const isClass = trigger[0] === "\\";
+
         for (const to_node of to_nodes) {
           graph.edges.push({
             id: "" + edge_id++,
             fromId: node,
             toId: to_node,
-            label: char_alias(trigger)
+            label: isClass ? trigger.slice(1) : char_alias(trigger),
+            labelClasses: isClass ? ["rounded", "bg-blue-200", "pl-1", "pr-1", "font-bold"] : []
           })
         }
       }
