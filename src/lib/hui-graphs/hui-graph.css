@@ -11,6 +11,11 @@
 			border-radius: 0;
     }
 
+    &.double {
+      outline: 2px solid oklch(0% 0 0 / 0.3);
+      outline-offset: -6px;
+    }
+
     &.ellipse {
       border-radius: 100%;
       padding: 0.5rem 1rem 0.5rem 1rem;

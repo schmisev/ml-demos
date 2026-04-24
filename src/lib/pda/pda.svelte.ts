@@ -1,14 +1,16 @@
 import type { HuiEdgeDefinition, HuiGraphDefinition } from "$lib/hui-graphs/hui-core";
-import { assign_map, assign_set, init_map } from "$lib/utils";
+import { append_to_set, assign_map, assign_set, init_map } from "$lib/utils";
 import { SvelteMap } from "svelte/reactivity";
 
-type Empty = undefined;
+type Empty = 0;
 type State = string;
-type StackSymbol = string | Empty;
-type InputSymbol = string;
+export type StackSymbol = string | Empty;
+export type InputSymbol = string;
 type NextState = [State, StackSymbol[]];
 
-const EMPTY: Empty = undefined;
+export const EMPTY: Empty = 0;
+
+export type NPDA_Def = { q_0: State[]; Z: StackSymbol; delta: [State, InputSymbol, StackSymbol, State, StackSymbol[]][]; F: State[]; };
 
 export class NPDA {
   status: "ACCEPTED" | "REJECTED" | "UNDECIDED" = $state("UNDECIDED");
@@ -29,15 +31,15 @@ export class NPDA {
    * @param delta transition relation
    */
   constructor(
-    q_0: State[],
-    Z: StackSymbol, 
-    delta: [State, InputSymbol, StackSymbol, State, StackSymbol[]][],
-    F: State[],
+    { q_0, Z, delta, F }: NPDA_Def,
   ) {
     // initialization
     assign_set(this.accepting_states, F);
     assign_set(this.initial_state, q_0);
     this.initial_stack_symbol = Z;
+
+    append_to_set(this.all_states, F);
+    append_to_set(this.all_states, q_0);
     
     // transition
     for (const [from, input, top_of_stack, to, replace_in_stack] of delta) {
@@ -66,12 +68,13 @@ export class NPDA {
 
     // reset the first time
     this.reset();
-    this.consumeAnySymbol("");
   }
 
   reset() {
     // reset stacks
+    this.status = "UNDECIDED";
     assign_map(this.state, [...this.initial_state.values()], [[[this.initial_stack_symbol]]]);
+    this.consumeAnySymbol("");
   }
 
   consumeAnySymbol(input: InputSymbol) {
@@ -87,8 +90,8 @@ export class NPDA {
 
       for (const stack_option of on_stacks) {
         const top_of_stack = stack_option.at(-1) || EMPTY;
-        const next_states = targets.get(top_of_stack);
-        if (!next_states) continue; // no transition for given stack symbol (on top of stack)
+        const next_states = targets.get(top_of_stack) || [];
+        const next_states_no_replace = targets.get(EMPTY) || [];
         
         const partial_stack = [...stack_option]; // remove top of stack
         partial_stack.pop();
@@ -96,6 +99,14 @@ export class NPDA {
           const new_stacks = new_state.get(s);
           if (new_stacks) new_stacks.push([...partial_stack, ...repl]);
           else new_state.set(s, [[...partial_stack, ...repl]]);
+        
+          if (!added_new_state && !this.state.has(s)) added_new_state = true;
+        }
+
+        for (const [s, repl] of next_states_no_replace) {
+          const new_stacks = new_state.get(s);
+          if (new_stacks) new_stacks.push([...stack_option, ...repl]);
+          else new_state.set(s, [[...stack_option, ...repl]]);
         
           if (!added_new_state && !this.state.has(s)) added_new_state = true;
         }
@@ -108,11 +119,11 @@ export class NPDA {
     }
 
     if (added_new_state || !is_empty_transition) this.consumeAnySymbol("");
+    this.updateStatus();
   }
 
   comsumeSymbol(input: InputSymbol) {
     this.consumeAnySymbol(input);
-    this.updateStatus();
   }
 
   updateStatus() {
@@ -152,10 +163,10 @@ export class NPDA {
       for (const [input, new_state] of transitions.entries()) {
         for (const [symbol, next_states] of new_state.entries()) {
           for (const [to, repl] of next_states) {
-            const edge_id = from + "-" + to;
+            const edge_id = from + "\\" + to;
 
             let edge = edge_map.get(edge_id);
-            const label = `<code><b>${input || "ε"}</b></code>; ${symbol}⟋${repl.join("") || "ε"}`;
+            const label = `<code><b>${input || "ε"}</b></code>${!symbol && !repl.length ? "" : `; ${symbol === EMPTY ? "ε" : symbol}/${repl.at(0) || "ε"}${repl.slice(1).join("")}`}`;
             if (!edge) {
               edge = {
                 fromId: from,

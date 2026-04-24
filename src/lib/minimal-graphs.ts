@@ -206,8 +206,8 @@ export function min_automaton(g: MinGraph): BuechiAutomaton {
   }
   
   return new BuechiAutomaton(
-    [...g.I.values()],
-    [...g.Q.values()],
-    ...actions
+    g.I,
+    g.Q,
+    actions
   )
 }

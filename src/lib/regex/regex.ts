@@ -200,15 +200,17 @@ export interface RegexSequence {
 	right: RegexNode;
 }
 
-export function re_alias(node: RegexNode): [RegexNode, Map<string, RegexCharSet>] {
+export function re_alias(node: RegexNode): [RegexNode, Map<string, RegexCharSet>, Set<string>] {
   let charset_id = 0;
 	const charset_map = new Map<string, RegexCharSet>();
+  const triggers = new Set<string>();
 
   function get_alias(): string {
 		return '' + charset_id++;
 	}
 
   function store_alias(charset: RegexCharSet) {
+    triggers.add(charset.trigger);
     charset_map.set(charset.alias, charset);
   }
 
@@ -235,18 +237,20 @@ export function re_alias(node: RegexNode): [RegexNode, Map<string, RegexCharSet>
   }
 
   const new_node = traverse(node);
-  return [new_node, charset_map]
+  return [new_node, charset_map, triggers]
 }
 
-export function regex_parse(tokens: RegexToken[]): [RegexNode, Map<string, RegexCharSet>] {
+export function regex_parse(tokens: RegexToken[]): [RegexNode, Map<string, RegexCharSet>, Set<string>] {
 	let charset_id = 0;
 	const charset_map = new Map<string, RegexCharSet>();
+  const triggers = new Set<string>();
 
 	function get_alias(): string {
 		return '' + charset_id++;
 	}
 
 	function store_alias(charset: RegexCharSet) {
+    triggers.add(charset.trigger);
 		charset_map.set(charset.alias, charset);
 	}
 
@@ -395,7 +399,7 @@ export function regex_parse(tokens: RegexToken[]): [RegexNode, Map<string, Regex
 	}
 
 	const ast = parse_regex();
-	return [ast, charset_map];
+	return [ast, charset_map, triggers];
 }
 
 function same<A extends RegexNode>(a: A, b: RegexNode): A {
@@ -498,7 +502,7 @@ export function zip_paths(paths: [RegexNode, RegexNode[]][]): RegexNode {
     if (all_empty) {
       return key;
     }
-    return {kind: "CONCAT", left: key, right: regex_optimize({kind: "CHOICE", nodes: next})}; // we can zip to one single concatenation
+    return {kind: "CONCAT", left: key, right: regex_simplify({kind: "CHOICE", nodes: next}, {})}; // we can zip to one single concatenation
   }
   if (paths.length > 1) {
     return {
@@ -522,10 +526,10 @@ export function head_tail(node: RegexNode): [RegexNode, RegexNode] {
   }
 }
 
-export function regex_optimize(node: RegexNode): RegexNode {
+export function regex_simplify(node: RegexNode, config: { zip?: boolean }): RegexNode {
   switch (node.kind) {
     case 'STAR': {
-      const opt = regex_optimize(node.value);
+      const opt = regex_simplify(node.value, config);
       switch (opt.kind) {
         case 'EMPTY':
           return opt;
@@ -535,38 +539,37 @@ export function regex_optimize(node: RegexNode): RegexNode {
       }
       return {
         kind: "STAR",
-        value: regex_optimize(node.value)
+        value: regex_simplify(node.value, config)
       }
     }
     case 'PLUS': {
-      const opt = regex_optimize(node.value);
+      const opt = regex_simplify(node.value, config);
       switch (opt.kind) {
         case 'EMPTY':
           return opt;
         case 'STAR':
         case 'PLUS':
-          return regex_optimize(node.value);
+          return regex_simplify(node.value, config);
       }
       return {
         kind: "PLUS",
-        value: regex_optimize(node.value)
+        value: regex_simplify(node.value, config)
       }
     }
     case 'CHOICE':
       // TODO: probably does too much work right now
       const new_choice: RegexChoice = {
         kind: "CHOICE",
-        nodes: node.nodes.map(n => regex_optimize(n))
+        nodes: node.nodes.map(n => regex_simplify(n, config))
       }
       const merged_choice = merge_choice(new_choice);
+      if (!config.zip) return merged_choice;
       const zipped_choice = zip_choice(merged_choice);
-      if (zipped_choice.kind === "CHOICE") {
-        return merge_choice(zipped_choice);
-      }
+      if (zipped_choice.kind === "CHOICE") return merge_choice(zipped_choice);
       return zipped_choice;
     case 'CONCAT':
-      const left = regex_optimize(node.left);
-      const right = regex_optimize(node.right);
+      const left = regex_simplify(node.left, config);
+      const right = regex_simplify(node.right, config);
 
       if (left.kind === "CONCAT") {
         return {
@@ -586,8 +589,8 @@ export function regex_optimize(node: RegexNode): RegexNode {
 
       return {
         kind: "CONCAT",
-        left: regex_optimize(node.left),
-        right: regex_optimize(node.right),
+        left: regex_simplify(node.left, config),
+        right: regex_simplify(node.right, config),
       }
     case 'EMPTY':
       return {

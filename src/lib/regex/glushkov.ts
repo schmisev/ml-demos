@@ -134,7 +134,6 @@ export function make_pdfl_automaton(M: Map<string, RegexCharSet>, pdfl: PDFL): B
     if (states.length !== 2) continue;
 
     const [from, to] = states;
-    console.log(from, to);
 
     if (transitions.has(from)) {
       transitions.get(from)!.push(to);
@@ -174,6 +173,6 @@ export function make_pdfl_automaton(M: Map<string, RegexCharSet>, pdfl: PDFL): B
   return new BuechiAutomaton(
     [INIT],
     accepted,
-    ...rules
+    rules
   );
 }
