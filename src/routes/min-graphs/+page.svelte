@@ -23,6 +23,8 @@
 	});
 
 	let automaton = $derived(min_automaton({ I, Q, S, T }));
+  let powered = $derived(automaton.to_DFA());
+  let collapsed = $derived(powered.collapse_equal_nodes());
 	let input_str = $state('abc');
 </script>
 
@@ -75,9 +77,13 @@
 			</tbody>
 		</table>
 
-		<div>
+		<div class="grow">
       <h2>Graph</h2>
-			<HuiElk graphDef={min_hui_graph({ S, Q, T, I }, automaton.current_state)}></HuiElk>
+      <div class="flex flex-row gap-1">
+			<HuiElk graphDef={automaton.graph()}></HuiElk>
+			<HuiElk graphDef={powered.graph()}></HuiElk>
+			<HuiElk graphDef={collapsed.graph()}></HuiElk>
+      </div>
 		</div>
 
 		<div class="flex flex-col gap-2">

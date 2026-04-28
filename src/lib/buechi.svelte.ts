@@ -229,13 +229,13 @@ function format_state_union(states: string[] | Set<string>): string {
   return `{${sorted_states.join(",")}}`;
 }
 
-function format_action(input: string, next_state: Set<string>, is_accepted: boolean) {
-  return `${is_accepted ? "A" : ""}(${input}:${format_state_union(next_state)})`;
+function format_action(input: string, next_state: Set<string>) {
+  return `(${input}:${format_state_union(next_state)})`;
 }
 
 function format_action_map(action_map: BuechiActions, is_accepted: boolean) {
   const inputs = [...action_map.keys()].toSorted();
-  return `${inputs.map((i) => format_action(i, action_map.get(i)!, is_accepted)).join(";")}`;
+  return `${is_accepted ? "A" : ""}${inputs.map((i) => format_action(i, action_map.get(i)!)).join(";")}`;
 }
 
 function reduce_definition(def: Map<string, BuechiActions>, accept_states: Set<string>): {

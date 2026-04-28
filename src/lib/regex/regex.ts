@@ -159,42 +159,47 @@ export function regex_tokenize(src: string): RegexToken[] {
 }
 
 export type RegexNode =
-	| RegexStar
+	( RegexStar
 	| RegexPlus
 	| RegexChoice
 	| RegexSequence
 	| RegexEmpty
-	| RegexCharSet;
+	| RegexCharSet
+  )
 
 export const SELF_REF = 'self';
 export const ALPHABET = new Set('abcdefghijklmnopqrstuvwxyz'.split(''));
 
-export interface RegexCharSet {
+export interface RegexMeta {
+  possiblyEmpty?: boolean;
+}
+
+export interface RegexCharSet extends RegexMeta {
   kind: 'CHAR';
 	trigger: string;
 	alias: string;
 }
 
-export interface RegexEmpty {
+export interface RegexEmpty extends RegexMeta {
 	kind: 'EMPTY';
 }
 
-export interface RegexStar {
+export interface RegexStar extends RegexMeta {
 	kind: 'STAR';
 	value: RegexNode;
 }
 
-export interface RegexPlus {
+export interface RegexPlus extends RegexMeta {
 	kind: 'PLUS';
 	value: RegexNode;
 }
 
-export interface RegexChoice {
+export interface RegexChoice extends RegexMeta {
 	kind: 'CHOICE';
 	nodes: RegexNode[];
 }
 
-export interface RegexSequence {
+export interface RegexSequence extends RegexMeta {
 	kind: 'CONCAT';
 	left: RegexNode;
 	right: RegexNode;
@@ -444,11 +449,14 @@ export function regex_equal(a: RegexNode, b: RegexNode): boolean {
 
 export function merge_choice(a: RegexChoice): RegexChoice {
   const nodes: RegexNode[] = [];
-  for (const node of a.nodes) {
+  outer: for (const node of a.nodes) {
     if (node.kind === "CHOICE") {
       const merged_choice = merge_choice(node);
       nodes.push(...merged_choice.nodes);
     } else {
+      for (const com_node of nodes) {
+        if (regex_equal(com_node, node)) continue outer;
+      }
       nodes.push(node);
     }
   }
@@ -563,6 +571,9 @@ export function regex_simplify(node: RegexNode, config: { zip?: boolean }): Rege
         nodes: node.nodes.map(n => regex_simplify(n, config))
       }
       const merged_choice = merge_choice(new_choice);
+      if (merged_choice.nodes.length === 1) return merged_choice.nodes[0];
+      if (merged_choice.nodes.length === 0) return {kind: "EMPTY"};
+
       if (!config.zip) return merged_choice;
       const zipped_choice = zip_choice(merged_choice);
       if (zipped_choice.kind === "CHOICE") return merge_choice(zipped_choice);

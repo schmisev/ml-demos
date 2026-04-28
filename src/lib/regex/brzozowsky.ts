@@ -96,7 +96,7 @@ function brzo_v(node: RegexNode): boolean {
 }
 
 export function make_brzo_automaton(regex: RegexNode, triggers: Set<string>): BuechiAutomaton {
-  regex = regex_simplify(regex, {zip: false});
+  regex = regex_simplify(regex, {zip: true})
 
   const initial_state = format_regex(regex);
   const accept_states = new Set<string>();
@@ -104,15 +104,20 @@ export function make_brzo_automaton(regex: RegexNode, triggers: Set<string>): Bu
   const rules: [string, string, string][] = [];
   const collected_states: Set<string> = new Set();
 
-  while(to_be_expanded.length > 0) {
-    const current = to_be_expanded.shift()!;
+  const MAX_EXPRESSIONS = 100;
+  let counter = 0;
+  while(to_be_expanded.length > 0 && counter < MAX_EXPRESSIONS) {
+    counter++;
+
+    const current = regex_simplify(to_be_expanded.shift()!, {zip: false});
     const from_state = format_regex(current);
+
     if (brzo_v(current)) accept_states.add(from_state);
     const grad = brzo_gradient(current, triggers);
     collected_states.add(from_state);
 
     for (const [input, next] of grad) {
-      const to_state = format_regex(next);
+      const to_state = format_regex(regex_simplify(next, {zip: false}));
       rules.push([from_state, input, to_state]);
       if (!collected_states.has(to_state)) {
         to_be_expanded.push(next);
