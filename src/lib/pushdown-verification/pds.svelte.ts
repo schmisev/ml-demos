@@ -346,7 +346,7 @@ export class MA {
   consume(trigger: StackSymbol) {
     const next_states: Set<MA_State> = new Set();
     for (const [from, tr, to] of this.def) {
-      if (this.active_states.has(from) && trigger === tr) {
+      if (this.active_states.has(from) && (trigger === tr)) {
         next_states.add(to);
       }
     }
@@ -354,12 +354,16 @@ export class MA {
     this.active_states = next_states;
   }
 
+
+
   match_rule([from, popped, to, pushed]: Transition): MA_Transition[] {
     this.start(); // reset active states
+    this.active_states = new Set([this.loc_to_state.get(to)!]);
     for (const trigger of pushed) {
       this.consume(trigger);
       if (this.rejected()) return [];
     }
+
     // we didnt reject!
     const new_transitions: MA_Transition[] = [];
     for (const q of this.active_states) {
