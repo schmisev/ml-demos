@@ -80,6 +80,7 @@ export class PDS {
   // "dynamic" part
   configs: Configuration[];
   locs: Set<ControlLocation>;
+  alphabet: Set<StackSymbol>;
   def: Map<ControlLocation, Map<StackSymbol, ConfigDiff[]>>;
   history: HistoryStep[][];
   
@@ -93,7 +94,10 @@ export class PDS {
 
     this.def = new Map();
     this.locs = new Set();
+    this.alphabet = new Set();
     for (const [from, trigger, to, stack_push] of rules) {
+      this.alphabet.add(trigger);
+      for (const a of stack_push) this.alphabet.add(a);
       this.locs.add(from);
       this.locs.add(to);
 
