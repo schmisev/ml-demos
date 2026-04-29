@@ -50,6 +50,7 @@
 		"mathjax-svelte": "^0.0.2",
 		"seedrandom": "^3.0.5",
 		"sigma": "^3.0.2",
+		"svelte-splitpanes": "^8.0.12",
 		"svg-round-corners": "^0.4.3",
 		"three": "^0.181.0",
 		"tsx": "^4.20.6"
