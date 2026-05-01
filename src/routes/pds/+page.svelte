@@ -69,7 +69,7 @@
 					<div class="flex flex-row flex-wrap items-center gap-2">
 						<button class="border" onclick={() => ma.extend()}>Extend</button>
 						<button class="border bg-red-400" onclick={() => ma.reset()}>Reset</button>
-            <div>Finding {@html tex(`Pre^*(C);  C = \\{ ${ma.targets.map(t => `\\langle p^${t.loc}, ${tex_stack_regex(t.w)}`)} \\}`)} </div>
+            <div>Finding {@html tex(`Pre^*(C);  C = \\{ ${ma.targets.map(t => `\\langle p^${t.loc}, ${tex_stack_regex(t.w)}\\rangle`)} \\}`)} </div>
           </div>
 					<h2 class="absolute bottom-2 left-2">{@html tex(`\\mathcal{A}_${ma.index}`)}</h2>
 					<HuiDagre settings={{ rankdir: 'LR' }} graphDef={ma.graph()}></HuiDagre>
