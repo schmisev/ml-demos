@@ -70,7 +70,7 @@ function render_config(config: Configuration | null) {
   if (!config) return "<table><tbody><tr><td>*</td></tr></tbody></table>";
   return `<table><tbody>
   <tr><th>${render_control_location(config.loc)}</th></tr>
-  ${config.w.toReversed().map((g => `<tr><td>${g}</td></tr>`))}
+  ${config.w.toReversed().map((g => `<tr><td>${render_stack_symbol(g)}</td></tr>`))}
   </tbody></table>`
 }
 
