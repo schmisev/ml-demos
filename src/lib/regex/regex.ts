@@ -205,8 +205,20 @@ export interface RegexSequence extends RegexMeta {
 	right: RegexNode;
 }
 
-export function re_alias(node: RegexNode): [RegexNode, Map<string, RegexCharSet>, Set<string>] {
-  let charset_id = 0;
+export function char(trigger: string, alias: string = ""): RegexCharSet { return { kind: "CHAR", alias, trigger }; }
+export function eps(): RegexEmpty { return { kind: "EMPTY" }; }
+export function star(value: RegexNode): RegexStar { return { kind: "STAR", value }; }
+export function plus(value: RegexNode): RegexPlus { return { kind: "PLUS", value }; }
+export function cat(left: RegexNode, right: RegexNode): RegexSequence { return { kind: "CONCAT", left, right }; }
+export function seq(...s: RegexNode[]): RegexNode {
+  if (s.length === 0) return eps();
+  if (s.length === 1) return s[0];
+  return cat(s[0], seq(...s.slice(1)));
+}
+export function choice(...nodes: RegexNode[]): RegexChoice { return { kind: "CHOICE", nodes }; }
+
+export function re_alias(node: RegexNode, start_id = 0): [RegexNode, Map<string, RegexCharSet>, Set<string>, number] {
+  let charset_id = start_id;
 	const charset_map = new Map<string, RegexCharSet>();
   const triggers = new Set<string>();
 
@@ -242,7 +254,7 @@ export function re_alias(node: RegexNode): [RegexNode, Map<string, RegexCharSet>
   }
 
   const new_node = traverse(node);
-  return [new_node, charset_map, triggers]
+  return [new_node, charset_map, triggers, charset_id]
 }
 
 export function regex_parse(tokens: RegexToken[]): [RegexNode, Map<string, RegexCharSet>, Set<string>] {
@@ -701,7 +713,7 @@ export function make_regex_graph(node: RegexNode): HuiGraphDefinition {
 }
 
 
-export function format_regex(node: RegexNode): string {
+export function format_regex(node: RegexNode, prefix = ""): string {
   switch (node.kind) {
     case 'STAR':
     case 'PLUS': {

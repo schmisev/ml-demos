@@ -1,14 +1,15 @@
 <script lang="ts">
 	import { Splitpanes, Pane } from 'svelte-splitpanes';
 	import HuiDagre from '$lib/hui-graphs/HuiDagre.svelte';
-	import { MA, PDS } from '$lib/pushdown-verification/pds.svelte';
+	import { MA, PDS, tex_stack_regex } from '$lib/pushdown-verification/pds.svelte';
 	import HuiElk from '$lib/hui-graphs/HuiElk.svelte';
 	import { tex } from '$lib/mathjax';
+	import { cat, char, choice, format_regex, seq, star } from '$lib/regex/regex';
 
 	const pds = new PDS(
 		[
-			{ loc: '1', stack: ['5'] },
-			{ loc: '2', stack: ['4'] }
+			{ loc: '1', w: ['5'] },
+			{ loc: '2', w: ['4'] }
 		],
 		[
 			['2', '4', '2', ['1', '2']],
@@ -17,7 +18,7 @@
 		]
 	);
 
-	const ma = new MA([{ loc: '2', stack: ['1', '2', '3'] }], pds);
+	const ma = new MA([{ loc: '2', w: seq(char("1"), choice(char("2"), char("6")), star(char("3"))) }], pds);
 </script>
 
 <head>
@@ -65,7 +66,7 @@
 					<div class="flex flex-row flex-wrap items-center gap-2">
 						<button class="border" onclick={() => ma.extend()}>Extend</button>
 						<button class="border bg-red-400" onclick={() => ma.reset()}>Reset</button>
-            <div>Finding {@html tex(`Pre^*(C);  C = \\{ ${ma.targets.map(t => `\\langle p^${t.loc}, ${t.stack.map(v => `\\gamma_${v}`).join("") || "\\epsilon"} \\rangle`)} \\}`)} </div>
+            <div>Finding {@html tex(`Pre^*(C);  C = \\{ ${ma.targets.map(t => `\\langle p^${t.loc}, ${tex_stack_regex(t.w)}`)} \\}`)} </div>
           </div>
 					<h2 class="absolute bottom-2 left-2">{@html tex(`\\mathcal{A}_${ma.index}`)}</h2>
 					<HuiDagre settings={{ rankdir: 'LR' }} graphDef={ma.graph()}></HuiDagre>

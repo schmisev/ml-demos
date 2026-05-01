@@ -124,8 +124,8 @@ export function delambla_pdfl(pdfl: PDFL): PDFL {
   }
 }
 
-export function make_pdfl_automaton(M: Map<string, RegexCharSet>, pdfl: PDFL): BuechiAutomaton {
-  const INIT = "init";
+export function make_pdfl_data(M: Map<string, RegexCharSet>, pdfl: PDFL, init: string = "init"): { init: string; accepted: string[]; rules: [string, string, string][]; } {
+  const INIT = init;
   const transitions = new Map<string, string[]>();
   const {P, D, F, L} = pdfl;
 
@@ -170,9 +170,20 @@ export function make_pdfl_automaton(M: Map<string, RegexCharSet>, pdfl: PDFL): B
   const accepted = [...D];
   if (L.size > 0) accepted.push(INIT);
 
-  return new BuechiAutomaton(
-    [INIT],
+  return {
+    init: INIT,
     accepted,
     rules
-  );
+  }
+}
+
+
+export function make_pdfl_automaton(M: Map<string, RegexCharSet>, pdfl: PDFL, init: string = "init"): BuechiAutomaton {
+  const data = make_pdfl_data(M, pdfl, init);
+  
+  return new BuechiAutomaton(
+    [data.init],
+    data.accepted,
+    data.rules
+  )
 }

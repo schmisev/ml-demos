@@ -1,4 +1,6 @@
 import type { HuiGraphDefinition } from "$lib/hui-graphs/hui-core";
+import { find_pdfl, make_pdfl_automaton, make_pdfl_data } from "$lib/regex/glushkov";
+import { cat, format_regex, re_alias, type RegexNode } from "$lib/regex/regex";
 
 const EMPTY: EmptySymbol = 0;
 type ControlLocation = string;
@@ -6,9 +8,13 @@ type EmptySymbol = 0;
 type StackSymbol = string | EmptySymbol;
 type StackSequence = StackSymbol[];
 type Transition = [ControlLocation, StackSymbol, ControlLocation, StackSequence];
+interface RegularConfiguration {
+  loc: ControlLocation,
+  w: RegexNode,
+}
 interface Configuration {
   loc: ControlLocation,
-  stack: StackSequence,
+  w: StackSequence,
 }
 interface ConfigDiff {
   loc: ControlLocation,
@@ -27,7 +33,12 @@ interface HistoryStep {
 // helper functions
 function format_config(config: Configuration | null) {
   if (!config) return "*";
-  return `${config.loc}|${config.stack.join(",")}>`;
+  return `${config.loc}|${config.w.join(",")}>`;
+}
+
+function format_reg_config(config: RegularConfiguration | null) {
+  if (!config) return "*";
+  return `${config.loc}|${format_regex(config.w)}>`;
 }
 
 function render_stack_symbol(symbol: StackSymbol) {
@@ -59,16 +70,16 @@ function render_config(config: Configuration | null) {
   if (!config) return "<table><tbody><tr><td>*</td></tr></tbody></table>";
   return `<table><tbody>
   <tr><th>${render_control_location(config.loc)}</th></tr>
-  ${config.stack.toReversed().map(s => `<tr><td>${render_stack_symbol(s)}</td></tr>`).join("")}
+  ${config.w.toReversed().map((g => `<tr><td>${g}</td></tr>`))}
   </tbody></table>`
 }
 
 function equal_config(a: Configuration, b: Configuration) {
   if (a.loc !== b.loc) return false;
-  if (a.stack.length !== b.stack.length) return false;
-  for (let i = 0; i < a.stack.length; i++) {
-    if (a.stack[i] !== b.stack[i]) return false;
-  }
+  if (a.w.length !== b.w.length) return false;
+  for (let [i, g] of a.w.entries()) {
+    if (g !== b.w[i]) return false;
+  } 
   return true;
 }
 
@@ -133,7 +144,7 @@ export class PDS {
       const trigger_map = this.def.get(config.loc);
       if (!trigger_map) continue;
 
-      const work_stack = [...config.stack];
+      const work_stack = [...config.w];
 
       const top_symbol = work_stack.pop();
       const config_diffs: ConfigDiff[] = [];
@@ -141,7 +152,7 @@ export class PDS {
 
       for (const diff of config_diffs) {
         // we reverse, in order to simulate pushing one element after another
-        const add_config = {loc: diff.loc, stack: [...work_stack, ...diff.stack_push.toReversed()]};
+        const add_config: Configuration = {loc: diff.loc, w: [...work_stack, ...diff.stack_push.toReversed()]};
         if (equal_config(add_config, config)) continue; // we do not add the same config again!
         transitions.push({to: add_config, popped: top_symbol || 0, pushed: [...diff.stack_push]});
       }
@@ -149,7 +160,7 @@ export class PDS {
       const empty_diffs = trigger_map.get(EMPTY) || []; // we can always take such transitions without having to look at the stack first
       for (const diff of empty_diffs) {
         // we reverse, in order to simulate pushing one element after another
-        const add_config = {loc: diff.loc, stack: [...work_stack, ...diff.stack_push.toReversed()]};
+        const add_config: Configuration = {loc: diff.loc, w: [...work_stack, ...diff.stack_push.toReversed()]};
         if (equal_config(add_config, config)) continue; // we do not add the same config again!
         transitions.push({ to: add_config, popped: 0, pushed: [...diff.stack_push]});
       }
@@ -200,8 +211,6 @@ export class PDS {
             toId: to_str,
             label: render_stack_swap(transition.popped, transition.pushed)
           })
-
-          console.log(from_str, to_str);
         }
       }
     }
@@ -260,7 +269,7 @@ function transition_id(a: MA_Transition) {
 
 export class MA {
   pds: PDS;
-  targets: Configuration[];
+  targets: RegularConfiguration[];
 
   def: MA_Transition[] = $state([]);
   state_to_loc: Map<MA_State, ControlLocation> = new Map();
@@ -275,7 +284,7 @@ export class MA {
   index = $state(0);
 
   constructor(
-    targets: Configuration[],
+    targets: RegularConfiguration[],
     pds: PDS,
   ) {
     this.pds = pds;
@@ -290,6 +299,10 @@ export class MA {
 
   new_state(accepting: boolean, initial: boolean, loc?: ControlLocation) {
     let s = loc ? this.loc_to_state.get(loc) || this.next_id() : this.next_id();
+    return this.register_state(s, accepting, initial, loc);
+  }
+
+  register_state(s: string, accepting: boolean, initial: boolean, loc?: ControlLocation) {
     if (accepting) this.accepting_states.add(s);
     if (initial) this.initial_states.add(s);
     this.states.add(s);
@@ -322,15 +335,30 @@ export class MA {
     this.def = [];
     this.id = 0;
 
+    let charset_id = 0;
     // adding states for target configs
     for (const t of this.targets) {
-      const s = this.new_state(false, true, t.loc);
-      let last_s = s;
-      for (const [i, gamma] of t.stack.entries()) {
-        const q = this.new_state(i === t.stack.length-1, false); // last state is accepted
-        const tr = this.new_transition(last_s, gamma, q);
-        last_s = q;
+      const [w, M, tr, new_id] = re_alias(t.w, ++charset_id);
+      charset_id = new_id;
+      const pdfl = find_pdfl(w);
+      const s = "" + (++charset_id);
+      const auto = make_pdfl_automaton(M, pdfl, s).collapse_equal_nodes();
+
+      // if (this.initial_states.size !== 1) throw "Something went wrong!";
+      const init = [...auto.init_states][0];
+      const rules = auto.rules;
+      const accepted = auto.accept_states;
+      
+      this.register_state(init, false, true, t.loc);
+      for (const [from, trigger, to] of rules) {
+        this.new_transition(
+          this.register_state(from, false, false),
+          trigger,
+          this.register_state(to, false, false)
+        )
       }
+
+      for (const a of accepted) this.register_state(a, true, false);
     }
 
     // adding all states of pds
@@ -398,11 +426,26 @@ export class MA {
       edges: []
     }
 
+    let inivisi_id = 0;
+
     for (const s of this.states) {
       const loc = this.state_to_loc.get(s);
+
+      if (this.initial_states.has(s)) {
+        graph.nodes.push({
+          id: "i" + inivisi_id++,
+          label: ""
+        })
+
+        graph.edges.push({
+          fromId: "i" + inivisi_id,
+          toId: s,
+        })
+      }
+
       graph.nodes.push({
         id: s,
-        label: (loc ? render_proxy_location(loc) : render_automaton_state(s)) + (this.initial_states.has(s) ? "*" : ""),
+        label: (loc ? render_proxy_location(loc) : render_automaton_state(s)),
         labelClasses: ["hui", "node", this.accepting_states.has(s) ? "double" : "rounded"]
       })
     }
@@ -416,5 +459,38 @@ export class MA {
     }
 
     return graph;
+  }
+}
+
+export function tex_stack_regex(node: RegexNode): string {
+  switch (node.kind) {
+    case 'STAR':
+    case 'PLUS': {
+      const op = (node.kind === "PLUS" ? "+" : "*");
+      const in_paren = (node.value.kind === "CONCAT");
+      if (in_paren) return "(" + tex_stack_regex(node.value) + ")" + op;
+      return tex_stack_regex(node.value) + op;
+    }
+    case 'CHOICE': {
+      const non_empty_nodes: RegexNode[] = [];
+      let has_empty = false;
+      for (const n of node.nodes) {
+        if (n.kind === "EMPTY") {
+          has_empty = true;
+        } else non_empty_nodes.push(n);
+      }
+      const question = (has_empty ? "?" : "");
+      const in_paren = non_empty_nodes.length > 1 || non_empty_nodes[0].kind === "CONCAT";
+      if (!in_paren) return tex_stack_regex(non_empty_nodes[0]) + question;
+      return "(" + non_empty_nodes.map(n => tex_stack_regex(n)).join("|") + ")" + question;
+    }
+    case 'CONCAT':
+      return tex_stack_regex(node.left) + tex_stack_regex(node.right);
+    case 'EMPTY':
+      return `\\e`;
+    case 'CHAR':
+      return `\\gamma_{${node.trigger}}`;
+      // if (node.trigger === "\\.") return ".";
+      // return node.trigger;
   }
 }
