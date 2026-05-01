@@ -341,10 +341,10 @@ export class MA {
       const [w, M, tr, new_id] = re_alias(t.w, ++charset_id);
       charset_id = new_id;
       const pdfl = find_pdfl(w);
-      const s = "" + (++charset_id);
+      const s = "x" + t.loc;
       const auto = make_pdfl_automaton(M, pdfl, s).collapse_equal_nodes();
 
-      // if (this.initial_states.size !== 1) throw "Something went wrong!";
+      if (auto.init_states.size !== 1) throw "Something went wrong!";
       const init = [...auto.init_states][0];
       const rules = auto.rules;
       const accepted = auto.accept_states;

@@ -18,7 +18,10 @@
 		]
 	);
 
-	const ma = new MA([{ loc: '2', w: seq(char("1"), choice(char("2"), char("6")), star(char("3"))) }], pds);
+	const ma = new MA([
+    { loc: '2', w: seq(char("1"), choice(char("2"), char("6")), star(char("3"))) },
+    { loc: '2', w: seq(char("1")) }
+    ], pds);
 </script>
 
 <head>
