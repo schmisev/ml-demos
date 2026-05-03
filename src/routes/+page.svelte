@@ -29,13 +29,16 @@
 	<h2>Logical agents</h2>
 	<h3><a href={resolve(`/wumpus`)}>Wumpus-World</a></h3>
 	<h3><a href={resolve(`/scheduling`)}>Scheduling via resolution</a></h3>
-	<h3><a href={resolve(`/q-functions`)}>Q-Functions</a> (WIP) </h3>
+	<h3><a href={resolve(`/q-functions`)}>Q-Functions</a> </h3>
   <h2>Robotics</h2>
   <h3><a href={resolve(`/robot-arm`)}>Robot arm</a> (WIP) </h3>
   <h2>Finite Automata</h2>
   <h3><a href={resolve(`/automata`)}>Regex via Glushkov</a></h3>
   <h3><a href={resolve(`/min-graphs`)}>Very minimal automata markup</a></h3>
-  <h3><a href={resolve(`/pda`)}>NPDA</a></h3>
+  <h3><a href={resolve(`/pda`)}>Pushdown Automata</a></h3>
+  <h3><a href={resolve(`/pds`)}>Pushdown verification</a></h3>
   <h2>Programming Languages</h2>
   <h3><a href={resolve(`/brainfck`)}>Extended Brainf*ck VM</a></h3>
+  <h3><a href={resolve(`/parser-gen`)}>Parser generator</a> (WIP)</h3>
+  <h2>Decision making</h2>
 </div>
