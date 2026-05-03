@@ -5,23 +5,54 @@
 	import HuiElk from '$lib/hui-graphs/HuiElk.svelte';
 	import { tex } from '$lib/mathjax';
 	import { cat, char, choice, format_regex, seq, star } from '$lib/regex/regex';
+	import { paper_1 } from '$lib/pushdown-verification/configs';
 
-	const pds = new PDS(
-		[
-			{ loc: '1', w: ['5'] },
-			{ loc: '2', w: ['4'] }
-		],
-		[
-			['2', '4', '2', ['1', '2']],
-			['1', '5', '2', ['4', '3']],
-			['1', '6', '1', []]
-		]
-	);
+	const pds = new PDS(...paper_1);
 
 	const ma = new MA([
     { loc: '2', w: seq(char("1"), choice(char("2"), char("6")), star(char("3"))) },
     { loc: '2', w: seq(char("1")) }
     ], pds);
+
+
+  async function copySvgAsImage(name: string): Promise<void> {
+		let svg: SVGSVGElement | null = document.querySelector(`svg#${name}.hui`);
+
+		const svgData = new XMLSerializer().serializeToString(svg!);
+		const canvas = document.createElement('canvas');
+		const ctx = canvas.getContext('2d')!;
+		const img = new Image();
+
+		return new Promise<void>((resolve, reject) => {
+			img.onload = async () => {
+				const scale = 1.0;
+				canvas.width = img.width * scale;
+				canvas.height = img.height * scale;
+
+				ctx.scale(scale, scale);
+        ctx.save();
+        ctx.fillStyle = "white";
+        ctx.globalAlpha = 0.0;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+				ctx.restore();
+        ctx.drawImage(img, 0, 0);
+
+				canvas.toBlob(
+					async (blob) => {
+						if (!blob) return reject(new Error('Blob creation failed'));
+
+						await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+						resolve();
+					},
+					'image/png',
+					2.0
+				);
+			};
+
+			img.onerror = () => reject(new Error('SVG processing failed'));
+			img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgData)));
+		});
+	}
 </script>
 
 <head>
@@ -54,11 +85,14 @@
 					<div class="flex flex-row flex-wrap items-center gap-2">
 						<button class="border" onclick={() => pds.step()}>Step</button>
 						<button class="border bg-red-400" onclick={() => pds.reset()}>Reset</button>
+						<button class="border bg-blue-300" onclick={() => copySvgAsImage("history")}>Copy</button>
 					</div>
 
 					<h2 class="absolute bottom-2 left-2">Run history</h2>
 
-					<HuiDagre settings={{ rankdir: 'LR' }} graphDef={pds.graph_history()}></HuiDagre>
+          <div class="p-10 grow min-h-0">
+					<HuiDagre name={"history"} settings={{ rankdir: 'LR' }} graphDef={pds.graph_history()}></HuiDagre>
+          </div>
 				</Pane>
 			</Splitpanes>
 		</Pane>

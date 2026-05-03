@@ -3,20 +3,20 @@ import { find_pdfl, make_pdfl_automaton, make_pdfl_data } from "$lib/regex/glush
 import { cat, format_regex, re_alias, type RegexNode } from "$lib/regex/regex";
 
 const EMPTY: EmptySymbol = 0;
-type ControlLocation = string;
-type EmptySymbol = 0;
-type StackSymbol = string | EmptySymbol;
-type StackSequence = StackSymbol[];
-type Transition = [ControlLocation, StackSymbol, ControlLocation, StackSequence];
-interface RegularConfiguration {
+export type ControlLocation = string;
+export type EmptySymbol = 0;
+export type StackSymbol = string | EmptySymbol;
+export type StackSequence = StackSymbol[];
+export type Transition = [ControlLocation, StackSymbol, ControlLocation, StackSequence];
+export interface RegularConfiguration {
   loc: ControlLocation,
   w: RegexNode,
 }
-interface Configuration {
+export interface Configuration {
   loc: ControlLocation,
   w: StackSequence,
 }
-interface ConfigDiff {
+export interface ConfigDiff {
   loc: ControlLocation,
   stack_push: StackSequence
 }
@@ -70,7 +70,7 @@ function render_config(config: Configuration | null) {
   if (!config) return "<table><tbody><tr><td>*</td></tr></tbody></table>";
   return `<table><tbody>
   <tr><th>${render_control_location(config.loc)}</th></tr>
-  ${config.w.toReversed().map((g => `<tr><td>${render_stack_symbol(g)}</td></tr>`))}
+  ${config.w.toReversed().map(g => `<tr><td>${render_stack_symbol(g)}</td></tr>`).join("")}
   </tbody></table>`
 }
 

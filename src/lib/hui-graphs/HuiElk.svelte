@@ -9,10 +9,12 @@
         graphDef = {nodes: [], edges: []},
         settings = {},
         layoutSettings = {},
+        name = "elk"
     }: {
         graphDef?: HuiGraphDefinition,
         settings?: ELKConstructorArguments,
         layoutSettings?: ElkLayoutArguments,
+        name?: string,
     } = $props();
 
     const defaultSettings: ELKConstructorArguments = {
@@ -45,7 +47,7 @@
 
 {#if graph}
 {#key graph}
-    <HuiRenderer { graph }>
+    <HuiRenderer {name} { graph }>
     </HuiRenderer>
 {/key}
 {/if}

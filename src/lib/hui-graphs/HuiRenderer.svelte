@@ -3,15 +3,17 @@
 	import { dFromPoints, stringifyStyle, urlArrowEnd, urlArrowStart, type HuiGraph } from "./hui-core";
 	import HuiLabel from "./HuiLabel.svelte";
     let {
-        graph
+        graph,
+        name,
     }: {
-        graph: HuiGraph
+        graph: HuiGraph,
+        name: string
     } = $props();
 
     const labelPadding = 20;
 </script>
 
-<svg style="height: 100%; width: 100%;" viewBox="-10 -10 {graph.width + 20} {graph.height + 20}" xmlns="http://www.w3.org/2000/svg">
+<svg id="{name}" class="hui" style="height: 100%; width: 100%;" viewBox="-10 -10 {graph.width + 20} {graph.height + 20}" xmlns="http://www.w3.org/2000/svg">
 	<defs>
 		<marker
 			id="arrow"

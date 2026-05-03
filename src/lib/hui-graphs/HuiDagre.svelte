@@ -7,10 +7,12 @@
 
 	let {
 		graphDef = { nodes: [], edges: [] },
-		settings = {}
+		settings = {},
+    name = "dragre",
 	}: {
 		graphDef?: HuiGraphDefinition;
 		settings?: GraphLabel;
+    name?: string;
 	} = $props();
 
 	let graph: HuiGraph | undefined = $state();
@@ -37,6 +39,6 @@
 
 {#if graph}
 	{#key graph}
-		<HuiRenderer {graph}></HuiRenderer>
+		<HuiRenderer {name} {graph}></HuiRenderer>
 	{/key}
 {/if}

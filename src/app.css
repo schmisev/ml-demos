@@ -191,3 +191,12 @@ th, td {
 .shiny-shadow {
   box-shadow: 2px 2px 2px rgba(0, 0, 0, 0.2), 2px 2px 2px inset rgba(255, 255, 255, 0.4); 
 }
+
+
+.splitpanes {
+  background-color: white !important;
+}
+
+.splitpanes__pane {
+    background-color: white !important;
+  }
