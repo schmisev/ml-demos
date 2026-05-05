@@ -41,4 +41,6 @@
   <h3><a href={resolve(`/brainfck`)}>Extended Brainf*ck VM</a></h3>
   <h3><a href={resolve(`/parser-gen`)}>Parser generator</a> (WIP)</h3>
   <h2>Decision making</h2>
+  <h3><a href={resolve(`/decisions`)}>Decision strategies</a></h3>
+  <h3><a href={resolve(`/elections`)}>Banzhaf indeces for elections</a></h3>
 </div>

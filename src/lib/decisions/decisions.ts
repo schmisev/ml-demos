@@ -7,6 +7,11 @@ export interface DecisionTable {
   table: number[][],
 }
 
+export function norm_probs(tb: DecisionTable) {
+  const S = tb.state_probs.reduce((a, b) => a+b, 0);
+  tb.state_probs = tb.state_probs.map(v => v / S);
+}
+
 export function make_risky(tb: DecisionTable): DecisionTable {
   let table: number[][] = [];
 
