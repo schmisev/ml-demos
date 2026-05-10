@@ -82,7 +82,7 @@ export function graph_grammar(grammar: Grammar,
   }
 
   function add_edge(from: string, to: string, color: string) {
-    const id = from + " >> " + to;
+    const id = "(" + from + ")->(" + to + ")";
     if (found_edges.has(id)) return;
     found_edges.add(id);
     graph.edges.push({fromId: from, toId: to, arrowStroke: color});
@@ -125,6 +125,63 @@ export function graph_grammar(grammar: Grammar,
           })
           add_edge(x, r, "lightblue");
           break;
+      }
+    }
+  }
+
+  return graph;
+}
+
+
+export function dep_graph_grammar(grammar: Grammar): HuiGraphDefinition {
+  const graph: HuiGraphDefinition = {
+    edges: [],
+    nodes: [],
+  }
+
+  const found_nodes: Map<string, number> = new Map();
+  const found_edges: Set<string> = new Set();
+  let running = 0; 
+
+  function add_node(ident: string, prefix: string, add: number): [string, boolean] {
+    const nt = `${prefix}(${ident})`;
+    if (!found_nodes.has(ident)) {
+      found_nodes.set(ident, 0);
+      return [nt, true];
+    } else {
+      found_nodes.set(ident, found_nodes.get(ident)! + add);
+      return [nt, false];
+    }
+  }
+
+  function add_edge(from: string, to: string, color: string) {
+    const id = "(" + from + ")->(" + to + ")";
+    if (found_edges.has(id)) return;
+    found_edges.add(id);
+    graph.edges.push({fromId: from, toId: to, arrowStroke: color});
+  }
+
+  for (const [i, {from, to}] of grammar.entries()) {
+    const [nt, add_nt] = add_node(from.ident, "N", 1);
+    if (add_nt) graph.nodes.push({
+      id: nt,
+      label: from.ident,
+      labelClasses: ["hui", "node", "ellipse", "special-3"]
+    })
+
+    for (const t of to) {
+      switch (t.kind) {
+        case "non-terminal":
+          const [nt2, add_nt2] = add_node(t.ident, "N", 0);
+          if (add_nt2) graph.nodes.push({
+            id: nt2,
+            label: t.ident,
+            labelClasses: ["hui", "node", "ellipse", "special-3"]
+          })
+          add_edge(nt2, nt, "red");
+          break;
+        case "terminal":
+          break; // no terminals
       }
     }
   }
