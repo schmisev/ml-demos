@@ -1,18 +1,33 @@
 <script lang="ts">
 	import { Splitpanes, Pane } from 'svelte-splitpanes';
 	import HuiDagre from '$lib/hui-graphs/HuiDagre.svelte';
-	import { MA, PDS, tex_stack_regex } from '$lib/pushdown-verification/pds.svelte';
+	import { EMPTY, MA, PDS, tex_stack_regex } from '$lib/pushdown-verification/pds.svelte';
 	import HuiElk from '$lib/hui-graphs/HuiElk.svelte';
 	import { tex } from '$lib/mathjax';
 	import { cat, char, choice, format_regex, seq, star } from '$lib/regex/regex';
 	import { paper_1 } from '$lib/pushdown-verification/configs';
+	import { EMPTY_DEF, parse_pds } from '$lib/pushdown-verification/pds-parser';
 
-	const pds = new PDS(...paper_1);
+  let src = $state(`I = { <1, 5>, <1, 4> }
+(2, 4, 2, 1 2)
+(1, 5, 2, 4 3)
+(1, 6, 1, )
+  `);
 
-	const ma = new MA([
+  const [pds_def, error] = $derived.by(() => {
+    try {
+      const def = parse_pds(src);
+      return [def, "No error found!"];
+    } catch(e) {
+      return [EMPTY_DEF(), ""+e];
+    }
+  })
+	const pds = $derived(new PDS(pds_def.initial_configs, pds_def.rules));
+
+	const ma = $derived(new MA([
     { loc: '2', w: seq(char("1"), choice(char("2"), char("6")), star(char("3"))) },
     { loc: '2', w: seq(char("1")) }
-    ], pds);
+    ], pds));
 
 
   async function copySvgAsImage(name: string): Promise<void> {
@@ -69,7 +84,8 @@
 			<Splitpanes horizontal>
 				<Pane class="relative p-2 flex flex-col gap-2">
           <h2 class="absolute bottom-2 left-2">{@html tex(`\\mathcal{P}`)}</h2>
-          
+          <textarea bind:value={src}></textarea>
+          <div>{error}</div>
           <div class="flex flex-col gap-2">
           {@html tex(`P = \\{ ${[...pds.locs.values().map(l => `p^${l}`)].toSorted().join(",")} \\}`)}
           {@html tex(`\\Gamma = \\{ ${[...pds.alphabet.values().map(l => `\\gamma_${l}`)].toSorted().join(",")} \\}`)}

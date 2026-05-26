@@ -1,11 +1,13 @@
 import { EMPTY, type NPDA_Def, type InputSymbol, type StackSymbol } from "./pda.svelte";
 
-enum TT {
+export enum TT {
   Symbol = "sym",
   LeftParen = "(",
   RightParen = ")",
   RightCurly = "}",
   LeftCurly = "{",
+  LeftPointy = "<",
+  RightPointy = ">",
   Comma = ",",
   Empty = "~",
   Decl = "*",
@@ -13,7 +15,7 @@ enum TT {
   EOF = "eof",
 }
 
-interface Token {
+export interface Token {
   type: TT,
   content: string,
 }
@@ -27,7 +29,7 @@ export function EMPTY_DEF() {
   }
 } 
 
-function lexer(src: string): Token[] {
+export function lexer(src: string): Token[] {
   let index = 0;
   let buffer = "";
   let tokens: Token[] = [];
@@ -65,12 +67,14 @@ function lexer(src: string): Token[] {
       case ")": read(); token(TT.RightParen); break;
       case "{": read(); token(TT.LeftCurly); break;
       case "}": read(); token(TT.RightCurly); break;
+      case "<": read(); token(TT.LeftPointy); break;
+      case ">": read(); token(TT.RightPointy); break;
       case "*": read(); token(TT.Decl); break;
       case "~": read(); token(TT.Empty); break;
       case "=": read(); token(TT.Equals); break;
       case ",": read(); token(TT.Comma); break;
       case "#": read(); token(TT.Symbol); break;
-      case ">": {
+      case "%": {
         // comments
         clear();
         while (!is("\n")) { adv(); };
@@ -93,7 +97,7 @@ function lexer(src: string): Token[] {
   return tokens;
 }
 
-function parse(tokens: Token[]) {
+function parse_pda_from_tokens(tokens: Token[]): NPDA_Def {
   let index: number = 0;
 
   function at() {
@@ -223,7 +227,7 @@ function parse(tokens: Token[]) {
 
 export function parse_pda(src: string): NPDA_Def {
   const tokens = lexer(src);
-  const pda = parse(tokens);
+  const pda = parse_pda_from_tokens(tokens);
   return pda;
 }
 

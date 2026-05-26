@@ -2,7 +2,7 @@ import type { HuiGraphDefinition } from "$lib/hui-graphs/hui-core";
 import { find_pdfl, make_pdfl_automaton, make_pdfl_data } from "$lib/regex/glushkov";
 import { cat, format_regex, re_alias, type RegexNode } from "$lib/regex/regex";
 
-const EMPTY: EmptySymbol = 0;
+export const EMPTY: EmptySymbol = 0;
 export type ControlLocation = string;
 export type EmptySymbol = 0;
 export type StackSymbol = string | EmptySymbol;
@@ -81,6 +81,11 @@ function equal_config(a: Configuration, b: Configuration) {
     if (g !== b.w[i]) return false;
   } 
   return true;
+}
+
+export interface PDS_Def {
+  rules: Transition[];
+  initial_configs: Configuration[];
 }
 
 // pushdown system
