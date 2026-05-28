@@ -10,7 +10,8 @@ export enum TT {
   RightPointy = ">",
   Comma = ",",
   Empty = "~",
-  Decl = "*",
+  Star = "*",
+  Or = "|",
   Equals = "=",
   EOF = "eof",
 }
@@ -69,7 +70,8 @@ export function lexer(src: string): Token[] {
       case "}": read(); token(TT.RightCurly); break;
       case "<": read(); token(TT.LeftPointy); break;
       case ">": read(); token(TT.RightPointy); break;
-      case "*": read(); token(TT.Decl); break;
+      case "*": read(); token(TT.Star); break;
+      case "|": read(); token(TT.Or); break;
       case "~": read(); token(TT.Empty); break;
       case "=": read(); token(TT.Equals); break;
       case ",": read(); token(TT.Comma); break;

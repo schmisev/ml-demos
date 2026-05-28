@@ -1,11 +1,13 @@
 import { EMPTY, type Configuration, type PDS_Def, type StackSymbol } from "./pds.svelte";
 import { TT, type Token, lexer } from "$lib/pda/pda-parser";
 import type { InputSymbol } from "$lib/pda/pda.svelte";
+import { cat, char, choice, eps, star, type RegexNode } from "$lib/regex/regex";
 
 export function EMPTY_DEF(): PDS_Def {
   return {
     rules: [],
-    initial_configs: []
+    initial_configs: [],
+    target_configs: []
   }
 } 
 
@@ -103,6 +105,65 @@ function parse_pds_from_tokens(tokens: Token[]): PDS_Def {
     })
   }
 
+  function parse_target_config(def: PDS_Def) {
+    expect(TT.LeftPointy);
+    const loc: string = expect(TT.Symbol).content;
+    expect(TT.Comma);
+    let w: RegexNode = parse_choice();
+    expect(TT.RightPointy);
+
+    def.target_configs.push({
+      loc,
+      w
+    })
+  }
+
+  function parse_choice(): RegexNode {
+    const left = parse_cat();
+    if (at().type !== TT.Or) return left;
+    let node = choice(left);
+
+    while (at().type === TT.Or) {
+      eat();
+      const next = parse_cat();
+      node.nodes.push(next);
+    }
+    return node;
+  }
+
+  function parse_cat(): RegexNode {
+    let left = parse_star();
+    if (is(TT.LeftParen) || is(TT.Symbol)) return cat(left, parse_cat());
+    return left;
+  }
+
+  function parse_star(): RegexNode {
+    let left: RegexNode = parse_primary();
+    while (at().type === TT.Star) {
+      eat();
+      left = star(left);
+    }
+
+    return left;
+  }
+
+  function parse_primary(): RegexNode {
+    switch (at().type) {
+      case TT.Symbol:
+        return char(eat().content);
+      case TT.LeftParen:
+        eat();
+        const re = parse_choice();
+        expect(TT.RightParen);
+        return re;
+      case TT.Empty:
+        eat();
+        return eps();
+      default:
+        throw `Unexpected token in regex! ${at()}`;
+    }
+  }
+
   function parse_definition(def: PDS_Def) {
     const set_name = expect(TT.Symbol);
     expect(TT.Equals);
@@ -112,6 +173,15 @@ function parse_pds_from_tokens(tokens: Token[]): PDS_Def {
         expect(TT.LeftCurly);
         while (!is(TT.RightCurly)) {
           parse_initial_config(def);
+          if (is(TT.RightCurly)) break;
+          expect(TT.Comma);
+        }
+        expect(TT.RightCurly);
+        break;
+      case "C":
+        expect(TT.LeftCurly);
+        while (!is(TT.RightCurly)) {
+          parse_target_config(def);
           if (is(TT.RightCurly)) break;
           expect(TT.Comma);
         }

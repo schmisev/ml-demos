@@ -1,36 +1,34 @@
 <script lang="ts">
 	import { Splitpanes, Pane } from 'svelte-splitpanes';
 	import HuiDagre from '$lib/hui-graphs/HuiDagre.svelte';
-	import { EMPTY, MA, PDS, tex_stack_regex } from '$lib/pushdown-verification/pds.svelte';
+	import {
+		EMPTY,
+		MA,
+		PDS,
+		tex_stack_regex,
+		tex_stack_symbol
+	} from '$lib/pushdown-verification/pds.svelte';
 	import HuiElk from '$lib/hui-graphs/HuiElk.svelte';
 	import { tex } from '$lib/mathjax';
 	import { cat, char, choice, format_regex, seq, star } from '$lib/regex/regex';
-	import { paper_1 } from '$lib/pushdown-verification/configs';
+	import { paper_1, PDS_EXAMPLES } from '$lib/pushdown-verification/configs';
 	import { EMPTY_DEF, parse_pds } from '$lib/pushdown-verification/pds-parser';
 
-  let src = $state(`I = { <1, 5>, <1, 4> }
-(2, 4, 2, 1 2)
-(1, 5, 2, 4 3)
-(1, 6, 1, )
-  `);
+	let src = $state(PDS_EXAMPLES["back and forth"]);
 
-  const [pds_def, error] = $derived.by(() => {
-    try {
-      const def = parse_pds(src);
-      return [def, "No error found!"];
-    } catch(e) {
-      return [EMPTY_DEF(), ""+e];
-    }
-  })
+	const [pds_def, error] = $derived.by(() => {
+		try {
+			const def = parse_pds(src);
+			return [def, 'No error found!'];
+		} catch (e) {
+			return [EMPTY_DEF(), '' + e];
+		}
+	});
 	const pds = $derived(new PDS(pds_def.initial_configs, pds_def.rules));
 
-	const ma = $derived(new MA([
-    { loc: '2', w: seq(char("1"), choice(char("2"), char("6")), star(char("3"))) },
-    { loc: '2', w: seq(char("1")) }
-    ], pds));
+	const ma = $derived(new MA(pds_def.target_configs, pds));
 
-
-  async function copySvgAsImage(name: string): Promise<void> {
+	async function copySvgAsImage(name: string): Promise<void> {
 		let svg: SVGSVGElement | null = document.querySelector(`svg#${name}.hui`);
 
 		const svgData = new XMLSerializer().serializeToString(svg!);
@@ -45,12 +43,12 @@
 				canvas.height = img.height * scale;
 
 				ctx.scale(scale, scale);
-        ctx.save();
-        ctx.fillStyle = "white";
-        ctx.globalAlpha = 0.0;
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
+				ctx.save();
+				ctx.fillStyle = 'white';
+				ctx.globalAlpha = 0.0;
+				ctx.fillRect(0, 0, canvas.width, canvas.height);
 				ctx.restore();
-        ctx.drawImage(img, 0, 0);
+				ctx.drawImage(img, 0, 0);
 
 				canvas.toBlob(
 					async (blob) => {
@@ -82,33 +80,51 @@
 	<Splitpanes class="min-h-0 grow">
 		<Pane>
 			<Splitpanes horizontal>
-				<Pane class="relative p-2 flex flex-col gap-2">
-          <h2 class="absolute bottom-2 left-2">{@html tex(`\\mathcal{P}`)}</h2>
-          <textarea bind:value={src}></textarea>
-          <div>{error}</div>
-          <div class="flex flex-col gap-2">
-          {@html tex(`P = \\{ ${[...pds.locs.values().map(l => `p^${l}`)].toSorted().join(",")} \\}`)}
-          {@html tex(`\\Gamma = \\{ ${[...pds.alphabet.values().map(l => `\\gamma_${l}`)].toSorted().join(",")} \\}`)}
-          {@html tex(`\\Delta = \\{`)}
-          {#each pds.rules as [from, popped, to, pushed]}
-            <span class="pl-3">{@html tex(`(p^${from}, \\gamma_${popped}) \\hookrightarrow (p^${to}, ${pushed.map(v => `\\gamma_${v}`).join("") || "\\epsilon"}),`)}</span>
-          {/each}
-          {@html tex(`\\}`)}
-          </div>
-        </Pane>
+				<Pane class="relative flex flex-col gap-2 p-2">
+          <select onchange={(ev) => src = ev.currentTarget.value}>
+            {#each Object.entries(PDS_EXAMPLES) as example}
+              <option value={example[1]}>{example[0]}</option>
+            {/each}
+          </select>
+					<textarea class="h-full resize-none font-mono" bind:value={src}></textarea>
+					<div>{error}</div>
+				</Pane>
+				<Pane class="relative flex flex-col gap-2 p-2">
+					<h2 class="absolute bottom-2 left-2">{@html tex(`\\mathcal{P}`)}</h2>
+					<div class="flex flex-col gap-2">
+						{@html tex(
+							`P = \\{ ${[...pds.locs.values().map((l) => `p^${l}`)].toSorted().join(',')} \\}`
+						)}
+						{@html tex(
+							`\\Gamma = \\{ ${[...pds.alphabet.values().map((l) => tex_stack_symbol(l))].toSorted().join(',')} \\}`
+						)}
+						{@html tex(`\\Delta = \\{`)}
+						{#each pds.rules as [from, popped, to, pushed]}
+							<span class="pl-3"
+								>{@html tex(
+									`(p^${from}, ${tex_stack_symbol(popped)}) \\hookrightarrow (p^${to}, ${pushed.map((v) => tex_stack_symbol(v)).join('') || '\\epsilon'}),`
+								)}</span
+							>
+						{/each}
+						{@html tex(`\\}`)}
+					</div>
+				</Pane>
 
 				<Pane class="relative flex flex-col gap-2 p-2">
 					<div class="flex flex-row flex-wrap items-center gap-2">
 						<button class="border" onclick={() => pds.step()}>Step</button>
 						<button class="border bg-red-400" onclick={() => pds.reset()}>Reset</button>
-						<button class="border bg-blue-300" onclick={() => copySvgAsImage("history")}>Copy</button>
+						<button class="border bg-blue-300" onclick={() => copySvgAsImage('history')}
+							>Copy</button
+						>
 					</div>
 
 					<h2 class="absolute bottom-2 left-2">Run history</h2>
 
-          <div class="p-10 grow min-h-0">
-					<HuiDagre name={"history"} settings={{ rankdir: 'LR' }} graphDef={pds.graph_history()}></HuiDagre>
-          </div>
+					<div class="min-h-0 grow p-10">
+						<HuiDagre name={'history'} settings={{ rankdir: 'LR' }} graphDef={pds.graph_history()}
+						></HuiDagre>
+					</div>
 				</Pane>
 			</Splitpanes>
 		</Pane>
@@ -119,14 +135,18 @@
 					<div class="flex flex-row flex-wrap items-center gap-2">
 						<button class="border" onclick={() => ma.extend()}>Extend</button>
 						<button class="border bg-red-400" onclick={() => ma.reset()}>Reset</button>
-            <div>Finding {@html tex(`Pre^*(C);  C = \\{ ${ma.targets.map(t => `\\langle p^${t.loc}, ${tex_stack_regex(t.w)}\\rangle`)} \\}`)} </div>
-          </div>
+						<div>
+							Finding {@html tex(
+								`Pre^*(C);  C = \\{ ${ma.targets.map((t) => `\\langle p^${t.loc}, ${tex_stack_regex(t.w)}\\rangle`)} \\}`
+							)}
+						</div>
+					</div>
 					<h2 class="absolute bottom-2 left-2">{@html tex(`\\mathcal{A}_${ma.index}`)}</h2>
 					<HuiDagre settings={{ rankdir: 'LR' }} graphDef={ma.graph()}></HuiDagre>
 				</Pane>
 				<Pane class="relative">
 					<h2 class="absolute bottom-2 left-2">PDS graph</h2>
-					<HuiElk graphDef={pds.graph()}></HuiElk>
+					<HuiDagre settings={{ rankdir: 'LR', marginx: 10 }} graphDef={pds.graph()}></HuiDagre>
 				</Pane>
 			</Splitpanes>
 		</Pane>

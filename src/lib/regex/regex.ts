@@ -217,13 +217,13 @@ export function seq(...s: RegexNode[]): RegexNode {
 }
 export function choice(...nodes: RegexNode[]): RegexChoice { return { kind: "CHOICE", nodes }; }
 
-export function re_alias(node: RegexNode, start_id = 0): [RegexNode, Map<string, RegexCharSet>, Set<string>, number] {
+export function re_alias(node: RegexNode, start_id = 0, prefix = ""): [RegexNode, Map<string, RegexCharSet>, Set<string>, number] {
   let charset_id = start_id;
 	const charset_map = new Map<string, RegexCharSet>();
   const triggers = new Set<string>();
 
   function get_alias(): string {
-		return '' + charset_id++;
+		return '' + prefix + charset_id++;
 	}
 
   function store_alias(charset: RegexCharSet) {
