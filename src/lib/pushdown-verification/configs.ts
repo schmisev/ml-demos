@@ -25,10 +25,19 @@ export const paper_1: PDS_Definition = [
 
 
 export const PDS_EXAMPLES = {
+  'safe & bad': `(safe, F, bad, E)
+(safe, G, safe, G F)
+(safe, G, safe, ~)
+lambda = { bad -> ERROR }
+C = {<bad, E>}
+phi = G(-ERROR)
+`,
   'back and forth': `(1, 1, 2, 2 1)
 (2, 2, 1, 1 2)
 I = { <1, 1> }
 C = { <1, (1 2)*> }
+lambda = { 1 -> GET, 2 -> POST }
+phi = G(GET -> F(POST))
 `,
   'match brackets': `(1, Z, 1, A Z)
 (1, A, 1, A A)

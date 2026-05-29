@@ -89,24 +89,24 @@ export class NPDA {
       if (!targets) continue; // no transition for given input
 
       for (const stack_option of on_stacks) {
-        const top_of_stack = stack_option.at(-1) || EMPTY;
+        const top_of_stack = stack_option.at(0) || EMPTY;
         const next_states = targets.get(top_of_stack) || [];
         const next_states_no_replace = targets.get(EMPTY) || [];
         
         const partial_stack = [...stack_option]; // remove top of stack
-        partial_stack.pop();
+        partial_stack.shift();
         for (const [s, repl] of next_states) {
           const new_stacks = new_state.get(s);
-          if (new_stacks) new_stacks.push([...partial_stack, ...repl]);
-          else new_state.set(s, [[...partial_stack, ...repl]]);
+          if (new_stacks) new_stacks.push([...repl, ...partial_stack]);
+          else new_state.set(s, [[...repl, ...partial_stack]]);
         
           if (!added_new_state && !this.state.has(s)) added_new_state = true;
         }
 
         for (const [s, repl] of next_states_no_replace) {
           const new_stacks = new_state.get(s);
-          if (new_stacks) new_stacks.push([...stack_option, ...repl]);
-          else new_state.set(s, [[...stack_option, ...repl]]);
+          if (new_stacks) new_stacks.push([...repl, ...stack_option]);
+          else new_state.set(s, [[...repl, ...stack_option]]);
         
           if (!added_new_state && !this.state.has(s)) added_new_state = true;
         }

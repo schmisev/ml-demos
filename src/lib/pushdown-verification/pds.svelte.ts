@@ -1,6 +1,7 @@
 import type { HuiEdgeDefinition, HuiGraphDefinition } from '$lib/hui-graphs/hui-core';
 import { find_pdfl, make_pdfl_automaton, make_pdfl_data } from '$lib/regex/glushkov';
 import { cat, format_regex, re_alias, type RegexNode } from '$lib/regex/regex';
+import type { LTL_Expr, LTL_LabelingFunction } from './pds-ltl';
 
 export const EMPTY: EmptySymbol = 0;
 export type ControlLocation = string;
@@ -92,6 +93,8 @@ export interface PDS_Def {
 	rules: Transition[];
 	initial_configs: Configuration[];
   target_configs: RegularConfiguration[];
+  lambda: LTL_LabelingFunction; // LTL labeling function
+  phi: LTL_Expr; // LTL statement
 }
 
 // pushdown system

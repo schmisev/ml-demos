@@ -7,11 +7,11 @@
 	let input_value = $state('000111');
 
 	let def_str = $state(
-		`> Note: stack grows to right
+		`
 q_0 = p
 # = Z
 F = { r }
-(p, 0, Z, p, Z A)
+(p, 0, Z, p, A Z)
 (p, 0, A, p, A A)
 (p, ~, ~, q, ~)
 (q, 1, A, q, ~)
@@ -28,19 +28,6 @@ F = { r }
 	});
 
 	let pda = $derived(new NPDA(def));
-
-	const example_def = {
-		q_0: ['p'],
-		Z: 'Z',
-		delta: [
-			['p', '0', 'Z', 'p', ['Z', 'A']],
-			['p', '0', 'A', 'p', ['A', 'A']],
-			['p', '', EMPTY, 'q', []],
-			['q', '1', 'A', 'q', []],
-			['q', '', 'Z', 'r', ['Z']]
-		],
-		F: ['r']
-	};
 </script>
 
 <head>

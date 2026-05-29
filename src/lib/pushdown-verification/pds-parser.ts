@@ -2,12 +2,15 @@ import { EMPTY, type Configuration, type PDS_Def, type StackSymbol } from "./pds
 import { TT, type Token, lexer } from "$lib/pda/pda-parser";
 import type { InputSymbol } from "$lib/pda/pda.svelte";
 import { cat, char, choice, eps, star, type RegexNode } from "$lib/regex/regex";
+import type { LTL_Expr } from "./pds-ltl";
 
 export function EMPTY_DEF(): PDS_Def {
   return {
     rules: [],
     initial_configs: [],
-    target_configs: []
+    target_configs: [],
+    lambda: new Map(),
+    phi: {kind: "Bool", value: true},
   }
 } 
 
@@ -164,6 +167,140 @@ function parse_pds_from_tokens(tokens: Token[]): PDS_Def {
     }
   }
 
+  function parse_labeling(def: PDS_Def) {
+    const prop_set = new Set<string>();
+
+    while (is(TT.Symbol)) {
+      const prop = expect(TT.Symbol);
+      prop_set.add(prop.content);
+      if (!def.lambda.has(prop.content)) {
+        def.lambda.set(prop.content, new Set());
+      }
+
+      if (is(TT.Or)) {
+        expect(TT.Or);
+        continue;
+      }
+    }
+
+    expect(TT.Impl);
+    
+    while (is(TT.Symbol)) {
+      const sym = expect(TT.Symbol);
+      // add prop to labeling function
+      for (const prop of prop_set) {
+        def.lambda.get(prop)!.add(sym.content); 
+      }
+      if (is(TT.And)) {
+        expect(TT.And);
+        continue;
+      }
+    }
+
+  }
+
+  function parse_ltl(): LTL_Expr {
+    return parse_ltl_impl();
+  }
+
+  function parse_ltl_impl(): LTL_Expr {
+    let left = parse_ltl_or();
+    while (is(TT.Impl)) {
+      expect(TT.Impl);
+      left = {
+        kind: "Impl", left, right: parse_ltl_or()
+      }
+    }
+    return left;
+  }
+
+  function parse_ltl_or(): LTL_Expr {
+    let left = parse_ltl_and();
+    if (is(TT.Or)) {
+      expect(TT.Or);
+      return {
+        kind: "Or", left, right: parse_ltl_or()
+      }
+    }
+    return left;
+  }
+
+  function parse_ltl_and(): LTL_Expr {
+    let left = parse_ltl_not();
+    if (is(TT.And)) {
+      expect(TT.And);
+      return {
+        kind: "And", left, right: parse_ltl_and()
+      }
+    }
+    return left;
+  }
+
+  function parse_ltl_not(): LTL_Expr {
+    if (is(TT.Not)) {
+      eat();
+      return {
+        kind: "Not",
+        expr: parse_ltl_not()
+      }
+    }
+    return parse_ltl_fn();
+  }
+
+  function parse_ltl_fn(): LTL_Expr {
+    const ident = parse_ltl_primary();
+    if (ident.kind !== "Prop") return ident;
+    if (!is(TT.LeftParen)) return ident;
+    expect(TT.LeftParen);
+    const unarg = parse_ltl();
+    if (!is(TT.Comma)) {
+      expect(TT.RightParen);
+      switch (ident.name) {
+        case "X":
+          return { kind: "Next", expr: unarg }
+        case "G":
+          return { kind: "Always", expr: unarg }
+        case "F":
+          return { kind: "Finally", expr: unarg }
+        default:
+          throw `Unknown unary function '${ident.name}'`;
+      }
+    }
+    expect(TT.Comma);
+    const diarg = parse_ltl();
+    expect(TT.RightParen);
+    switch (ident.name) {
+      case "U": 
+        return { kind: "Until", left: unarg, right: diarg };
+      case "R": 
+        return { kind: "Release", left: unarg, right: diarg };
+      default:
+        throw `Unknown binary function '${ident.name}'`;
+    }
+  }
+
+  function parse_ltl_primary(): LTL_Expr {
+    switch (at().type) {
+      case TT.Symbol:
+        const sym = eat().content;
+        if (sym == "TRUE") return {kind: "Bool", value: true};
+        if (sym == "FALSE") return {kind: "Bool", value: false};
+        return {
+          kind: "Prop",
+          name: sym,
+          value: true
+        }
+      case TT.LeftParen: {
+        eat();
+        const expr = parse_ltl();
+        expect(TT.RightParen);
+        return expr;
+      }
+      default:
+        throw `Unexpected token '${at().content}'`;
+    }
+  }
+
   function parse_definition(def: PDS_Def) {
     const set_name = expect(TT.Symbol);
     expect(TT.Equals);
@@ -186,6 +323,18 @@ function parse_pds_from_tokens(tokens: Token[]): PDS_Def {
           expect(TT.Comma);
         }
         expect(TT.RightCurly);
+        break;
+      case "lambda":
+        expect(TT.LeftCurly);
+        while (!is(TT.RightCurly)) {
+          parse_labeling(def);
+          if (is(TT.RightCurly)) break;
+          expect(TT.Comma);
+        }
+        expect(TT.RightCurly);
+        break;
+      case "phi":
+        def.phi = parse_ltl();
         break;
       default:
         throw `Cannot set value of set '${set_name.content}' or there is no such set!`;

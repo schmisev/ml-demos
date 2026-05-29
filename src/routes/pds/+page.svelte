@@ -13,8 +13,9 @@
 	import { cat, char, choice, format_regex, seq, star } from '$lib/regex/regex';
 	import { paper_1, PDS_EXAMPLES } from '$lib/pushdown-verification/configs';
 	import { EMPTY_DEF, parse_pds } from '$lib/pushdown-verification/pds-parser';
+	import { nnf_neg, tex_ltl_expr } from '$lib/pushdown-verification/pds-ltl';
 
-	let src = $state(PDS_EXAMPLES["back and forth"]);
+	let src = $state(PDS_EXAMPLES['safe & bad']);
 
 	const [pds_def, error] = $derived.by(() => {
 		try {
@@ -24,6 +25,7 @@
 			return [EMPTY_DEF(), '' + e];
 		}
 	});
+  const nnf_phi = $derived(nnf_neg(pds_def.phi));
 	const pds = $derived(new PDS(pds_def.initial_configs, pds_def.rules));
 
 	const ma = $derived(new MA(pds_def.target_configs, pds));
@@ -93,7 +95,7 @@
 					<h2 class="absolute bottom-2 left-2">{@html tex(`\\mathcal{P}`)}</h2>
 					<div class="flex flex-col gap-2">
 						{@html tex(
-							`P = \\{ ${[...pds.locs.values().map((l) => `p^${l}`)].toSorted().join(',')} \\}`
+							`P = \\{ ${[...pds.locs.values().map((l) => `p^{${l}}`)].toSorted().join(',')} \\}`
 						)}
 						{@html tex(
 							`\\Gamma = \\{ ${[...pds.alphabet.values().map((l) => tex_stack_symbol(l))].toSorted().join(',')} \\}`
@@ -102,7 +104,7 @@
 						{#each pds.rules as [from, popped, to, pushed]}
 							<span class="pl-3"
 								>{@html tex(
-									`(p^${from}, ${tex_stack_symbol(popped)}) \\hookrightarrow (p^${to}, ${pushed.map((v) => tex_stack_symbol(v)).join('') || '\\epsilon'}),`
+									`(p^{${from}}, ${tex_stack_symbol(popped)}) \\hookrightarrow (p^{${to}}, ${pushed.map((v) => tex_stack_symbol(v)).join('') || '\\epsilon'}),`
 								)}</span
 							>
 						{/each}
@@ -137,10 +139,19 @@
 						<button class="border bg-red-400" onclick={() => ma.reset()}>Reset</button>
 						<div>
 							Finding {@html tex(
-								`Pre^*(C);  C = \\{ ${ma.targets.map((t) => `\\langle p^${t.loc}, ${tex_stack_regex(t.w)}\\rangle`)} \\}`
+								`Pre^*(C);  C = \\{ ${ma.targets.map((t) => `\\langle p^{${t.loc}}, ${tex_stack_regex(t.w)}\\rangle`)} \\}`
 							)}
 						</div>
+            
 					</div>
+          <div class="flex flex-row flex-wrap gap-4 items-center">
+            <div>{@html tex(`\\Lambda:`)}</div>
+            {#each pds_def.lambda.entries() as [state, props]}
+              <div>{@html tex(`p^{${state}} \\mapsto ${[...props.values()].map(v => `\\boldsymbol{${v}}`).join(" \\wedge ")}`)}</div>
+            {/each}  
+          </div>
+          <div>{@html tex("\\varphi = " + tex_ltl_expr(pds_def.phi))}</div>
+          <div>{@html tex("\\neg\\varphi = " + tex_ltl_expr(nnf_phi))}</div>
 					<h2 class="absolute bottom-2 left-2">{@html tex(`\\mathcal{A}_${ma.index}`)}</h2>
 					<HuiDagre settings={{ rankdir: 'LR' }} graphDef={ma.graph()}></HuiDagre>
 				</Pane>
