@@ -309,6 +309,7 @@ export class MA {
 
 	def: MA_Transition[] = $state([]);
 	state_to_loc: Map<MA_State, ControlLocation> = new Map();
+  state_to_name: Map<MA_State, string> = new Map();
 	loc_to_state: Map<ControlLocation, MA_State> = new Map();
 	states: Set<MA_State> = new Set();
 	initial_states: Set<MA_State> = new Set();
@@ -317,6 +318,7 @@ export class MA {
 	registered_transitions: Set<string> = new Set();
 
 	id = 0;
+  name = 1;
 	index = $state(0);
 
 	constructor(targets: RegularConfiguration[], pds: PDS) {
@@ -330,10 +332,22 @@ export class MA {
 		return '' + this.id++;
 	}
 
+  next_name(): string {
+    return '' + this.name++;
+  }
+
 	new_state(accepting: boolean, initial: boolean, loc?: ControlLocation) {
 		let s = loc ? (this.loc_to_state.get(loc) || this.next_id()) : this.next_id();
 		return this.register_state(s, accepting, initial, loc);
 	}
+
+  register_name(s: string) {
+    if (!this.state_to_name.has(s)) {
+      const name = this.next_name();
+      console.log("naming", s, "=", name);
+      this.state_to_name.set(s, name);
+    }
+  }
 
 	register_state(s: string, accepting: boolean, initial: boolean, loc?: ControlLocation) {
 		console.log("registering:", s, "as", loc);
@@ -344,6 +358,10 @@ export class MA {
 			this.state_to_loc.set(s, loc);
 			this.loc_to_state.set(loc, s);
 		}
+    
+    if (!this.state_to_loc.get(s)) {
+      this.register_name(s);
+    }
 		return s;
 	}
 
@@ -364,6 +382,7 @@ export class MA {
 		// name rgistering
 		this.loc_to_state.clear();
 		this.state_to_loc.clear();
+		this.state_to_name.clear();
 		this.registered_transitions.clear();
 
 		this.def = [];
@@ -378,7 +397,7 @@ export class MA {
       console.log("charset", charset_id);
 			const pdfl = find_pdfl(w);
 			const s = "_" + t.loc;
-			const auto = make_pdfl_automaton(M, pdfl, s);// .collapse_equal_nodes();
+			const auto = make_pdfl_automaton(M, pdfl, s).collapse_equal_nodes();
 
 			if (auto.init_states.size !== 1) throw 'Something went wrong!';
 			const init = [...auto.init_states][0];
@@ -466,6 +485,7 @@ export class MA {
 
 		for (const s of this.states) {
 			const loc = this.state_to_loc.get(s);
+      const name = this.state_to_name.get(s);
 
 			if (this.initial_states.has(s)) {
 				graph.nodes.push({
@@ -481,7 +501,7 @@ export class MA {
 
 			graph.nodes.push({
 				id: s,
-				label: loc ? render_proxy_location(loc) : render_automaton_state(s),
+				label: loc ? render_proxy_location(loc) : name ? render_automaton_state(name) : render_automaton_state(s),
 				labelClasses: ['hui', 'node', this.accepting_states.has(s) ? 'double' : 'rounded']
 			});
 		}
