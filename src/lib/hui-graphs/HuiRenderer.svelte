@@ -1,19 +1,32 @@
 <script lang="ts">
-    import "./hui-graph.css";
-	import { dFromPoints, stringifyStyle, urlArrowEnd, urlArrowStart, type HuiGraph } from "./hui-core";
-	import HuiLabel from "./HuiLabel.svelte";
-    let {
-        graph,
-        name,
-    }: {
-        graph: HuiGraph,
-        name: string
-    } = $props();
+	import './hui-graph.css';
+	import {
+		DEFAULT_CORNER_RADIUS,
+		dFromPoints,
+		stringifyStyle,
+		urlArrowEnd,
+		urlArrowStart,
+		type HuiGraph
+	} from './hui-core';
+	import HuiLabel from './HuiLabel.svelte';
+	let {
+		graph,
+		name
+	}: {
+		graph: HuiGraph;
+		name: string;
+	} = $props();
 
-    const labelPadding = 20;
+	const labelPadding = 20;
 </script>
 
-<svg id="{name}" class="hui" style="height: 100%; width: 100%;" viewBox="-10 -10 {graph.width + 20} {graph.height + 20}" xmlns="http://www.w3.org/2000/svg">
+<svg
+	id={name}
+	class="hui"
+	style="height: 100%; width: 100%;"
+	viewBox="-10 -10 {graph.width + 20} {graph.height + 20}"
+	xmlns="http://www.w3.org/2000/svg"
+>
 	<defs>
 		<marker
 			id="arrow"
@@ -53,7 +66,12 @@
 				stroke={edge.def.arrowStroke || 'black'}
 				stroke-width={edge.def.arrowWidth || 2}
 				style={stringifyStyle(edge.def.arrowStyle)}
-				d={dFromPoints(edge.points, edge.def.cornerRadius)}
+				d={dFromPoints(
+					edge.points,
+					edge.def.smoothing || 'smooth',
+					edge.def.cornerRadius || DEFAULT_CORNER_RADIUS,
+					edge.def.filterPoints
+				)}
 				marker-end={urlArrowEnd(edge.def.arrowEnd)}
 				marker-start={urlArrowStart(edge.def.arrowStart)}
 			>
@@ -79,18 +97,18 @@
 		</g>
 	{/each}
 
-    {#each graph.nodes as node}
-        <g>
-            <foreignObject
-                style="overflow: visible;"
-                xmlns="http://www.w3.org/1999/xhtml"
-                x={node.x - node.width / 2 - labelPadding}
-                y={node.y - node.height / 2 - labelPadding}
-                width={node.width + labelPadding * 2}
-                height={node.height + labelPadding * 2}
-            >
-                <HuiLabel elem={node} {labelPadding}></HuiLabel>
-            </foreignObject>
-        </g>
-    {/each}
+	{#each graph.nodes as node}
+		<g>
+			<foreignObject
+				style="overflow: visible;"
+				xmlns="http://www.w3.org/1999/xhtml"
+				x={node.x - node.width / 2 - labelPadding}
+				y={node.y - node.height / 2 - labelPadding}
+				width={node.width + labelPadding * 2}
+				height={node.height + labelPadding * 2}
+			>
+				<HuiLabel elem={node} {labelPadding}></HuiLabel>
+			</foreignObject>
+		</g>
+	{/each}
 </svg>
