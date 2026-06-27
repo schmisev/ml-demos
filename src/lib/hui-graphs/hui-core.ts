@@ -36,6 +36,7 @@ export interface HuiNodeDefinition {
 	labelClasses?: string[];
 	labelStyle?: { [attr: string]: string };
 	labelOnClick?: (ev: PointerEvent) => void;
+  hidden?: boolean;
 }
 
 export interface HuiNode {
@@ -63,6 +64,7 @@ export interface HuiEdgeDefinition {
 	arrowStroke?: string;
   smoothing?: HuiSmoothing;
   filterPoints?: boolean;
+  hidden?: boolean;
 }
 
 export interface HuiEdge {

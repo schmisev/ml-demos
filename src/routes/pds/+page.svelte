@@ -5,6 +5,9 @@
 		EMPTY,
 		MA,
 		PDS,
+		tex_config,
+		tex_loc,
+		tex_reg_config,
 		tex_stack_regex,
 		tex_stack_symbol
 	} from '$lib/pushdown-verification/pds.svelte';
@@ -14,8 +17,16 @@
 	import { paper_1, PDS_EXAMPLES } from '$lib/pushdown-verification/configs';
 	import { EMPTY_DEF, parse_pds } from '$lib/pushdown-verification/pds-parser';
 	import { nnf_neg, tex_ltl_expr } from '$lib/pushdown-verification/pds-ltl';
+	import TexPDS from '$lib/pushdown-verification/TexPDS.svelte';
 
 	let src = $state(PDS_EXAMPLES['safe & bad']);
+	let mode: { structure?: boolean; pre?: boolean; history?: boolean } = $state({
+    structure: true,
+    history: true,
+    pre: true
+  });
+	let flags: { ltl: boolean, tex: boolean } = $state({ ltl: false, tex: false });
+  
 
 	const [pds_def, error] = $derived.by(() => {
 		try {
@@ -25,7 +36,7 @@
 			return [EMPTY_DEF(), '' + e];
 		}
 	});
-  const nnf_phi = $derived(nnf_neg(pds_def.phi));
+	const nnf_phi = $derived(nnf_neg(pds_def.phi));
 	const pds = $derived(new PDS(pds_def.initial_configs, pds_def.rules));
 
 	const ma = $derived(new MA(pds_def.target_configs, pds));
@@ -80,85 +91,109 @@
 	</div>
 
 	<Splitpanes class="min-h-0 grow">
-		<Pane>
+		<Pane size={30}>
 			<Splitpanes horizontal>
 				<Pane class="relative flex flex-col gap-2 p-2">
-          <select onchange={(ev) => src = ev.currentTarget.value}>
-            {#each Object.entries(PDS_EXAMPLES) as example}
-              <option value={example[1]}>{example[0]}</option>
-            {/each}
-          </select>
+					<div class="flex flex-row gap-2">
+						<select onchange={(ev) => (src = ev.currentTarget.value)}>
+							{#each Object.entries(PDS_EXAMPLES) as example}
+								<option value={example[1]}>{example[0]}</option>
+							{/each}
+						</select>
+						<select bind:value={mode}>
+							<option selected value={{ structure: true }}>Structure</option>
+							<option value={{ history: true }}>History</option>
+							<option value={{ pre: true }}>Pre*</option>
+							<option value={{ pre: true, structure: true }}>Structure + Pre*</option>
+							<option value={{ structure: true, history: true }}>Structure + History</option>
+							<option value={{ pre: true, history: true }}>History + Pre*</option>
+						</select>
+					</div>
 					<textarea class="h-full resize-none font-mono" bind:value={src}></textarea>
 					<div>{error}</div>
 				</Pane>
 				<Pane class="relative flex flex-col gap-2 p-2">
 					<h2 class="absolute bottom-2 left-2">{@html tex(`\\mathcal{P}`)}</h2>
-					<div class="flex flex-col gap-2">
-						{@html tex(
-							`P = \\{ ${[...pds.locs.values().map((l) => `p^{${l}}`)].toSorted().join(',')} \\}`
-						)}
-						{@html tex(
-							`\\Gamma = \\{ ${[...pds.alphabet.values().map((l) => tex_stack_symbol(l))].toSorted().join(',')} \\}`
-						)}
-						{@html tex(`\\Delta = \\{`)}
-						{#each pds.rules as [from, popped, to, pushed]}
-							<span class="pl-3"
-								>{@html tex(
-									`(p^{${from}}, ${tex_stack_symbol(popped)}) \\hookrightarrow (p^{${to}}, ${pushed.map((v) => tex_stack_symbol(v)).join('') || '\\epsilon'}),`
-								)}</span
-							>
-						{/each}
-						{@html tex(`\\}`)}
-					</div>
-				</Pane>
-
-				<Pane class="relative flex flex-col gap-2 p-2">
-					<div class="flex flex-row flex-wrap items-center gap-2">
-						<button class="border" onclick={() => pds.step()}>Step</button>
-						<button class="border bg-red-400" onclick={() => pds.reset()}>Reset</button>
-						<button class="border bg-blue-300" onclick={() => copySvgAsImage('history')}
-							>Copy</button
-						>
-					</div>
-
-					<h2 class="absolute bottom-2 left-2">Run history</h2>
-
-					<div class="min-h-0 grow p-10">
-						<HuiDagre name={'history'} settings={{ rankdir: 'LR' }} graphDef={pds.graph_history()}
-						></HuiDagre>
-					</div>
+					<TexPDS {pds}></TexPDS>
 				</Pane>
 			</Splitpanes>
 		</Pane>
 
 		<Pane>
 			<Splitpanes horizontal>
-				<Pane class="relative flex flex-col gap-2 p-2">
-					<div class="flex flex-row flex-wrap items-center gap-2">
-						<button class="border" onclick={() => ma.extend()}>Extend</button>
-						<button class="border bg-red-400" onclick={() => ma.reset()}>Reset</button>
-						<div>
-							Finding {@html tex(
-								`Pre^*(C);  C = \\{ ${ma.targets.map((t) => `\\langle p^{${t.loc}}, ${tex_stack_regex(t.w)}\\rangle`)} \\}`
-							)}
+				{#if mode.structure}
+					<Pane class="relative">
+						<h2 class="absolute bottom-2 left-2">PDS graph</h2>
+						<HuiDagre settings={{ rankdir: 'LR', marginx: 10 }} graphDef={pds.graph()}></HuiDagre>
+					</Pane>
+				{/if}
+				{#if mode.history}
+					<Pane class="relative flex flex-col gap-2 p-2">
+						<div class="flex flex-row flex-wrap items-center gap-2">
+							<button class="border" onclick={() => pds.step()}>Step</button>
+							<button class="border bg-red-400" onclick={() => pds.reset()}>Reset</button>
+              <label class="light-border flex flex-row items-center gap-2">
+								<input type="checkbox" bind:checked={flags.tex} />
+								Tex?
+							</label>
+              <label class="light-border flex flex-row items-center gap-2"><input bind:value={pds.until_time} type="range" min={0} max={pds.time}> {pds.until_time} / {pds.time}</label>
+            </div>
+
+						<div class="min-h-0 grow p-1">
+							<HuiDagre name={'history'} settings={{ rankdir: 'LR', ranker: "network-simplex" }} graphDef={pds.graph_history(flags.tex)}
+							></HuiDagre>
 						</div>
-            
-					</div>
-          <div class="flex flex-row flex-wrap gap-4 items-center">
-            <div>{@html tex(`\\Lambda:`)}</div>
-            {#each pds_def.lambda.entries() as [state, props]}
-              <div>{@html tex(`p^{${state}} \\mapsto ${[...props.values()].map(v => `\\boldsymbol{${v}}`).join(" \\wedge ")}`)}</div>
-            {/each}  
-          </div>
-          <div>{@html tex("\\varphi = " + tex_ltl_expr(pds_def.phi))}</div>
-          <div>{@html tex("\\neg\\varphi = " + tex_ltl_expr(nnf_phi))}</div>
-					<h2 class="absolute bottom-2 left-2">{@html tex(`\\mathcal{A}_${ma.index}`)}</h2>
-					<HuiDagre settings={{ rankdir: 'LR' }} graphDef={ma.graph()}></HuiDagre>
-				</Pane>
-				<Pane class="relative">
-					<h2 class="absolute bottom-2 left-2">PDS graph</h2>
-					<HuiDagre settings={{ rankdir: 'LR', marginx: 10 }} graphDef={pds.graph()}></HuiDagre>
-				</Pane>
+					</Pane>
+				{/if}
+				{#if mode.pre}
+					<Pane class="relative flex flex-col gap-2 p-2">
+						<div class="flex flex-row flex-wrap items-center gap-2">
+							<button class="border" onclick={() => ma.extend()}>Extend</button>
+							<button class="border bg-red-400" onclick={() => ma.reset()}>Reset</button>
+							<label class="light-border flex flex-row items-center gap-2">
+								<input type="checkbox" bind:checked={flags.ltl} />
+								Show LTL
+							</label>
+
+							<div>
+								Finding {@html tex(
+									`Pre^*(C);  C = ${ma.targets.map((t) => tex_reg_config(t)).join("\\cup")} `
+								)}
+							</div>
+
+              <div class="absolute p-2 top-0 right-0 flex flex-col">
+                <div>Reachable from...</div>
+                {#each pds_def.initial_configs as init}
+                  <div class="flex flex-row gap-1 items-center">
+                    {@html tex(tex_config(init))} 
+                    {#if ma.check_config(init)}
+                      <div class="text-green-700 font-black">✓</div>
+                    {:else}
+                      <div class="text-red-700 font-black">⨉</div>
+                    {/if}
+                  </div>
+                {/each}
+              </div>
+						</div>
+						{#if flags.ltl}
+							<div class="flex flex-row flex-wrap items-center gap-4">
+								<div>{@html tex(`\\Lambda:`)}</div>
+								{#each pds_def.lambda.entries() as [state, props]}
+									<div>
+										{@html tex(
+											`${tex_loc(state)} \\mapsto ${[...props.values()].map((v) => `\\boldsymbol{${v}}`).join(' \\wedge ')}`
+										)}
+									</div>
+								{/each}
+							</div>
+              <div>{@html tex('\\varphi = ' + tex_ltl_expr(pds_def.phi))}</div>
+						  <div>{@html tex('\\neg\\varphi = ' + tex_ltl_expr(nnf_phi))}</div>
+						{/if}
+
+						<h2 class="absolute bottom-2 left-2">{@html tex(`\\mathcal{A}_${ma.index}`)}</h2>
+						<HuiDagre settings={{ rankdir: 'LR' }} graphDef={ma.graph()}></HuiDagre>
+					</Pane>
+				{/if}
 			</Splitpanes>
 		</Pane>
 	</Splitpanes>

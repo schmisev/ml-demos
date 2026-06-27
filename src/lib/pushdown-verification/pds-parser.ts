@@ -92,20 +92,17 @@ function parse_pds_from_tokens(tokens: Token[]): PDS_Def {
     def.rules.push([from, top_of_stack, to, repl]);
   }
 
-  function parse_initial_config(def: PDS_Def) {
+  function parse_initial_config() {
     expect(TT.LeftPointy);
     const loc: string = expect(TT.Symbol).content;
     expect(TT.Comma);
     let w: StackSymbol[] = [];
     while (!is(TT.RightPointy)) {
-      w.push(expect(TT.Symbol).content);
+      w = [expect(TT.Symbol).content, ...w];
     }
     expect(TT.RightPointy);
 
-    def.initial_configs.push({
-      loc,
-      w
-    })
+    return {loc, w}
   }
 
   function parse_target_config(def: PDS_Def) {
@@ -309,7 +306,7 @@ function parse_pds_from_tokens(tokens: Token[]): PDS_Def {
       case "I":
         expect(TT.LeftCurly);
         while (!is(TT.RightCurly)) {
-          parse_initial_config(def);
+          def.initial_configs.push(parse_initial_config());
           if (is(TT.RightCurly)) break;
           expect(TT.Comma);
         }

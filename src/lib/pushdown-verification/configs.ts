@@ -28,6 +28,7 @@ export const PDS_EXAMPLES = {
   'safe & bad': `(safe, F, bad, E)
 (safe, G, safe, G F)
 (safe, G, safe, ~)
+I = { <safe, G> }
 lambda = { bad -> ERROR }
 C = {<bad, E>}
 phi = G(-ERROR)
@@ -53,4 +54,10 @@ C = { <2, A*Z>, <1, A|Z> }`,
 I = { <1, 5>, <1, 6 5 5> }
 C = { <2, 1 2 3> }
 `,
+  'roundabout': `(1, 4, 1, 1 2 3)
+(1, 1, 2, ~)
+(2, 2, 3, ~)
+(3, 3, 1, 4)
+I = { <1, 4> }
+  `
 }

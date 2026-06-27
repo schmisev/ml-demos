@@ -59,56 +59,60 @@
 	</defs>
 
 	{#each graph.edges as edge}
-		<g>
-			<path
-				stroke-linecap="round"
-				fill="transparent"
-				stroke={edge.def.arrowStroke || 'black'}
-				stroke-width={edge.def.arrowWidth || 2}
-				style={stringifyStyle(edge.def.arrowStyle)}
-				d={dFromPoints(
-					edge.points,
-					edge.def.smoothing || 'smooth',
-					edge.def.cornerRadius || DEFAULT_CORNER_RADIUS,
-					edge.def.filterPoints
-				)}
-				marker-end={urlArrowEnd(edge.def.arrowEnd)}
-				marker-start={urlArrowStart(edge.def.arrowStart)}
-			>
-			</path>
-			{#if edge.def.label}
-				<rect
-					fill="rgba(255, 255, 255, 0.8)"
-					x={edge.x - edge.width / 2}
-					y={edge.y - edge.height / 2}
-					width={edge.width}
-					height={edge.height}
-				></rect>
-				<foreignObject
-					xmlns="http://www.w3.org/1999/xhtml"
-					x={edge.x - edge.width / 2 - labelPadding}
-					y={edge.y - edge.height / 2 - labelPadding}
-					width={edge.width + labelPadding * 2}
-					height={edge.height + labelPadding * 2}
+    {#if !edge.def.hidden}
+			<g>
+				<path
+					stroke-linecap="round"
+					fill="transparent"
+					stroke={edge.def.arrowStroke || 'black'}
+					stroke-width={edge.def.arrowWidth || 2}
+					style={stringifyStyle(edge.def.arrowStyle)}
+					d={dFromPoints(
+						edge.points,
+						edge.def.smoothing || 'smooth',
+						edge.def.cornerRadius || DEFAULT_CORNER_RADIUS,
+						edge.def.filterPoints
+					)}
+					marker-end={urlArrowEnd(edge.def.arrowEnd)}
+					marker-start={urlArrowStart(edge.def.arrowStart)}
 				>
-					<HuiLabel elem={edge} {labelPadding}></HuiLabel>
-				</foreignObject>
-			{/if}
-		</g>
-	{/each}
+				</path>
+				{#if edge.def.label}
+					<rect
+						fill="rgba(255, 255, 255, 0.8)"
+						x={edge.x - edge.width / 2}
+						y={edge.y - edge.height / 2}
+						width={edge.width}
+						height={edge.height}
+					></rect>
+					<foreignObject
+						xmlns="http://www.w3.org/1999/xhtml"
+						x={edge.x - edge.width / 2 - labelPadding}
+						y={edge.y - edge.height / 2 - labelPadding}
+						width={edge.width + labelPadding * 2}
+						height={edge.height + labelPadding * 2}
+					>
+						<HuiLabel elem={edge} {labelPadding}></HuiLabel>
+					</foreignObject>
+				{/if}
+			</g>
+		{/if}
+  {/each}
 
 	{#each graph.nodes as node}
-		<g>
-			<foreignObject
-				style="overflow: visible;"
-				xmlns="http://www.w3.org/1999/xhtml"
-				x={node.x - node.width / 2 - labelPadding}
-				y={node.y - node.height / 2 - labelPadding}
-				width={node.width + labelPadding * 2}
-				height={node.height + labelPadding * 2}
-			>
-				<HuiLabel elem={node} {labelPadding}></HuiLabel>
-			</foreignObject>
-		</g>
+    {#if !node.def.hidden}
+      <g>
+        <foreignObject
+          style="overflow: visible;"
+          xmlns="http://www.w3.org/1999/xhtml"
+          x={node.x - node.width / 2 - labelPadding}
+          y={node.y - node.height / 2 - labelPadding}
+          width={node.width + labelPadding * 2}
+          height={node.height + labelPadding * 2}
+        >
+          <HuiLabel elem={node} {labelPadding}></HuiLabel>
+        </foreignObject>
+      </g>
+    {/if}
 	{/each}
 </svg>

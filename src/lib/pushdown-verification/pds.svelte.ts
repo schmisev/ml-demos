@@ -1,4 +1,10 @@
-import type { HuiEdgeDefinition, HuiGraphDefinition } from '$lib/hui-graphs/hui-core';
+import type {
+	HuiEdgeDefinition,
+	HuiGraphDefinition,
+	HuiNode,
+	HuiNodeDefinition
+} from '$lib/hui-graphs/hui-core';
+import { tex } from '$lib/mathjax';
 import { find_pdfl, make_pdfl_automaton, make_pdfl_data } from '$lib/regex/glushkov';
 import { cat, format_regex, re_alias, type RegexNode } from '$lib/regex/regex';
 import type { LTL_Expr, LTL_LabelingFunction } from './pds-ltl';
@@ -27,57 +33,9 @@ interface HistoryTransition {
 	pushed: StackSymbol[];
 }
 interface HistoryStep {
+	time: number;
 	from: Configuration | null;
 	transitions: HistoryTransition[];
-}
-
-// helper functions
-function format_config(config: Configuration | null) {
-	if (!config) return '*';
-	return `${config.loc}|${config.w.join(',')}>`;
-}
-
-function format_reg_config(config: RegularConfiguration | null) {
-	if (!config) return '*';
-	return `<${config.loc}|${format_regex(config.w)}>`;
-}
-
-function render_stack_symbol(symbol: StackSymbol) {
-	if (symbol === 0) return `&epsilon;`;
-	if (isNaN(parseInt(symbol))) {
-		return symbol;
-	} else return `&gamma;<sub>${symbol}</sub>`;
-}
-
-function render_stack_sequence(symbols: StackSequence) {
-	return symbols.map((v) => render_stack_symbol(v)).join('') || render_stack_symbol(0);
-}
-
-function render_stack_swap(popped: StackSymbol, pushed: StackSequence) {
-	return `${render_stack_symbol(popped)} / ${render_stack_sequence(pushed)}`;
-}
-
-function render_control_location(loc: ControlLocation) {
-	return `p<sup>${loc}</sup>`;
-}
-
-function render_proxy_location(loc: ControlLocation) {
-	return `s<sup>${loc}</sup>`;
-}
-
-function render_automaton_state(loc: ControlLocation) {
-	return `q<sub>${loc}</sub>`;
-}
-
-function render_config(config: Configuration | null) {
-	if (!config) return '<table><tbody><tr><td>*</td></tr></tbody></table>';
-	return `<table><tbody>
-  <tr><th>${render_control_location(config.loc)}</th></tr>
-  ${config.w
-		.toReversed()
-		.map((g) => `<tr><td>${render_stack_symbol(g)}</td></tr>`)
-		.join('')}
-  </tbody></table>`;
 }
 
 function equal_config(a: Configuration, b: Configuration) {
@@ -92,9 +50,9 @@ function equal_config(a: Configuration, b: Configuration) {
 export interface PDS_Def {
 	rules: Transition[];
 	initial_configs: Configuration[];
-  target_configs: RegularConfiguration[];
-  lambda: LTL_LabelingFunction; // LTL labeling function
-  phi: LTL_Expr; // LTL statement
+	target_configs: RegularConfiguration[];
+	lambda: LTL_LabelingFunction; // LTL labeling function
+	phi: LTL_Expr; // LTL statement
 }
 
 // pushdown system
@@ -108,6 +66,8 @@ export class PDS {
 	alphabet: Set<StackSymbol>;
 	def: Map<ControlLocation, Map<StackSymbol, ConfigDiff[]>>;
 	history: HistoryStep[][];
+	time: number = $state(0);
+	until_time: number = $state(0);
 
 	constructor(initial_configs: Configuration[], rules: Transition[]) {
 		this.initial_configs = initial_configs;
@@ -145,6 +105,7 @@ export class PDS {
 		this.history = [
 			[
 				{
+					time: (this.time = this.until_time = 0),
 					from: null,
 					transitions: this.initial_configs.map((c) => {
 						return { to: c, popped: 0, pushed: [] };
@@ -154,7 +115,13 @@ export class PDS {
 		];
 	}
 
+	loc_set() {
+		return new Set(this.configs.map((c) => c.loc));
+	}
+
 	step() {
+		this.time++;
+		this.until_time++;
 		const new_configs: Configuration[] = [];
 		const history_enty: HistoryStep[] = [];
 
@@ -200,42 +167,54 @@ export class PDS {
 
 			// tracking changes
 			new_configs.push(...to_configs);
-			history_enty.push({ from: config, transitions });
+			history_enty.push({ time: this.time, from: config, transitions });
 		}
 
 		this.configs = new_configs;
 		this.history.push(history_enty);
 	}
 
-	graph_history(): HuiGraphDefinition {
+	graph_history(tex_mode: boolean): HuiGraphDefinition {
 		const graph: HuiGraphDefinition = {
 			edges: [],
 			nodes: []
 		};
 
-		const node_set: Set<string> = new Set();
+		const node_set: Map<string, HuiNodeDefinition> = new Map();
+		const edge_set: Set<string> = new Set();
 
-		for (const history_slice of this.history) {
+		for (const [t, history_slice] of this.history.entries()) {
 			for (const history_step of history_slice) {
+				const final_slice = history_step.time === this.until_time;
 				const from_str = format_config(history_step.from);
 
 				for (const transition of history_step.transitions) {
 					const to_str = format_config(transition.to);
 
 					if (!node_set.has(to_str)) {
-						node_set.add(to_str);
-						graph.nodes.push({
+						const node: HuiNodeDefinition = {
 							id: to_str,
-							label: render_config(transition.to),
-							labelClasses: []
-						});
+							label: tex_mode ? tex(tex_config(transition.to)) : render_config_table(transition.to),
+							labelClasses: [tex_mode ? 'p-2' : 'p-0', 'border-2', 'rounded-xl'],
+							hidden: history_step.time > this.until_time
+						};
+						node_set.set(to_str, node);
+						graph.nodes.push(node);
+					}
+
+					if (final_slice) {
+						node_set.get(to_str)!.labelClasses!.push('bg-red-300');
 					}
 
 					if (!history_step.from) continue;
+					const edge_str = from_str + ' -> ' + to_str;
+					if (edge_set.has(edge_str)) continue;
+					edge_set.add(edge_str);
 					graph.edges.push({
 						fromId: from_str,
 						toId: to_str,
-						label: render_stack_swap(transition.popped, transition.pushed)
+						label: tex(tex_stack_swap(transition.popped, transition.pushed)),
+						hidden: history_step.time > this.until_time
 					});
 				}
 			}
@@ -251,14 +230,21 @@ export class PDS {
 
 		const node_set: Set<string> = new Set();
 		const edge_map = new Map<string, HuiEdgeDefinition>();
+		const loc_set: Set<string> = this.loc_set();
 
 		for (const [from, popped, to, pushed] of this.rules) {
 			if (!node_set.has(from)) {
 				node_set.add(from);
 				graph.nodes.push({
 					id: from,
-					label: render_control_location(from),
-					labelClasses: ['hui', 'node', 'rounded']
+					label: tex(tex_loc(from)),
+					labelClasses: [
+						'hui',
+						'border-2',
+						'p-2',
+						'rounded-xl',
+						loc_set.has(from) ? 'bg-red-300' : 'bg-white'
+					]
 				});
 			}
 
@@ -266,14 +252,20 @@ export class PDS {
 				node_set.add(to);
 				graph.nodes.push({
 					id: to,
-					label: render_control_location(to),
-					labelClasses: ['hui', 'node', 'rounded']
+					label: tex(tex_loc(to)),
+					labelClasses: [
+						'hui',
+						'border-2',
+						'p-2',
+						'rounded-xl',
+						loc_set.has(to) ? 'bg-red-300' : 'bg-white'
+					]
 				});
 			}
 
 			const edge_id = from + `\\` + to;
 			let edge = edge_map.get(edge_id);
-			const label = render_stack_swap(popped, pushed);
+			const label = tex(tex_stack_swap(popped, pushed));
 
 			if (!edge) {
 				edge = {
@@ -284,7 +276,7 @@ export class PDS {
 				edge_map.set(edge_id, edge);
 				graph.edges.push(edge);
 			} else {
-				edge.label += '<br>' + label;
+				edge.label += '' + label;
 			}
 		}
 
@@ -309,7 +301,7 @@ export class MA {
 
 	def: MA_Transition[] = $state([]);
 	state_to_loc: Map<MA_State, ControlLocation> = new Map();
-  state_to_name: Map<MA_State, string> = new Map();
+	state_to_name: Map<MA_State, string> = new Map();
 	loc_to_state: Map<ControlLocation, MA_State> = new Map();
 	states: Set<MA_State> = new Set();
 	initial_states: Set<MA_State> = new Set();
@@ -318,7 +310,7 @@ export class MA {
 	registered_transitions: Set<string> = new Set();
 
 	id = 0;
-  name = 1;
+	name = 1;
 	index = $state(0);
 
 	constructor(targets: RegularConfiguration[], pds: PDS) {
@@ -332,36 +324,36 @@ export class MA {
 		return '' + this.id++;
 	}
 
-  next_name(): string {
-    return '' + this.name++;
-  }
+	next_name(): string {
+		return '' + this.name++;
+	}
 
 	new_state(accepting: boolean, initial: boolean, loc?: ControlLocation) {
-		let s = loc ? (this.loc_to_state.get(loc) || this.next_id()) : this.next_id();
+		let s = loc ? this.loc_to_state.get(loc) || this.next_id() : this.next_id();
 		return this.register_state(s, accepting, initial, loc);
 	}
 
-  register_name(s: string) {
-    if (!this.state_to_name.has(s)) {
-      const name = this.next_name();
-      console.log("naming", s, "=", name);
-      this.state_to_name.set(s, name);
-    }
-  }
+	register_name(s: string) {
+		if (!this.state_to_name.has(s)) {
+			const name = this.next_name();
+			console.log('naming', s, '=', name);
+			this.state_to_name.set(s, name);
+		}
+	}
 
 	register_state(s: string, accepting: boolean, initial: boolean, loc?: ControlLocation) {
-		console.log("registering:", s, "as", loc);
-    if (accepting) this.accepting_states.add(s);
+		console.log('registering:', s, 'as', loc);
+		if (accepting) this.accepting_states.add(s);
 		if (initial) this.initial_states.add(s);
 		this.states.add(s);
 		if (loc) {
 			this.state_to_loc.set(s, loc);
 			this.loc_to_state.set(loc, s);
 		}
-    
-    if (!this.state_to_loc.get(s)) {
-      this.register_name(s);
-    }
+
+		if (!this.state_to_loc.get(s)) {
+			this.register_name(s);
+		}
 		return s;
 	}
 
@@ -388,15 +380,15 @@ export class MA {
 		this.def = [];
 		this.id = 0;
 
-    console.log("start");
+		console.log('start');
 		let charset_id = 0;
 		// adding states for target configs
 		for (const t of this.targets) {
 			const [w, M, tr, new_id] = re_alias(t.w, charset_id + 1);
 			charset_id = new_id + 1;
-      console.log("charset", charset_id);
+			console.log('charset', charset_id);
 			const pdfl = find_pdfl(w);
-			const s = "_" + t.loc;
+			const s = '_' + t.loc;
 			const auto = make_pdfl_automaton(M, pdfl, s).collapse_equal_nodes();
 
 			if (auto.init_states.size !== 1) throw 'Something went wrong!';
@@ -416,7 +408,7 @@ export class MA {
 			for (const a of accepted) this.register_state(a, true, false);
 		}
 
-    this.id = charset_id + 1;
+		this.id = charset_id + 1;
 
 		// adding all states of pds
 		for (const l of this.pds.locs) {
@@ -437,6 +429,21 @@ export class MA {
 		}
 
 		this.active_states = next_states;
+	}
+
+	check_config(config: Configuration): boolean {
+		this.start();
+		const init_state = this.loc_to_state.get(config.loc);
+		if (!init_state) return false;
+		this.active_states = new Set([init_state]);
+		for (const sym of config.w) {
+			this.consume(sym);
+			if (this.active_states.size === 0) return false;
+		}
+		for (const state of this.active_states) {
+			if (this.accepting_states.has(state)) return true;
+		}
+		return false;
 	}
 
 	match_rule([from, popped, to, pushed]: Transition): MA_Transition[] {
@@ -462,7 +469,6 @@ export class MA {
 		for (const rule of this.pds.rules) {
 			new_transitions.push(...this.match_rule(rule));
 		}
-
 		for (const new_tr of new_transitions) this.new_transition(...new_tr);
 		this.index++;
 	}
@@ -485,7 +491,7 @@ export class MA {
 
 		for (const s of this.states) {
 			const loc = this.state_to_loc.get(s);
-      const name = this.state_to_name.get(s);
+			const name = this.state_to_name.get(s);
 
 			if (this.initial_states.has(s)) {
 				graph.nodes.push({
@@ -495,28 +501,41 @@ export class MA {
 
 				graph.edges.push({
 					fromId: 'i' + inivisi_id,
-					toId: s
+					toId: s,
+					label: loc ? tex(tex_loc(loc)) : undefined
 				});
 			}
 
 			graph.nodes.push({
 				id: s,
-				label: loc ? render_proxy_location(loc) : name ? render_automaton_state(name) : render_automaton_state(s),
-				labelClasses: ['hui', 'node', this.accepting_states.has(s) ? 'double' : 'rounded']
+				label: loc
+					? tex(tex_proxy_loc(loc))
+					: name
+						? tex(tex_automaton_state(name))
+						: tex(tex_automaton_state(s)),
+				labelClasses: [
+					'hui',
+					'border-2',
+					'p-2',
+					'rounded-xl',
+					'bg-white',
+					...(this.accepting_states.has(s) ? ['outline-2', '-outline-offset-5'] : [])
+				]
 			});
 		}
 
-    const edge_map = new Map<string, HuiEdgeDefinition>();
+		const edge_map = new Map<string, HuiEdgeDefinition>();
 		for (const [from, trigger, to] of this.def) {
-      const edge_id = from + `\\` + to;
+			const edge_id = from + `\\` + to;
 			let edge = edge_map.get(edge_id);
-			const label = render_stack_symbol(trigger)
+			const label = render_stack_symbol(trigger);
 
 			if (!edge) {
 				edge = {
 					fromId: from,
 					toId: to,
-					label
+					label,
+					labelStyle: { 'font-family': 'Cambria', 'font-style': 'italic' }
 				};
 				edge_map.set(edge_id, edge);
 				graph.edges.push(edge);
@@ -534,9 +553,9 @@ export function tex_stack_regex(node: RegexNode): string {
 		case 'STAR':
 		case 'PLUS': {
 			const op = node.kind === 'PLUS' ? '+' : '*';
-			const in_paren = node.value.kind !== "CHAR" && node.value.kind !== "EMPTY";
+			const in_paren = node.value.kind !== 'CHAR' && node.value.kind !== 'EMPTY';
 			if (in_paren) return '(' + tex_stack_regex(node.value) + ')^' + op;
-			return tex_stack_regex(node.value) + "^" + op;
+			return tex_stack_regex(node.value) + '^' + op;
 		}
 		case 'CHOICE': {
 			const non_empty_nodes: RegexNode[] = [];
@@ -554,11 +573,11 @@ export function tex_stack_regex(node: RegexNode): string {
 		case 'CONCAT':
 			return tex_stack_regex(node.left) + tex_stack_regex(node.right);
 		case 'EMPTY':
-			return `\\e`;
+			return `\\epsilon`;
 		case 'CHAR':
-      if (isNaN(parseInt(node.trigger))) {
-        return node.trigger;
-      }
+			if (isNaN(parseInt(node.trigger))) {
+				return node.trigger;
+			}
 			return `\\gamma_{${node.trigger}}`;
 		// if (node.trigger === "\\.") return ".";
 		// return node.trigger;
@@ -566,7 +585,77 @@ export function tex_stack_regex(node: RegexNode): string {
 }
 
 export function tex_stack_symbol(sym: StackSymbol): string {
-  if (sym === 0) return `\\epsilon`;
-  if (isNaN(parseInt(sym))) return sym;
-  return `\\gamma_{${sym}}`;
+	if (sym === 0) return `\\varepsilon`;
+	if (isNaN(parseInt(sym))) return sym;
+	return `\\gamma_{${sym}}`;
+}
+
+export function render_stack_symbol(sym: StackSymbol): string {
+	if (sym === 0) return `&epsilon;`;
+	if (isNaN(parseInt(sym))) return sym;
+	return `&gamma;<sub>${sym}</sub>`;
+}
+
+export function tex_stack_sequence(seq: StackSequence): string {
+	return seq.map((s) => tex_stack_symbol(s)).join('') || tex_stack_symbol(0);
+}
+
+export function tex_loc(state: ControlLocation): string {
+	const index = parseInt(state);
+	if (isNaN(index)) return `\\text{${state}}`;
+	return `p^{${index}}`;
+}
+
+export function render_loc(state: ControlLocation): string {
+	const index = parseInt(state);
+	if (isNaN(index)) return `${state}`;
+	return `p<sup>${index}</sup>`;
+}
+
+export function tex_config(sym: Configuration): string {
+	return `\\langle ${tex_loc(sym.loc)}, ${tex_stack_sequence(sym.w)} \\rangle`;
+}
+
+export function tex_reg_config(sym: RegularConfiguration): string {
+	return `\\langle ${tex_loc(sym.loc)}, ${tex_stack_regex(sym.w)} \\rangle`;
+}
+
+// helper functions
+function format_config(config: Configuration | null) {
+	if (!config) return '*';
+	return `<${config.loc}|${config.w.join(',')}>`;
+}
+
+function format_reg_config(config: RegularConfiguration | null) {
+	if (!config) return '*';
+	return `<${config.loc}|${format_regex(config.w)}>`;
+}
+
+function tex_stack_swap(popped: StackSymbol, pushed: StackSequence) {
+	return `${tex_stack_symbol(popped)} / ${tex_stack_sequence(pushed)}`;
+}
+
+function tex_proxy_loc(loc: ControlLocation) {
+	const index = parseInt(loc);
+	if (isNaN(index)) {
+		return `\\text{${loc}} '`;
+	}
+	return `s^{${index}}`;
+}
+
+function tex_automaton_state(loc: ControlLocation) {
+	return `q_{${loc}}`;
+}
+
+function render_config_table(config: Configuration | null) {
+	if (!config) return '';
+	return `<div class="flex flex-col">
+  <div class="border-b-2 p-2 font-bold">${render_loc(config.loc)}</div>
+  ${
+		config.w
+			.toReversed()
+			.map((g) => `<div>${render_stack_symbol(g)}</div>`)
+			.join('') || '<div>&epsilon;</div>'
+	}
+  </div>`;
 }
