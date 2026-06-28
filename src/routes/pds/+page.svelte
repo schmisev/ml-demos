@@ -200,7 +200,7 @@
 						{/if}
 
 						<h2 class="absolute bottom-2 left-2">{@html tex(`\\mathcal{A}_${ma.index}`)}</h2>
-						<HuiDagre settings={{ rankdir: 'LR' }} graphDef={ma.graph()}></HuiDagre>
+						<HuiElk settings={{}} graphDef={ma.graph()}></HuiElk>
 					</Pane>
 				{/if}
 			</Splitpanes>

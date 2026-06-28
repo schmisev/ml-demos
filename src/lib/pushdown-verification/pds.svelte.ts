@@ -508,10 +508,13 @@ export class MA {
 			const loc = this.state_to_loc.get(s);
 			const name = this.state_to_name.get(s);
 
+      inivisi_id++;
+
 			if (this.initial_states.has(s)) {
 				graph.nodes.push({
-					id: 'i' + inivisi_id++,
-					label: ''
+					id: 'i' + inivisi_id,
+					label: '',
+          labelClasses: ["bg-black"],
 				});
 
 				graph.edges.push({
