@@ -7,6 +7,7 @@ import type {
 import { tex } from '$lib/mathjax';
 import { find_pdfl, make_pdfl_automaton, make_pdfl_data } from '$lib/regex/glushkov';
 import { cat, format_regex, re_alias, type RegexNode } from '$lib/regex/regex';
+import { LOC_COLOR_CODE } from './configs';
 import type { LTL_Expr, LTL_LabelingFunction } from './pds-ltl';
 
 export const EMPTY: EmptySymbol = 0;
@@ -143,7 +144,7 @@ export class PDS {
 					loc: diff.loc,
 					w: [...work_stack, ...diff.stack_push.toReversed()]
 				};
-				if (equal_config(add_config, config)) continue; // we do not add the same config again!
+				// if (equal_config(add_config, config)) continue; // we do not add the same config again!
 				transitions.push({ to: add_config, popped: top_symbol || 0, pushed: [...diff.stack_push] });
 			}
 
@@ -195,16 +196,21 @@ export class PDS {
 						const node: HuiNodeDefinition = {
 							id: to_str,
 							label: tex_mode ? tex(tex_config(transition.to)) : render_config_table(transition.to),
-							labelClasses: [tex_mode ? 'p-2' : 'p-0', 'border-2', 'rounded-xl'],
+							labelClasses: [
+								tex_mode ? 'p-2' : 'p-0',
+								'border-2',
+								tex_mode ? 'rounded-xl' : 'rounded-sm',
+                ...color_loc(transition.to.loc, final_slice)
+							],
 							hidden: history_step.time > this.until_time
 						};
 						node_set.set(to_str, node);
 						graph.nodes.push(node);
 					}
 
-					if (final_slice) {
-						node_set.get(to_str)!.labelClasses!.push('bg-red-300');
-					}
+          if (final_slice) {
+            node_set.get(to_str)!.labelClasses!.push(...color_loc(transition.to.loc, final_slice));
+          }
 
 					if (!history_step.from) continue;
 					const edge_str = from_str + ' -> ' + to_str;
@@ -243,7 +249,7 @@ export class PDS {
 						'border-2',
 						'p-2',
 						'rounded-xl',
-						loc_set.has(from) ? 'bg-red-300' : 'bg-white'
+            ...color_loc(from, loc_set.has(from))
 					]
 				});
 			}
@@ -258,7 +264,7 @@ export class PDS {
 						'border-2',
 						'p-2',
 						'rounded-xl',
-						loc_set.has(to) ? 'bg-red-300' : 'bg-white'
+						...color_loc(to, loc_set.has(to))
 					]
 				});
 			}
@@ -285,14 +291,20 @@ export class PDS {
 }
 
 type MA_State = string;
-type MA_Transition = [MA_State, StackSymbol, MA_State];
+interface MA_Transition {
+	from: MA_State;
+	trigger: StackSymbol;
+	to: MA_State;
+	created_at_index: number;
+}
+// type MA_Transition = [MA_State, StackSymbol, MA_State];
 
 function equal_transition(a: MA_Transition, b: MA_Transition) {
-	return a[0] === b[0] && a[1] === b[1] && a[2] === b[2];
+	return a.from === b.from && a.trigger === b.trigger && a.to === b.to;
 }
 
 function transition_id(a: MA_Transition) {
-	return `(${a.join(',')})`;
+	return `(${a.from}, ${a.trigger}, ${a.to})`;
 }
 
 export class MA {
@@ -312,6 +324,7 @@ export class MA {
 	id = 0;
 	name = 1;
 	index = $state(0);
+	until_index = $state(0);
 
 	constructor(targets: RegularConfiguration[], pds: PDS) {
 		this.pds = pds;
@@ -358,7 +371,7 @@ export class MA {
 	}
 
 	new_transition(from: MA_State, trigger: StackSymbol, to: MA_State) {
-		const t: MA_Transition = [from, trigger, to];
+		const t: MA_Transition = { from, trigger, to, created_at_index: this.index };
 		const name = transition_id(t);
 		if (this.registered_transitions.has(name)) return t;
 		this.registered_transitions.add(name);
@@ -367,7 +380,7 @@ export class MA {
 	}
 
 	setup() {
-		this.index = 0;
+		this.index = this.until_index = 0;
 		this.states.clear();
 		this.accepting_states.clear();
 		this.initial_states.clear();
@@ -422,7 +435,7 @@ export class MA {
 
 	consume(trigger: StackSymbol) {
 		const next_states: Set<MA_State> = new Set();
-		for (const [from, tr, to] of this.def) {
+		for (const { from, trigger: tr, to } of this.def) {
 			if (this.active_states.has(from) && trigger === tr) {
 				next_states.add(to);
 			}
@@ -459,18 +472,20 @@ export class MA {
 		for (const q of this.active_states) {
 			const s = this.loc_to_state.get(from);
 			if (!s) continue;
-			new_transitions.push([s, popped, q]);
+			new_transitions.push({ from: s, trigger: popped, to: q, created_at_index: this.index });
 		}
 		return new_transitions;
 	}
 
 	extend() {
+		this.index++;
+		this.until_index++;
 		let new_transitions: MA_Transition[] = [];
 		for (const rule of this.pds.rules) {
 			new_transitions.push(...this.match_rule(rule));
 		}
-		for (const new_tr of new_transitions) this.new_transition(...new_tr);
-		this.index++;
+		for (const new_tr of new_transitions)
+			this.new_transition(new_tr.from, new_tr.trigger, new_tr.to);
 	}
 
 	rejected(): boolean {
@@ -518,20 +533,21 @@ export class MA {
 					'border-2',
 					'p-2',
 					'rounded-xl',
-					'bg-white',
+					...color_loc(loc, true),
 					...(this.accepting_states.has(s) ? ['outline-2', '-outline-offset-5'] : [])
 				]
 			});
 		}
 
 		const edge_map = new Map<string, HuiEdgeDefinition>();
-		for (const [from, trigger, to] of this.def) {
+		for (const { from, trigger, to, created_at_index } of this.def) {
 			const edge_id = from + `\\` + to;
 			let edge = edge_map.get(edge_id);
 			const label = render_stack_symbol(trigger);
 
 			if (!edge) {
 				edge = {
+					hidden: created_at_index > this.until_index,
 					fromId: from,
 					toId: to,
 					label,
@@ -539,7 +555,7 @@ export class MA {
 				};
 				edge_map.set(edge_id, edge);
 				graph.edges.push(edge);
-			} else {
+			} else if (created_at_index <= this.until_index) {
 				edge.label += ',' + label;
 			}
 		}
@@ -654,8 +670,15 @@ function render_config_table(config: Configuration | null) {
   ${
 		config.w
 			.toReversed()
-			.map((g) => `<div>${render_stack_symbol(g)}</div>`)
+			.map(
+				(g, i) =>
+					`<div class="${i % 2 === 1 ? 'bg-gray-200' : 'bg-white'}">${render_stack_symbol(g)}</div>`
+			)
 			.join('') || '<div>&epsilon;</div>'
 	}
   </div>`;
+}
+
+function color_loc(loc: string | undefined, active: boolean) {
+  return loc ? ['bg-' + (LOC_COLOR_CODE[loc] + (active ? "-400" : "-100") || 'white')] : [];
 }

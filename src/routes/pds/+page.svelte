@@ -19,14 +19,13 @@
 	import { nnf_neg, tex_ltl_expr } from '$lib/pushdown-verification/pds-ltl';
 	import TexPDS from '$lib/pushdown-verification/TexPDS.svelte';
 
-	let src = $state(PDS_EXAMPLES['safe & bad']);
+	let src = $state(PDS_EXAMPLES['match brackets']);
 	let mode: { structure?: boolean; pre?: boolean; history?: boolean } = $state({
-    structure: true,
-    history: true,
-    pre: true
-  });
-	let flags: { ltl: boolean, tex: boolean } = $state({ ltl: false, tex: false });
-  
+		structure: true,
+		history: true,
+		pre: true
+	});
+	let flags: { ltl: boolean; tex: boolean } = $state({ ltl: false, tex: false });
 
 	const [pds_def, error] = $derived.by(() => {
 		try {
@@ -132,15 +131,21 @@
 						<div class="flex flex-row flex-wrap items-center gap-2">
 							<button class="border" onclick={() => pds.step()}>Step</button>
 							<button class="border bg-red-400" onclick={() => pds.reset()}>Reset</button>
-              <label class="light-border flex flex-row items-center gap-2">
+							<label class="light-border flex flex-row items-center gap-2">
 								<input type="checkbox" bind:checked={flags.tex} />
 								Tex?
 							</label>
-              <label class="light-border flex flex-row items-center gap-2"><input bind:value={pds.until_time} type="range" min={0} max={pds.time}> {pds.until_time} / {pds.time}</label>
-            </div>
+							<label class="light-border flex flex-row items-center gap-2"
+								><input bind:value={pds.until_time} type="range" min={0} max={pds.time} />
+								{pds.until_time} / {pds.time}</label
+							>
+						</div>
 
 						<div class="min-h-0 grow p-1">
-							<HuiDagre name={'history'} settings={{ rankdir: 'LR', ranker: "network-simplex" }} graphDef={pds.graph_history(flags.tex)}
+							<HuiDagre
+								name={'history'}
+								settings={{ rankdir: 'LR', ranker: 'network-simplex' }}
+								graphDef={pds.graph_history(flags.tex)}
 							></HuiDagre>
 						</div>
 					</Pane>
@@ -154,26 +159,30 @@
 								<input type="checkbox" bind:checked={flags.ltl} />
 								Show LTL
 							</label>
+              <label class="light-border flex flex-row items-center gap-2"
+								><input bind:value={ma.until_index} type="range" min={0} max={ma.index} />
+								{ma.index} / {ma.index}</label
+							>
 
 							<div>
 								Finding {@html tex(
-									`Pre^*(C);  C = ${ma.targets.map((t) => tex_reg_config(t)).join("\\cup")} `
+									`Pre^*(C);  C = ${ma.targets.map((t) => tex_reg_config(t)).join('\\cup')} `
 								)}
 							</div>
 
-              <div class="absolute p-2 top-0 right-0 flex flex-col">
-                <div>Reachable from...</div>
-                {#each pds_def.initial_configs as init}
-                  <div class="flex flex-row gap-1 items-center">
-                    {@html tex(tex_config(init))} 
-                    {#if ma.check_config(init)}
-                      <div class="text-green-700 font-black">✓</div>
-                    {:else}
-                      <div class="text-red-700 font-black">⨉</div>
-                    {/if}
-                  </div>
-                {/each}
-              </div>
+							<div class="absolute top-0 right-0 flex flex-col p-2">
+								<div>Reachable from...</div>
+								{#each pds_def.initial_configs as init}
+									<div class="flex flex-row items-center gap-1">
+										{@html tex(tex_config(init))}
+										{#if ma.check_config(init)}
+											<div class="font-black text-green-700">✓</div>
+										{:else}
+											<div class="font-black text-red-700">⨉</div>
+										{/if}
+									</div>
+								{/each}
+							</div>
 						</div>
 						{#if flags.ltl}
 							<div class="flex flex-row flex-wrap items-center gap-4">
@@ -186,8 +195,8 @@
 									</div>
 								{/each}
 							</div>
-              <div>{@html tex('\\varphi = ' + tex_ltl_expr(pds_def.phi))}</div>
-						  <div>{@html tex('\\neg\\varphi = ' + tex_ltl_expr(nnf_phi))}</div>
+							<div>{@html tex('\\varphi = ' + tex_ltl_expr(pds_def.phi))}</div>
+							<div>{@html tex('\\neg\\varphi = ' + tex_ltl_expr(nnf_phi))}</div>
 						{/if}
 
 						<h2 class="absolute bottom-2 left-2">{@html tex(`\\mathcal{A}_${ma.index}`)}</h2>

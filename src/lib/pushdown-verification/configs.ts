@@ -33,6 +33,23 @@ lambda = { bad -> ERROR }
 C = {<bad, E>}
 phi = G(-ERROR)
 `,
+'safe & bad, simple': `(safe, F, bad, E F)
+(safe, F, safe, F F)
+(safe, F, return, F)
+(return, F, return, ~)
+(bad, E, bad, E)
+I = { <safe, F> }
+C = {<bad, E>}
+`,
+'safe & bad, infinite': `(safe, F, bad, E F)
+(safe, F, safe, F F)
+(safe, F, return, F)
+(bad, E, return, ~)
+(return, F, return, ~)
+(return, E, return, ~)
+I = { <safe, F> }
+C = {<bad, E>}
+`,
   'back and forth': `(1, 1, 2, 2 1)
 (2, 2, 1, 1 2)
 I = { <1, 1> }
@@ -47,7 +64,7 @@ phi = G(GET -> F(POST))
 (2, A, 2, ~)
 (2, Z, 3, Z)
 I = { <1, Z> }
-C = { <2, A*Z>, <1, A|Z> }`,
+C = { <3, Z> }`,
   'from paper': `(2, 4, 2, 1 2)
 (1, 5, 2, 4 3)
 (1, 6, 1, ~)
@@ -60,4 +77,16 @@ C = { <2, 1 2 3> }
 (3, 3, 1, 4)
 I = { <1, 4> }
   `
+}
+
+
+export const LOC_COLOR_CODE: Record<string, string> = {
+  "0": "gray",
+  "1": "blue",
+  "2": "green",
+  "3": "orange",
+  "4": "purple",
+  "bad": "red",
+  "safe": "green",
+  "return": "purple"
 }
