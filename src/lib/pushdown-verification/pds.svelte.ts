@@ -629,7 +629,7 @@ export function render_loc(state: ControlLocation): string {
 }
 
 export function tex_config(sym: Configuration): string {
-	return `\\langle ${tex_loc(sym.loc)}, ${tex_stack_sequence(sym.w)} \\rangle`;
+	return `\\langle ${tex_loc(sym.loc)}, ${tex_stack_sequence(sym.w.toReversed())} \\rangle`;
 }
 
 export function tex_reg_config(sym: RegularConfiguration): string {

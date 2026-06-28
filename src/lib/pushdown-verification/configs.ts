@@ -41,14 +41,16 @@ phi = G(-ERROR)
 I = { <safe, F> }
 C = {<bad, E>}
 `,
-'safe & bad, infinite': `(safe, F, bad, E F)
+'safe & bad, infinite': `(safe, M, safe, F M)
 (safe, F, safe, F F)
-(safe, F, return, F)
-(bad, E, return, ~)
 (return, F, return, ~)
 (return, E, return, ~)
-I = { <safe, F> }
-C = {<bad, E>}
+(return, M, safe, M)
+(safe, F, bad, E F)
+(safe, F, return, F)
+(bad, E, return, E)
+I = { <safe, M> }
+C = { <bad, E F M> }
 `,
   'back and forth': `(1, 1, 2, 2 1)
 (2, 2, 1, 1 2)
