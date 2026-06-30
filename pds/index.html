@@ -15,7 +15,7 @@
 		<link rel="modulepreload" href="../_app/immutable/chunks/87tgEzH3.js">
 		<link rel="modulepreload" href="../_app/immutable/chunks/DTyhkgQr.js">
 		<link rel="modulepreload" href="../_app/immutable/chunks/CBQjjLlL.js">
-		<link rel="modulepreload" href="../_app/immutable/entry/app.CU5z1AwE.js">
+		<link rel="modulepreload" href="../_app/immutable/entry/app.CV9g4xVG.js">
 		<link rel="modulepreload" href="../_app/immutable/chunks/PPVm8Dsz.js">
 		<link rel="modulepreload" href="../_app/immutable/chunks/DsnmJJEf.js">
 		<link rel="modulepreload" href="../_app/immutable/chunks/DqvL9oN5.js">
@@ -23,7 +23,7 @@
 		<link rel="modulepreload" href="../_app/immutable/chunks/CTMc0OCc.js">
 		<link rel="modulepreload" href="../_app/immutable/nodes/0.CfLDIfZE.js">
 		<link rel="modulepreload" href="../_app/immutable/chunks/jsMxkZXH.js">
-		<link rel="modulepreload" href="../_app/immutable/nodes/19.Vx3rJ1LI.js">
+		<link rel="modulepreload" href="../_app/immutable/nodes/19.y_cXlEyN.js">
 		<link rel="modulepreload" href="../_app/immutable/chunks/CNJRKk_n.js">
 		<link rel="modulepreload" href="../_app/immutable/chunks/BQWUE-Nd.js">
 		<link rel="modulepreload" href="../_app/immutable/chunks/C52otpiy.js">
@@ -42,6 +42,7 @@
 		<link rel="modulepreload" href="../_app/immutable/chunks/DSGs3OBn.js">
 		<link rel="modulepreload" href="../_app/immutable/chunks/CdAZ-jxY.js">
 		<link rel="modulepreload" href="../_app/immutable/chunks/DwkJzi5E.js">
+		<link rel="modulepreload" href="../_app/immutable/chunks/7tKHfvb8.js">
 		<link rel="modulepreload" href="../_app/immutable/chunks/Da2e7QFx.js">
 		<link rel="modulepreload" href="../_app/immutable/chunks/oONfoDM0.js">
 		<link rel="modulepreload" href="../_app/immutable/chunks/B_XoHtwG.js">
@@ -96,7 +97,24 @@ C = { &lt;2, 1 2 3> }
 (2, 2, 3, ~)
 (3, 3, 1, 4)
 I = { &lt;1, 4> }
-  ">roundabout</option><!--]--></select> <select><option selected="" value="[object Object]">Structure</option><option value="[object Object]">History</option><option value="[object Object]">Pre*</option><option value="[object Object]">Structure + Pre*</option><option value="[object Object]">Structure + History</option><option value="[object Object]">History + Pre*</option></select></div> <textarea class="h-full resize-none font-mono">(1, Z, 1, A Z)
+  ">roundabout</option><option value="(safe1, F, safe1, F F)
+(safe0, F, safe0, F F)
+(safe0, F, return0, F)
+(safe0, M, safe0, F M)
+(safe0, F, bad0, E F)
+(safe1, F, return1, F)
+(safe1, F, bad0, E F)
+(safe1, M, safe1, F M)
+(return0, F, return0, ~)
+(return0, E, return0, ~)
+(return0, M, safe0, M)
+(return1, F, return1, ~)
+(return1, E, return1, ~)
+(return1, M, safe1, M)
+(bad0, E, return0, E)
+(bad1, E, return1, E)
+I = {&lt;safe1, M>}
+C = {&lt;bad0, E (E|M|F)*>}">buechi pds</option><!--]--></select> <select><option selected="" value="[object Object]">Structure</option><option value="[object Object]">History</option><option value="[object Object]">Pre*</option><option value="[object Object]">Structure + Pre*</option><option value="[object Object]">Structure + History</option><option value="[object Object]">History + Pre*</option></select></div> <textarea class="h-full resize-none font-mono">(1, Z, 1, A Z)
 (1, A, 1, A A)
 (1, Z, 2, Z)
 (1, A, 2, A)
@@ -116,7 +134,7 @@ C = { &lt;3, Z> }</textarea> <div>No error found!</div><!--]--></div><!--]--><!-
 
 					Promise.all([
 						import("../_app/immutable/entry/start.BFuXeozH.js"),
-						import("../_app/immutable/entry/app.CU5z1AwE.js")
+						import("../_app/immutable/entry/app.CV9g4xVG.js")
 					]).then(([kit, app]) => {
 						kit.start(app, element, {
 							node_ids: [0, 19],
