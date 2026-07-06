@@ -18,6 +18,33 @@
 	import { EMPTY_DEF, parse_pds } from '$lib/pushdown-verification/pds-parser';
 	import { nnf_neg, tex_ltl_expr } from '$lib/pushdown-verification/pds-ltl';
 	import TexPDS from '$lib/pushdown-verification/TexPDS.svelte';
+	import { graph_mini, mini_to_pds, MiniKind, parse_mini, type MiniProgram } from '$lib/pushdown-verification/minilang-parser';
+
+  let flags: { ltl: boolean; tex: boolean; from_mini_lang: boolean } = $state({ ltl: false, tex: false, from_mini_lang: true });
+
+  let mini_src = $state(`foo() {
+  foo();
+}
+
+bar() {
+  foo();
+  if (?) bar();
+}
+
+main() {
+  while(!) if (?) {
+    foo();
+  } else bar();
+}`);
+
+  const [mini_def, mini_error]: [MiniProgram, string] = $derived.by(() => {
+		try {
+			const def = parse_mini(mini_src);
+			return [def, 'No error found!'];
+		} catch (e) {
+			return [{kind: MiniKind.Program, func_defs: [], loc: "0"}, '' + e];
+		}
+	});
 
 	let src = $state(PDS_EXAMPLES['match brackets']);
 	let mode: { structure?: boolean; pre?: boolean; history?: boolean } = $state({
@@ -25,12 +52,16 @@
 		history: true,
 		pre: true
 	});
-	let flags: { ltl: boolean; tex: boolean } = $state({ ltl: false, tex: false });
 
 	const [pds_def, error] = $derived.by(() => {
 		try {
-			const def = parse_pds(src);
-			return [def, 'No error found!'];
+      if (flags.from_mini_lang) {
+        const def = mini_to_pds(mini_def);
+        return [def, 'No error found!'];
+      } else {
+        const def = parse_pds(src);
+        return [def, 'No error found!'];
+      }		
 		} catch (e) {
 			return [EMPTY_DEF(), '' + e];
 		}
@@ -39,45 +70,6 @@
 	const pds = $derived(new PDS(pds_def.initial_configs, pds_def.rules));
 
 	const ma = $derived(new MA(pds_def.target_configs, pds));
-
-	async function copySvgAsImage(name: string): Promise<void> {
-		let svg: SVGSVGElement | null = document.querySelector(`svg#${name}.hui`);
-
-		const svgData = new XMLSerializer().serializeToString(svg!);
-		const canvas = document.createElement('canvas');
-		const ctx = canvas.getContext('2d')!;
-		const img = new Image();
-
-		return new Promise<void>((resolve, reject) => {
-			img.onload = async () => {
-				const scale = 1.0;
-				canvas.width = img.width * scale;
-				canvas.height = img.height * scale;
-
-				ctx.scale(scale, scale);
-				ctx.save();
-				ctx.fillStyle = 'white';
-				ctx.globalAlpha = 0.0;
-				ctx.fillRect(0, 0, canvas.width, canvas.height);
-				ctx.restore();
-				ctx.drawImage(img, 0, 0);
-
-				canvas.toBlob(
-					async (blob) => {
-						if (!blob) return reject(new Error('Blob creation failed'));
-
-						await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
-						resolve();
-					},
-					'image/png',
-					2.0
-				);
-			};
-
-			img.onerror = () => reject(new Error('SVG processing failed'));
-			img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgData)));
-		});
-	}
 </script>
 
 <head>
@@ -108,8 +100,14 @@
 							<option value={{ pre: true, history: true }}>History + Pre*</option>
 						</select>
 					</div>
-					<textarea class="h-full resize-none font-mono" bind:value={src}></textarea>
-					<div>{error}</div>
+          {#if flags.from_mini_lang}
+          <textarea class="h-full resize-none font-mono" bind:value={mini_src}></textarea>
+          <div>{mini_error}</div>
+          {:else}
+          <textarea class="h-full resize-none font-mono" bind:value={src}></textarea>
+          {/if}
+          <div>{error}</div>
+					
 				</Pane>
 				<Pane class="relative flex flex-col gap-2 p-2">
 					<h2 class="absolute bottom-2 left-2">{@html tex(`\\mathcal{P}`)}</h2>
@@ -150,6 +148,11 @@
 						</div>
 					</Pane>
 				{/if}
+        {#if flags.from_mini_lang}
+          <Pane class="relative flex flex-col gap-2 p-2">
+            <HuiElk graphDef={graph_mini(mini_def)}></HuiElk>
+          </Pane>
+        {/if}
 				{#if mode.pre}
 					<Pane class="relative flex flex-col gap-2 p-2">
 						<div class="flex flex-row flex-wrap items-center gap-2">
