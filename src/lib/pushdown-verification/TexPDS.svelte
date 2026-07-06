@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { tex } from '$lib/mathjax';
-	import { tex_loc, tex_stack_symbol, type PDS } from './pds.svelte';
+	import { tex_loc, tex_stack_sequence, tex_stack_symbol, type PDS } from './pds.svelte';
 
 	let { pds }: { pds: PDS } = $props();
 </script>
@@ -14,7 +14,7 @@
 	{#each pds.rules as [from, popped, to, pushed]}
 		<span class="pl-3"
 			>{@html tex(
-				`(${tex_loc(from)}, ${tex_stack_symbol(popped)}, ${tex_loc(to)}, ${pushed.map((v) => tex_stack_symbol(v)).join('') || '\\varepsilon'}),`
+				`(${tex_loc(from)}, ${tex_stack_symbol(popped)}, ${tex_loc(to)}, ${tex_stack_sequence(pushed)}),`
 			)}</span
 		>
 	{/each}

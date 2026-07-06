@@ -31,9 +31,9 @@
 		<marker
 			id="arrow"
 			viewBox="0 0 10 10"
-			refX="7.5"
+			refX="7"
 			refY="5"
-			markerWidth="5"
+			markerWidth="4"
 			markerHeight="5"
 			fill="context-stroke"
 			orient="auto-start-reverse"

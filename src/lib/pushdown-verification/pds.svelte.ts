@@ -392,6 +392,7 @@ export class MA {
 
 		this.def = [];
 		this.id = 0;
+    this.name = 1;
 
 		console.log('start');
 		let charset_id = 0;
@@ -449,7 +450,7 @@ export class MA {
 		const init_state = this.loc_to_state.get(config.loc);
 		if (!init_state) return false;
 		this.active_states = new Set([init_state]);
-		for (const sym of config.w) {
+		for (const sym of config.w.toReversed()) {
 			this.consume(sym);
 			if (this.active_states.size === 0) return false;
 		}
@@ -616,7 +617,7 @@ export function render_stack_symbol(sym: StackSymbol): string {
 }
 
 export function tex_stack_sequence(seq: StackSequence): string {
-	return seq.map((s) => tex_stack_symbol(s)).join('') || tex_stack_symbol(0);
+	return seq.map((s) => tex_stack_symbol(s)).join('\\,') || tex_stack_symbol(0);
 }
 
 export function tex_loc(state: ControlLocation): string {
