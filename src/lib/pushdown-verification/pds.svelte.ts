@@ -393,7 +393,6 @@ export class MA {
 		this.id = 0;
     this.name = 1;
 
-		console.log('start');
 		let charset_id = 0;
 		// adding states for target configs
 		for (const t of this.targets) {

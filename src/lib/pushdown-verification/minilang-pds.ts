@@ -3,6 +3,8 @@ import { MiniKind, type MiniStmt } from "./minilang-parser";
 import { EMPTY_DEF } from "./pds-parser";
 import type { PDS_Def, StackSequence, StackSymbol } from "./pds.svelte";
 
+const RETURN_STATE = "R";
+
 export function cfg_to_pds(cfg: Record<string, CFG_Node>): PDS_Def {
 	const def: PDS_Def = EMPTY_DEF();
 	// [string, StackSymbol, string, StackSequence]
@@ -13,41 +15,47 @@ export function cfg_to_pds(cfg: Record<string, CFG_Node>): PDS_Def {
 
   const visited: Set<string> = new Set();
   const returns: Set<string> = new Set();
-  let func_name = "";
 	const call_locs = new Map<string, string[]>();
+  let entry: CFG_Node | undefined = undefined;
+
 	for (const name in cfg) {
-    func_name = name;
-		const d = cfg[name];
+		const func_node = cfg[name];
 		if (!call_locs.has(name)) {
 			call_locs.set(name, []);
 		}
-		call_locs.get(name)!.push(d.loc);
+		call_locs.get(name)!.push(func_node.loc);
+    if (name === "main") entry = func_node;
 
-    traverse(d);
+    traverse(func_node);
 	}
 
-	// Rule: Function name --> stack symbol
-	// Rule: Stmt id --> Control loc
-
 	function traverse(stmt: CFG_Node) {
-    const stmt_id = id_cfg(func_name, stmt);
+    const stmt_id = id_cfg(stmt);
     if (visited.has(stmt_id)) return;
     visited.add(stmt_id);
 
     for (const [label, next] of stmt.to) {
-      const suffix = next.type === MiniKind.Return ? [] : [next.loc]; // "next" position
-      const prefix = stmt.type === MiniKind.Call ? stmt.ident in cfg ? [cfg[stmt.ident].loc] : [] : []; // prepend call
-      if (next.type !== MiniKind.Return && !returns.has(stmt.loc)) {
+      const suffix = next.type === MiniKind.Return ? [] : [next]; // "next" position
+      const prefix = stmt.type === MiniKind.Call && stmt.ident in cfg ? [cfg[stmt.ident]] : []; // prepend call
+      
+      if (stmt.type === MiniKind.Call && next.type !== MiniKind.Return && !returns.has(next.loc)) {
         returns.add(stmt.loc);
-        new_rule("R", stmt.loc, stmt.loc, [stmt.loc]);
+        new_rule(RETURN_STATE, next.loc, id_cfg(next), [next.loc]);
       }
 
       const pushed = [...prefix, ...suffix];
-      const goto = pushed[0] || "R";
-      new_rule(stmt.loc, stmt.loc, goto, pushed);
+      const goto = pushed[0] ? id_cfg(pushed[0]) : RETURN_STATE;
+      new_rule(id_cfg(stmt), stmt.loc, goto, pushed.map(p => p.loc));
       traverse(next);
     }
 	}
+
+  if (entry) def.initial_configs.push({loc: id_cfg(entry), w: [entry.loc]});
+  else {
+    for (const func of Object.values(cfg)) {
+      def.initial_configs.push({loc: id_cfg(func), w: [func.loc]})
+    }
+  }
 
 	return def;
 }

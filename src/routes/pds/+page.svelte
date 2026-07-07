@@ -24,20 +24,15 @@
 
   let flags: { ltl: boolean; tex: boolean; from_mini_lang: boolean } = $state({ ltl: false, tex: false, from_mini_lang: true });
 
-  let mini_src = $state(`foo() {
-  foo();
-}
-
-bar() {
-  foo();
-  if (?) bar();
-}
-
+  let mini_src = $state(`
 main() {
-  while(!) if (?) {
-    foo();
-  } else bar();
-}`);
+while(?) foo();
+bar();
+}
+
+foo() {}
+bar() {}
+  `);
 
   const [mini_def, mini_error]: [MiniProgram, string] = $derived.by(() => {
 		try {

@@ -5,6 +5,7 @@ export type CFG_Node = CFG_Call | CFG_Return | CFG_Structure;
 
 export interface CFG_Meta {
   loc: string;
+  in_function: string;
   scope: number;
   to: [string, CFG_Node][];
   label: string;
@@ -43,9 +44,7 @@ export function format_stmt(stmt: MiniStmt) {
     case MiniKind.Call: return stmt.ident + "()";
     case MiniKind.FuncDef: return stmt.ident + "() {...}";
     case MiniKind.Program: return "program";
-    case MiniKind.Return:
-    case MiniKind.Break:
-    case MiniKind.Continue:
+    default:
       return stmt.kind;
   }
 }
@@ -54,10 +53,11 @@ export function unique<T>(arr: T[]) {
     return arr.filter((v, i, a) => a.indexOf(v) == i);
 }
 
-function node_from_stmt(node: MiniStmt, scope: number): CFG_Node {
+function node_from_stmt(in_function: string, node: MiniStmt, scope: number): CFG_Node {
   switch (node.kind) {
     case MiniKind.Call:
       return {
+        in_function,
         label: format_stmt(node),
         type: node.kind,
         loc: node.loc,
@@ -67,6 +67,7 @@ function node_from_stmt(node: MiniStmt, scope: number): CFG_Node {
       }
     default:
       return {
+        in_function,
         label: format_stmt(node),
         type: node.kind,
         loc: node.loc,
@@ -121,15 +122,14 @@ function tie_ends_par(first: LooseEnds, follow: LooseEnds): LooseEnds {
 }
 
 function tie_node_to_ends(ends: LooseEnds, node: CFG_Node, out_label: string): LooseEnds {
-  console.log(out_label, ends.runover);
   connect_all(ends.runover, node, out_label);
   const follow = port_from_node(node, out_label);
   switch (node.type) {
-    case MiniKind.Return:
-      return {...ends, breaks: ends.breaks.concat(follow), runover: []};
     case MiniKind.Break:
-      return {...ends, continues: ends.continues.concat(follow), runover: []};
+      return {...ends, breaks: ends.breaks.concat(follow), runover: []};
     case MiniKind.Continue:
+      return {...ends, continues: ends.continues.concat(follow), runover: []};
+    case MiniKind.Return:
       return {...ends, returns: ends.returns.concat(follow), runover: []};
     default:
       return { ...ends, runover: [follow] }
@@ -162,21 +162,21 @@ function tie_up_loop(ends: LooseEnds, loop_ctrl: CFG_Node): LooseEnds {
 
 export function generate_cfg(def: MiniProgram): Record<string, CFG_Node> {
 
-  function traverse(stmt: MiniStmt, ends: LooseEnds): LooseEnds {
+  function traverse(in_function: string, stmt: MiniStmt, ends: LooseEnds): LooseEnds {
     switch (stmt.kind) {
       case MiniKind.Sequence: {
         for (const s of stmt.stmts) {
-          ends = traverse(s, ends);
+          ends = traverse(in_function, s, ends);
         }
         return ends;
       }
       case MiniKind.IfElse: {
-        const ctrl =  node_from_stmt(stmt, scope);
+        const ctrl =  node_from_stmt(in_function, stmt, scope);
         const ends_ctrl = tie_node_to_ends(ends, ctrl, "if true");
-        const ends_if_true = traverse(stmt.if, ends_ctrl);
+        const ends_if_true = traverse(in_function, stmt.if, ends_ctrl);
         if (stmt.else) {
           ends_ctrl.runover[0].out_label = "else";
-          const ends_else = traverse(stmt.else, ends_ctrl);
+          const ends_else = traverse(in_function, stmt.else, ends_ctrl);
           return tie_ends_par(ends_if_true, ends_else);
         } else {
           const else_port = port_from_node(ctrl, "else");
@@ -186,9 +186,9 @@ export function generate_cfg(def: MiniProgram): Record<string, CFG_Node> {
       }
       case MiniKind.While: {
         scope++;
-        const ctrl = node_from_stmt(stmt, scope);
+        const ctrl = node_from_stmt(in_function, stmt, scope);
         ends = tie_node_to_ends(ends, ctrl, "while true");
-        ends = traverse(stmt.stmt, ends);
+        ends = traverse(in_function, stmt.stmt, ends);
         if (!stmt.truthiness) {
           ends.breaks = [...ends.breaks, port_from_node(ctrl, "else")];
         }
@@ -196,15 +196,22 @@ export function generate_cfg(def: MiniProgram): Record<string, CFG_Node> {
         return tie_up_loop(ends, ctrl);
       }
       case MiniKind.Call: {
-        const node = node_from_stmt(stmt, scope);
-        return tie_node_to_ends(ends, node, "call " + stmt.ident);
+        const node = node_from_stmt(in_function, stmt, scope);
+        return tie_node_to_ends(ends, node, "call <b>" + stmt.ident + "</b>");
       }
+      case MiniKind.Crash: {
+        const node = node_from_stmt(in_function, stmt, scope);
+        ends = tie_node_to_ends(ends, node, stmt.kind);
+        return tie_up_loop(ends, node);
+      }
+      case MiniKind.Work:
+      case MiniKind.Error:
       case MiniKind.Return:
       case MiniKind.Break:
       case MiniKind.Continue: {
-        const node = node_from_stmt(stmt, scope);
+        const node = node_from_stmt(in_function, stmt, scope);
         return tie_node_to_ends(ends, node, stmt.kind);
-      }     
+      }
       case MiniKind.FuncDef:
       case MiniKind.Program:
         throw `Unexpected statement: ${stmt}`;
@@ -216,27 +223,23 @@ export function generate_cfg(def: MiniProgram): Record<string, CFG_Node> {
   const cfg: Record<string, CFG_Node> = {};
 
   for (const func of def.func_defs) {
-    const start_node = node_from_stmt(func, 0);
+    const start_node = node_from_stmt(func.ident, func, 0);
     const beginn_ends = start_ends(start_node, "start");
-    const final_ends = traverse(func.seq, beginn_ends);
-    tie_node_to_ends(final_ends, {loc: "return", to: [], scope: 0, type: MiniKind.Return, label: "return"}, "return");
+    const final_ends = traverse(func.ident, func.seq, beginn_ends);
+    tie_node_to_ends(final_ends, {in_function: func.ident, loc: "R", to: [], scope: 0, type: MiniKind.Return, label: "return"}, "return");
     cfg[func.ident] = start_node;
   }
-
-  console.log(cfg);
   return cfg;
 
 }
 
-
-
-
-export function id_cfg(fn_name: string, node: CFG_Node) {
-  return `${fn_name}[${node.loc}]`;
+export function id_cfg(node: CFG_Node) {
+  if (!node.in_function) console.log(node);
+  return `${node.in_function}[${node.loc}]`;
 }
 
 export function format_cfg(node: CFG_Node) {
-  return `${node.loc} : ${node.label}`;
+  return `<b>${node.loc}</b> : <code>${node.label}</code>`;
 }
 
 export function graph_cfg(def: Record<string, CFG_Node>): HuiGraphDefinition {
@@ -248,15 +251,28 @@ export function graph_cfg(def: Record<string, CFG_Node>): HuiGraphDefinition {
   const visited: Set<string> = new Set();
 
   function traverse(node: CFG_Node) {
-    const ident_str = id_cfg(fn_name, node);
+    const ident_str = id_cfg(node);
 
     if (visited.has(ident_str)) return;
     visited.add(ident_str);
 
-    const new_node: HuiNodeDefinition = {
-      id: ident_str,
-      label: format_cfg(node),
-      labelClasses: ["p-2", "border-2"]
+    let new_node: HuiNodeDefinition;
+    
+    switch (node.type) {
+      case MiniKind.Return:
+        new_node = {
+          id: ident_str,
+          label: "",
+          labelClasses: ["p-2", "border-2", "rounded-xl", "bg-black"]
+        }
+        break;
+      default:
+        new_node = {
+          id: ident_str,
+          label: format_cfg(node),
+          labelClasses: ["p-2", "border-2", "rounded-xl"]
+        }
+        break;
     }
 
     graph.nodes.push(new_node);
@@ -264,16 +280,14 @@ export function graph_cfg(def: Record<string, CFG_Node>): HuiGraphDefinition {
     for (const [label, p] of node.to) {
       graph.edges.push({
         fromId: ident_str,
-        toId: id_cfg(fn_name, p),
-        label
+        toId: id_cfg(p),
+        label,
       })
       traverse(p);
     }
   }
 
-  let fn_name = "";
   for (const [name, d] of Object.entries(def)) {
-    fn_name = name;
     traverse(d);
   }
 

@@ -10,6 +10,9 @@ export enum TT {
 	Return = 'return',
 	Break = 'break',
 	Continue = 'continue',
+  Error = 'error',
+  Work = 'work',
+  Crash = 'crash',
 	LeftParen = '(',
 	RightParen = ')',
 	RightCurly = '}',
@@ -17,6 +20,7 @@ export enum TT {
 	Semi = ';',
 	Condition = '?',
 	TruthyCondition = '!',
+  Target = "@",
 	EOF = 'eof'
 }
 
@@ -26,7 +30,10 @@ const KEYWORDS: Record<string, TT> = {
 	while: TT.While,
 	return: TT.Return,
 	break: TT.Break,
-	continue: TT.Continue
+	continue: TT.Continue,
+	work: TT.Work,
+	error: TT.Error,
+  crash: TT.Crash,
 };
 
 export interface Token {
@@ -113,6 +120,10 @@ export function lexer(src: string): Token[] {
 				read();
 				token(TT.Semi);
 				break;
+      case '@':
+				read();
+				token(TT.Target);
+				break;
 			case '%': {
 				// comments
 				clear();
@@ -153,10 +164,13 @@ export enum MiniKind {
 	Program = 'program',
 	Return = 'return',
   Break = 'break',
-  Continue = 'continue'
+  Continue = 'continue',
+  Work = 'work',
+  Error = 'error',
+  Crash = 'crash'
 }
 
-export type MiniStmt = MiniSequence | MiniIfElse | MiniWhile | MiniCall | MiniFuncDef | MiniProgram | MiniReturn | MiniBreak | MiniContinue;
+export type MiniStmt = MiniSequence | MiniIfElse | MiniWhile | MiniCall | MiniFuncDef | MiniProgram | MiniReturn | MiniBreak | MiniContinue | MiniWork | MiniError | MiniCrash;
 
 export interface MiniMeta {
 	loc: string;
@@ -207,23 +221,37 @@ export interface MiniContinue extends MiniMeta {
   kind: MiniKind.Continue;
 }
 
+export interface MiniWork extends MiniMeta {
+  kind: MiniKind.Work;
+}
+
+export interface MiniError extends MiniMeta {
+  kind: MiniKind.Error;
+}
+
+export interface MiniCrash extends MiniMeta {
+  kind: MiniKind.Crash;
+}
+
 export function parse_mini(src: string) {
 	let tokens = lexer(src);
 
 	let index: number = 0;
 	let id: number = 0;
-	let local_id: number = 0;
+  let reserved_ids: string[] = [];
 
-	function get_id() {
-		return '' + id++;
+  function reserve_id() {
+    reserved_ids.push("" + id++);
+  }
+
+	function retrieve_id() {
+    if (reserved_ids.length === 0) reserve_id();
+    return reserved_ids.pop()!;
 	}
 
-	function get_local_id() {
-		return '' + local_id++;
-	}
-
-	function start_local_id() {
-		local_id = 0;
+  function get_id() {
+    reserve_id();
+    return reserved_ids.pop()!;
 	}
 
 	function at() {
@@ -251,7 +279,9 @@ export function parse_mini(src: string) {
 	}
 
 	function parse_main(): MiniProgram {
-		const func_defs: MiniFuncDef[] = [];
+		reserve_id();
+    
+    const func_defs: MiniFuncDef[] = [];
 
 		while (!is(TT.EOF)) {
 			func_defs.push(parse_func_def());
@@ -262,12 +292,12 @@ export function parse_mini(src: string) {
 		return {
 			kind: MiniKind.Program,
 			func_defs,
-			loc: get_id()
+			loc: retrieve_id()
 		};
 	}
 
 	function parse_func_def(): MiniFuncDef {
-		start_local_id();
+    reserve_id();
 
 		const ident = expect(TT.Ident);
 		expect(TT.LeftParen);
@@ -278,11 +308,13 @@ export function parse_mini(src: string) {
 			kind: MiniKind.FuncDef,
 			ident: ident.content,
 			seq,
-			loc: get_id()
+			loc: retrieve_id()
 		};
 	}
 
 	function parse_seq(until: TT): MiniSequence {
+    reserve_id();
+
 		const stmts: MiniStmt[] = [];
 
 		while (!is(until)) {
@@ -294,7 +326,7 @@ export function parse_mini(src: string) {
 		return {
 			kind: MiniKind.Sequence,
 			stmts,
-			loc: get_id()
+			loc: retrieve_id()
 		};
 	}
 
@@ -338,12 +370,35 @@ export function parse_mini(src: string) {
 					kind: MiniKind.Break,
           loc: get_id()
 				};
+      case TT.Error:
+				eat();
+        expect(TT.Semi);
+				return {
+					kind: MiniKind.Error,
+          loc: get_id()
+				};
+      case TT.Work:
+				eat();
+        expect(TT.Semi);
+				return {
+					kind: MiniKind.Work,
+          loc: get_id()
+				};
+      case TT.Crash:
+				eat();
+        expect(TT.Semi);
+				return {
+					kind: MiniKind.Crash,
+          loc: get_id()
+				};
 			default:
 				throw `Illegal Token: ${ttype()}`;
 		}
 	}
 
 	function parse_if_else(): MiniIfElse {
+    reserve_id();
+
 		expect(TT.If);
 		expect(TT.LeftParen);
 		expect(TT.Condition);
@@ -356,17 +411,19 @@ export function parse_mini(src: string) {
 				kind: MiniKind.IfElse,
 				if: if_stmt,
 				else: else_stmt,
-				loc: get_id()
+				loc: retrieve_id()
 			};
 		}
 		return {
 			kind: MiniKind.IfElse,
 			if: if_stmt,
-			loc: get_id()
+			loc: retrieve_id()
 		};
 	}
 
 	function parse_while(): MiniWhile {
+    reserve_id();
+
 		expect(TT.While);
 		expect(TT.LeftParen);
 
@@ -384,7 +441,7 @@ export function parse_mini(src: string) {
 			kind: MiniKind.While,
 			stmt,
 			truthiness,
-			loc: get_id()
+			loc: retrieve_id()
 		};
 	}
 
