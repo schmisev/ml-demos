@@ -18,7 +18,9 @@
 	import { EMPTY_DEF, parse_pds } from '$lib/pushdown-verification/pds-parser';
 	import { nnf_neg, tex_ltl_expr } from '$lib/pushdown-verification/pds-ltl';
 	import TexPDS from '$lib/pushdown-verification/TexPDS.svelte';
-	import { graph_mini, mini_to_pds, MiniKind, parse_mini, type MiniProgram } from '$lib/pushdown-verification/minilang-parser';
+	import { graph_mini, MiniKind, parse_mini, type MiniProgram } from '$lib/pushdown-verification/minilang-parser';
+	import { generate_cfg, graph_cfg, type CFG_Node } from '$lib/pushdown-verification/minilang-cfg';
+	import { cfg_to_pds } from '$lib/pushdown-verification/minilang-pds';
 
   let flags: { ltl: boolean; tex: boolean; from_mini_lang: boolean } = $state({ ltl: false, tex: false, from_mini_lang: true });
 
@@ -46,6 +48,16 @@ main() {
 		}
 	});
 
+  const [cfg_def, cfg_error]: [Record<string, CFG_Node>, string] = $derived.by(() => {
+    try {
+      const def = generate_cfg(mini_def);
+      return [def, "No error found!"];
+    } catch(e) {
+      const def: Record<string, CFG_Node> = {}
+      return [def, "" + e];
+    }
+  });
+
 	let src = $state(PDS_EXAMPLES['match brackets']);
 	let mode: { structure?: boolean; pre?: boolean; history?: boolean } = $state({
 		structure: true,
@@ -56,7 +68,7 @@ main() {
 	const [pds_def, error] = $derived.by(() => {
 		try {
       if (flags.from_mini_lang) {
-        const def = mini_to_pds(mini_def);
+        const def = cfg_to_pds(cfg_def);
         return [def, 'No error found!'];
       } else {
         const def = parse_pds(src);
@@ -106,12 +118,13 @@ main() {
           {:else}
           <textarea class="h-full resize-none font-mono" bind:value={src}></textarea>
           {/if}
-          <div>{error}</div>
+          
 					
 				</Pane>
 				<Pane class="relative flex flex-col gap-2 p-2">
 					<h2 class="absolute bottom-2 left-2">{@html tex(`\\mathcal{P}`)}</h2>
 					<TexPDS {pds}></TexPDS>
+          <div>{error}</div>
 				</Pane>
 			</Splitpanes>
 		</Pane>
@@ -151,6 +164,12 @@ main() {
         {#if flags.from_mini_lang}
           <Pane class="relative flex flex-col gap-2 p-2">
             <HuiElk graphDef={graph_mini(mini_def)}></HuiElk>
+          </Pane>
+        {/if}
+        {#if flags.from_mini_lang}
+          <Pane class="relative flex flex-col gap-2 p-2">
+            <HuiDagre graphDef={graph_cfg(cfg_def)}></HuiDagre>
+            <div>{cfg_error}</div>
           </Pane>
         {/if}
 				{#if mode.pre}

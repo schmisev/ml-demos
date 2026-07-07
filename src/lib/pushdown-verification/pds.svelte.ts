@@ -355,7 +355,6 @@ export class MA {
 	}
 
 	register_state(s: string, accepting: boolean, initial: boolean, loc?: ControlLocation) {
-		console.log('registering:', s, 'as', loc);
 		if (accepting) this.accepting_states.add(s);
 		if (initial) this.initial_states.add(s);
 		this.states.add(s);

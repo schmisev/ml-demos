@@ -7,6 +7,9 @@ export enum TT {
 	If = 'if',
 	Else = 'else',
 	While = 'while',
+	Return = 'return',
+	Break = 'break',
+	Continue = 'continue',
 	LeftParen = '(',
 	RightParen = ')',
 	RightCurly = '}',
@@ -20,7 +23,10 @@ export enum TT {
 const KEYWORDS: Record<string, TT> = {
 	if: TT.If,
 	else: TT.Else,
-	while: TT.While
+	while: TT.While,
+	return: TT.Return,
+	break: TT.Break,
+	continue: TT.Continue
 };
 
 export interface Token {
@@ -144,10 +150,13 @@ export enum MiniKind {
 	While = 'while',
 	Call = 'call',
 	FuncDef = 'func_def',
-	Program = 'program'
+	Program = 'program',
+	Return = 'return',
+  Break = 'break',
+  Continue = 'continue'
 }
 
-export type MiniStmt = MiniSequence | MiniIfElse | MiniWhile | MiniCall | MiniFuncDef | MiniProgram;
+export type MiniStmt = MiniSequence | MiniIfElse | MiniWhile | MiniCall | MiniFuncDef | MiniProgram | MiniReturn | MiniBreak | MiniContinue;
 
 export interface MiniMeta {
 	loc: string;
@@ -184,6 +193,18 @@ export interface MiniFuncDef extends MiniMeta {
 export interface MiniProgram extends MiniMeta {
 	kind: MiniKind.Program;
 	func_defs: MiniFuncDef[];
+}
+
+export interface MiniReturn extends MiniMeta {
+  kind: MiniKind.Return;
+}
+
+export interface MiniBreak extends MiniMeta {
+  kind: MiniKind.Break;
+}
+
+export interface MiniContinue extends MiniMeta {
+  kind: MiniKind.Continue;
 }
 
 export function parse_mini(src: string) {
@@ -296,6 +317,27 @@ export function parse_mini(src: string) {
 			case TT.LeftCurly:
 				eat();
 				return parse_seq(TT.RightCurly);
+			case TT.Return:
+				eat();
+        expect(TT.Semi);
+				return {
+					kind: MiniKind.Return,
+          loc: get_id()
+				};
+      case TT.Continue:
+				eat();
+        expect(TT.Semi);
+				return {
+					kind: MiniKind.Continue,
+          loc: get_id()
+				};
+      case TT.Break:
+				eat();
+        expect(TT.Semi);
+				return {
+					kind: MiniKind.Break,
+          loc: get_id()
+				};
 			default:
 				throw `Illegal Token: ${ttype()}`;
 		}
@@ -348,6 +390,9 @@ export function parse_mini(src: string) {
 
 	return parse_main();
 }
+
+
+// Graphing
 
 export function graph_mini(stmt: MiniStmt): HuiGraphDefinition {
 	const graph: HuiGraphDefinition = {
@@ -406,74 +451,3 @@ export function graph_mini(stmt: MiniStmt): HuiGraphDefinition {
 	return graph;
 }
 
-export function mini_to_pds(stmt: MiniProgram): PDS_Def {
-	const def: PDS_Def = EMPTY_DEF();
-	// [string, StackSymbol, string, StackSequence]
-
-	function new_rule(from: string, popped: StackSymbol, to: string, pushed: StackSequence) {
-		def.rules.push([from, popped, to, pushed]);
-	}
-
-	let entry_point: MiniStmt | undefined = undefined;
-	const call_locs = new Map<string, string[]>();
-	for (const d of stmt.func_defs) {
-		const func_name = d.ident;
-		if (!call_locs.has(func_name)) {
-			call_locs.set(func_name, []);
-		}
-		call_locs.get(func_name)!.push(d.loc);
-
-		if (func_name === 'main') {
-			entry_point = d;
-		}
-	}
-
-	function get_locs(called_ident: string): string[] {
-		return call_locs.get(called_ident) || [];
-	}
-
-	// Rule: Function name --> stack symbol
-	// Rule: Stmt id --> Control loc
-
-	function traverse(stmt: MiniStmt, ret?: {loc: string, sym: StackSymbol}) {
-		switch (stmt.kind) {
-			case MiniKind.Sequence: {
-        if (!ret) break;
-        for (const s of stmt.stmts) {
-          new_rule(ret.loc, ret.sym, s.loc, [s.loc]);
-          ret = {loc: s.loc, sym: s.loc};
-          traverse(s, ret);
-        }
-        break;
-      }
-			case MiniKind.IfElse: {
-        traverse(stmt.if);
-        if (stmt.else) traverse(stmt.else);
-        break;
-      }
-			case MiniKind.While: {
-        traverse(stmt.stmt);
-        break;
-      }
-			case MiniKind.Call: {
-        if (!ret) break;
-        for (const to_loc of get_locs(stmt.ident)) {
-          new_rule(stmt.loc, ret.sym, to_loc, [to_loc, ret.sym]);
-        }
-        break;
-      }
-			case MiniKind.FuncDef: {
-        traverse(stmt.seq, {loc: stmt.loc, sym: stmt.loc});
-        break;
-			}
-			case MiniKind.Program: {
-        for (const def of stmt.func_defs) {
-          traverse(def);
-        }
-			}
-		}
-	}
-
-	traverse(stmt);
-	return def;
-}

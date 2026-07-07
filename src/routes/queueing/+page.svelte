@@ -18,26 +18,43 @@
 		</div>
 
 		<div class="flex flex-col gap-2">
-			{#each q.service_queues as queue}
-				<div class="flex flex-row gap-1">
-					{#each queue.toReversed() as job}
-						<div class="light-border">{job}</div>
+			{#each q.service_queues as queue, i}
+				<div class="flex flex-row gap-1 light-border flex-wrap">
+          <div>Queue {i}:</div>
+          <div class="bg-red-400 w-10 text-center">+{queue.last_added}</div>
+          <div class="bg-green-400 w-10 text-center">-{queue.last_done}</div>
+					{#each queue.slots.toReversed() as job}
+						<div class="bg-black text-white pr-2 pl-2">{job}</div>
 					{/each}
 				</div>
 			{/each}
 		</div>
 
-		<table>
-			<tbody>
-				<tr>
-					<td>Avg. wait time:</td>
-					<td>{q.overall_wait_time / q.finished_jobs}</td>
-				</tr>
-				<tr>
-					<td>Avg. fill:</td>
-					<td>{q.overall_fill / (q.timestep * q.service_queues.length)}</td>
-				</tr>
-			</tbody>
-		</table>
+    <div>
+      <table>
+        <tbody>
+        <tr>
+            <td class="w-30">Jobs completed:</td>
+            <td class="w-60">{q.finished_jobs}</td>
+          </tr>
+          <tr>
+            <td class="w-30">Avg. wait time:</td>
+            <td class="w-60">{q.overall_wait_time / q.finished_jobs}</td>
+          </tr>
+          <tr>
+            <td>Avg. filling:</td>
+            <td>{q.overall_fill / (q.timestep * q.service_queues.length)}</td>
+          </tr>
+          <tr>
+            <td>Avg. throughput:</td>
+            <td>{q.overall_throughput / q.timestep}</td>
+          </tr>
+          <tr>
+            <td>Avg. dwelling:</td>
+            <td>{(q.overall_fill / q.service_queues.length) / q.overall_throughput}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
 	</div>
 </div>
