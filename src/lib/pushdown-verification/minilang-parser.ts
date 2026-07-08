@@ -18,6 +18,7 @@ export enum TT {
 	RightCurly = '}',
 	LeftCurly = '{',
 	Semi = ';',
+	Colon = ':',
 	Condition = '?',
 	TruthyCondition = '!',
   Target = "@",
@@ -123,6 +124,10 @@ export function lexer(src: string): Token[] {
       case '@':
 				read();
 				token(TT.Target);
+				break;
+      case ':':
+				read();
+				token(TT.Colon);
 				break;
 			case '%': {
 				// comments
@@ -239,6 +244,7 @@ export function parse_mini(src: string) {
 	let index: number = 0;
 	let id: number = 0;
   let reserved_ids: string[] = [];
+  let reserved_labels: Set<string> = new Set();
 
   function reserve_id() {
     reserved_ids.push("" + id++);
@@ -296,19 +302,36 @@ export function parse_mini(src: string) {
 		};
 	}
 
-	function parse_func_def(): MiniFuncDef {
-    reserve_id();
+  function parse_label(): false | string {
+    if (
+      tokens.at(index)?.type !== TT.Ident 
+      || tokens.at(index+1)?.type !== TT.Colon
+    ) return false;
 
-		const ident = expect(TT.Ident);
+    const ident = expect(TT.Ident);
+    expect(TT.Colon);
+
+    if (reserved_labels.has(ident.content))
+      throw `${ident.content}: This label is already used elsewhere!`;
+    reserved_labels.add(ident.content);
+    return ident.content;
+  }
+
+	function parse_func_def(): MiniFuncDef {
+		const label = parse_label();
+
+    const ident = expect(TT.Ident);
+    reserve_id();
 		expect(TT.LeftParen);
 		expect(TT.RightParen);
 		expect(TT.LeftCurly);
 		const seq = parse_seq(TT.RightCurly);
+    const id = retrieve_id();
 		return {
 			kind: MiniKind.FuncDef,
 			ident: ident.content,
 			seq,
-			loc: retrieve_id()
+			loc: label || id,
 		};
 	}
 
@@ -331,9 +354,16 @@ export function parse_mini(src: string) {
 	}
 
 	function parse_stmt(): MiniStmt {
-		switch (ttype()) {
+		const label = parse_label();
+    if (label) {
+      const labeled_stmt = parse_stmt();
+      labeled_stmt.loc = label;
+      return labeled_stmt;
+    }
+    
+    switch (ttype()) {
 			case TT.Ident:
-				const ident = eat();
+        const ident = eat();
 				expect(TT.LeftParen);
 				expect(TT.RightParen);
 				expect(TT.Semi);
