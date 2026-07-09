@@ -546,7 +546,7 @@ export class MA {
 		for (const { from, trigger, to, created_at_index } of this.def) {
 			const edge_id = from + `\\` + to;
 			let edge = edge_map.get(edge_id);
-			const label = render_stack_symbol(trigger);
+			const label = tex(tex_stack_symbol(trigger));
 
 			if (!edge) {
 				edge = {
@@ -594,23 +594,24 @@ export function tex_stack_regex(node: RegexNode): string {
 		case 'EMPTY':
 			return `\\epsilon`;
 		case 'CHAR':
+      if (node.trigger === ANY_CHAR) return `\\cdot`;
 			if (isNaN(parseInt(node.trigger))) {
 				return node.trigger;
 			}
 			return `\\gamma_{${node.trigger}}`;
-		// if (node.trigger === "\\.") return ".";
-		// return node.trigger;
 	}
 }
 
 export function tex_stack_symbol(sym: StackSymbol): string {
 	if (sym === 0) return `\\varepsilon`;
+  if (sym === ANY_CHAR) return `\\cdot`;
 	if (isNaN(parseInt(sym))) return sym;
 	return `\\gamma_{${sym}}`;
 }
 
 export function render_stack_symbol(sym: StackSymbol): string {
 	if (sym === 0) return `&epsilon;`;
+  if (sym === ANY_CHAR) return `●`;
 	if (isNaN(parseInt(sym))) return sym;
 	return `&gamma;<sub>${sym}</sub>`;
 }
