@@ -30,6 +30,13 @@ export function cfg_to_pds(cfg: Record<string, CFG_Node>): PDS_Def {
 	}
 
 	function traverse(stmt: CFG_Node) {
+    if (stmt.config) {
+      def.target_configs.push({
+        loc: id_cfg(stmt),
+        w: stmt.config.w
+      });
+    }
+
     const stmt_id = id_cfg(stmt);
     if (visited.has(stmt_id)) return;
     visited.add(stmt_id);

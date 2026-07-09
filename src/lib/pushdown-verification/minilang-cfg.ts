@@ -1,5 +1,6 @@
 import type { HuiGraphDefinition, HuiNodeDefinition } from "$lib/hui-graphs/hui-core";
 import { MiniKind, type MiniProgram, type MiniSequence, type MiniStmt } from "./minilang-parser";
+import type { RegularConfiguration } from "./pds.svelte";
 
 export type CFG_Node = CFG_Call | CFG_Return | CFG_Structure;
 
@@ -9,6 +10,7 @@ export interface CFG_Meta {
   scope: number;
   to: [string, CFG_Node][];
   label: string;
+  config?: RegularConfiguration;
 }
 
 export interface CFG_Call extends CFG_Meta {
@@ -63,7 +65,8 @@ function node_from_stmt(in_function: string, node: MiniStmt, scope: number): CFG
         loc: node.loc,
         scope,
         to: [],
-        ident: node.ident
+        ident: node.ident,
+        config: node.config
       }
     default:
       return {
@@ -73,10 +76,9 @@ function node_from_stmt(in_function: string, node: MiniStmt, scope: number): CFG
         loc: node.loc,
         scope,
         to: [],
+        config: node.config
       }
-  }
-
-  
+  }  
 }
 
 function port_from_node(node: CFG_Node, out_label: string): CFG_Port {

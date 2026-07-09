@@ -24,6 +24,7 @@ export const paper_1: PDS_Definition = [
 ];
 
 export const PDS_EXAMPLES = {
+  'blank': ``,
 	'safe & bad': `(safe, F, bad, E)
 (safe, G, safe, G F)
 (safe, G, safe, ~)
@@ -98,13 +99,28 @@ I = {<safe1, M>}
 C = {<bad0, E (E|M|F)*>}`
 };
 
+export const PROGRAM_EXAMPLES = {
+  'blank': ``,
+  'error & work': `
+main() {
+while(?) foo();
+if(?) bar();
+}
+
+<F> foo() { work; }
+bar() { error; }
+`
+}
+
 export const LOC_COLOR_CODE: Record<string, string> = {
-	'0': 'gray',
+	'': 'gray',
+  '0': 'gray',
 	'1': 'blue',
 	'2': 'green',
 	'3': 'orange',
 	'4': 'purple',
 	bad: 'red',
 	safe: 'green',
-	return: 'purple'
+	return: 'purple',
+  "R": "purple",
 };

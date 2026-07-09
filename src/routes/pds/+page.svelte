@@ -14,7 +14,7 @@
 	import HuiElk from '$lib/hui-graphs/HuiElk.svelte';
 	import { tex } from '$lib/mathjax';
 	import { cat, char, choice, format_regex, seq, star } from '$lib/regex/regex';
-	import { paper_1, PDS_EXAMPLES } from '$lib/pushdown-verification/configs';
+	import { paper_1, PDS_EXAMPLES, PROGRAM_EXAMPLES } from '$lib/pushdown-verification/configs';
 	import { EMPTY_DEF, parse_pds } from '$lib/pushdown-verification/pds-parser';
 	import { nnf_neg, tex_ltl_expr } from '$lib/pushdown-verification/pds-ltl';
 	import TexPDS from '$lib/pushdown-verification/TexPDS.svelte';
@@ -22,17 +22,9 @@
 	import { generate_cfg, graph_cfg, type CFG_Node } from '$lib/pushdown-verification/minilang-cfg';
 	import { cfg_to_pds } from '$lib/pushdown-verification/minilang-pds';
 
-  let flags: { ltl: boolean; tex: boolean; from_mini_lang: boolean } = $state({ ltl: false, tex: false, from_mini_lang: true });
+  let flags = $state({ ltl: false, tex: false, from_mini_lang: true, show_parser_info: false });
 
-  let mini_src = $state(`
-main() {
-while(?) foo();
-bar();
-}
-
-foo() {}
-bar() {}
-  `);
+  let mini_src = $state(PROGRAM_EXAMPLES["error & work"]);
 
   const [mini_def, mini_error]: [MiniProgram, string] = $derived.by(() => {
 		try {
@@ -57,7 +49,7 @@ bar() {}
 	let mode: { structure?: boolean; pre?: boolean; history?: boolean } = $state({
 		structure: true,
 		history: true,
-		pre: true
+		pre: false
 	});
 
 	const [pds_def, error] = $derived.by(() => {
@@ -88,29 +80,38 @@ bar() {}
 		<h1 class="grow">Pushdown Verification | <a href="../">back</a></h1>
 	</div>
 
+  <div class="flex flex-row flex-wrap gap-1">
+    <label class="flex flex-row light-border items-center gap-2"><input type="checkbox" bind:checked={mode.pre}> Pre*</label>
+    <label class="flex flex-row light-border items-center gap-2"><input type="checkbox" bind:checked={mode.history}> History</label>
+    <label class="flex flex-row light-border items-center gap-2"><input type="checkbox" bind:checked={mode.structure}> Structure</label>
+    <label class="flex flex-row light-border items-center gap-2"><input type="checkbox" bind:checked={flags.from_mini_lang}> Use mini-lang</label>
+    {#if flags.from_mini_lang}
+    <label class="flex flex-row light-border items-center gap-2"><input type="checkbox" bind:checked={flags.show_parser_info}> Parser info</label>
+    {/if}
+  </div>
+
 	<Splitpanes class="min-h-0 grow">
 		<Pane size={30}>
 			<Splitpanes horizontal>
 				<Pane class="relative flex flex-col gap-2 p-2">
-					<div class="flex flex-row gap-2">
+          {#if flags.from_mini_lang}
+          <div class="flex flex-row gap-2">
+						<select onchange={(ev) => (mini_src = ev.currentTarget.value)}>
+							{#each Object.entries(PROGRAM_EXAMPLES) as example}
+								<option value={example[1]}>{example[0]}</option>
+							{/each}
+						</select>
+					</div>
+          <textarea class="h-full resize-none font-mono" bind:value={mini_src}></textarea>
+          <div>{mini_error}</div>
+          {:else}
+          <div class="flex flex-row gap-2">
 						<select onchange={(ev) => (src = ev.currentTarget.value)}>
 							{#each Object.entries(PDS_EXAMPLES) as example}
 								<option value={example[1]}>{example[0]}</option>
 							{/each}
 						</select>
-						<select bind:value={mode}>
-							<option selected value={{ structure: true }}>Structure</option>
-							<option value={{ history: true }}>History</option>
-							<option value={{ pre: true }}>Pre*</option>
-							<option value={{ pre: true, structure: true }}>Structure + Pre*</option>
-							<option value={{ structure: true, history: true }}>Structure + History</option>
-							<option value={{ pre: true, history: true }}>History + Pre*</option>
-						</select>
 					</div>
-          {#if flags.from_mini_lang}
-          <textarea class="h-full resize-none font-mono" bind:value={mini_src}></textarea>
-          <div>{mini_error}</div>
-          {:else}
           <textarea class="h-full resize-none font-mono" bind:value={src}></textarea>
           {/if}
           
@@ -156,6 +157,7 @@ bar() {}
 						</div>
 					</Pane>
 				{/if}
+        {#if flags.show_parser_info}
         {#if flags.from_mini_lang}
           <Pane class="relative flex flex-col gap-2 p-2">
             <HuiElk graphDef={graph_mini(mini_def)}></HuiElk>
@@ -166,6 +168,7 @@ bar() {}
             <HuiDagre graphDef={graph_cfg(cfg_def)}></HuiDagre>
             <div>{cfg_error}</div>
           </Pane>
+        {/if}
         {/if}
 				{#if mode.pre}
 					<Pane class="relative flex flex-col gap-2 p-2">

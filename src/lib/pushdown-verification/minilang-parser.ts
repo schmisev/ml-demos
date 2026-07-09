@@ -1,9 +1,13 @@
 import type { HuiGraphDefinition, HuiNodeDefinition } from '$lib/hui-graphs/hui-core';
+import { ANY_CHAR } from '$lib/regex/character-classes';
+import { cat, choice, type RegexNode, char, star, eps } from '$lib/regex/regex';
+import { id_cfg } from './minilang-cfg';
 import { EMPTY_DEF } from './pds-parser';
-import type { PDS_Def, StackSequence, StackSymbol, Transition } from './pds.svelte';
+import type { PDS_Def, RegularConfiguration, StackSequence, StackSymbol, Transition } from './pds.svelte';
 
 export enum TT {
 	Ident = 'ident',
+  Number = 'number',
 	If = 'if',
 	Else = 'else',
 	While = 'while',
@@ -17,8 +21,15 @@ export enum TT {
 	RightParen = ')',
 	RightCurly = '}',
 	LeftCurly = '{',
+	LeftPointy = '<',
+	RightPointy = '>',
+	Or = '|',
+	Star = '*',
+  Empty = '~',
 	Semi = ';',
 	Colon = ':',
+	Comma = ',',
+	Dot = '.',
 	Condition = '?',
 	TruthyCondition = '!',
   Target = "@",
@@ -46,8 +57,8 @@ function is_alpha(ch: string) {
 	return ch.toUpperCase() !== ch.toLowerCase();
 }
 
-function is_numeric(ch: string) {
-	return '0123456789'.includes(ch);
+function is_numeric(ch: string | undefined) {
+	return ch && '0123456789'.includes(ch);
 }
 
 function is_ident(ch: string | undefined) {
@@ -93,6 +104,22 @@ export function lexer(src: string): Token[] {
 			case '\r':
 				adv();
 				break;
+      case '*':
+				read();
+				token(TT.Star);
+				break;
+      case '.':
+				read();
+				token(TT.Dot);
+				break;
+      case '|':
+				read();
+				token(TT.Or);
+				break;
+      case '~':
+				read();
+				token(TT.Empty);
+				break;
 			case '(':
 				read();
 				token(TT.LeftParen);
@@ -100,6 +127,14 @@ export function lexer(src: string): Token[] {
 			case ')':
 				read();
 				token(TT.RightParen);
+				break;
+      case '<':
+				read();
+				token(TT.LeftPointy);
+				break;
+      case '>':
+				read();
+				token(TT.RightPointy);
 				break;
 			case '{':
 				read();
@@ -129,6 +164,10 @@ export function lexer(src: string): Token[] {
 				read();
 				token(TT.Colon);
 				break;
+      case ',':
+				read();
+				token(TT.Comma);
+				break;
 			case '%': {
 				// comments
 				clear();
@@ -152,6 +191,14 @@ export function lexer(src: string): Token[] {
 
 					break;
 				}
+        else if (is_numeric(ch)) {
+          while (is_numeric(at())) {
+            read();
+          }
+
+          token(TT.Number);
+          break;
+        } 
 				throw `Unexpected character: '${ch}'`;
 		}
 	}
@@ -179,6 +226,7 @@ export type MiniStmt = MiniSequence | MiniIfElse | MiniWhile | MiniCall | MiniFu
 
 export interface MiniMeta {
 	loc: string;
+  config?: RegularConfiguration;
 }
 
 export interface MiniSequence extends MiniMeta {
@@ -302,19 +350,24 @@ export function parse_mini(src: string) {
 		};
 	}
 
-  function parse_label(): false | string {
-    if (
-      tokens.at(index)?.type !== TT.Ident 
-      || tokens.at(index+1)?.type !== TT.Colon
-    ) return false;
+  function parse_label(): { ident?: string, config?: RegularConfiguration } {
+    if (!is(TT.LeftPointy)) return {};
+    expect(TT.LeftPointy);
 
     const ident = expect(TT.Ident);
-    expect(TT.Colon);
-
     if (reserved_labels.has(ident.content))
       throw `${ident.content}: This label is already used elsewhere!`;
     reserved_labels.add(ident.content);
-    return ident.content;
+
+    if (is(TT.RightPointy)) {
+      eat();
+      return { ident: ident.content }
+    }
+    expect(TT.Comma);
+    const w = parse_choice();
+    expect(TT.RightPointy);
+
+    return {ident: ident.content, config: {loc: ident.content, w}};
   }
 
 	function parse_func_def(): MiniFuncDef {
@@ -331,7 +384,8 @@ export function parse_mini(src: string) {
 			kind: MiniKind.FuncDef,
 			ident: ident.content,
 			seq,
-			loc: label || id,
+			loc: label.ident || id,
+      config: label.config
 		};
 	}
 
@@ -355,9 +409,10 @@ export function parse_mini(src: string) {
 
 	function parse_stmt(): MiniStmt {
 		const label = parse_label();
-    if (label) {
+    if (label.ident) {
       const labeled_stmt = parse_stmt();
-      labeled_stmt.loc = label;
+      labeled_stmt.loc = label.ident;
+      labeled_stmt.config = label.config;
       return labeled_stmt;
     }
     
@@ -474,6 +529,56 @@ export function parse_mini(src: string) {
 			loc: retrieve_id()
 		};
 	}
+
+  function parse_choice(): RegexNode {
+      const left = parse_cat();
+      if (at().type !== TT.Or) return left;
+      let node = choice(left);
+  
+      while (at().type === TT.Or) {
+        eat();
+        const next = parse_cat();
+        node.nodes.push(next);
+      }
+      return node;
+    }
+  
+    function parse_cat(): RegexNode {
+      let left = parse_star();
+      if (is(TT.LeftParen) || is(TT.Ident) || is(TT.Number) || is(TT.Dot)) return cat(left, parse_cat());
+      return left;
+    }
+  
+    function parse_star(): RegexNode {
+      let left: RegexNode = parse_primary();
+      while (at().type === TT.Star) {
+        eat();
+        left = star(left);
+      }
+  
+      return left;
+    }
+  
+    function parse_primary(): RegexNode {
+      switch (at().type) {
+        case TT.Ident:
+        case TT.Number:
+          return char(eat().content);
+        case TT.Dot:
+          eat();
+          return char(ANY_CHAR);
+        case TT.LeftParen:
+          eat();
+          const re = parse_choice();
+          expect(TT.RightParen);
+          return re;
+        case TT.Empty:
+          eat();
+          return eps();
+        default:
+          throw `Unexpected token in regex! ${JSON.stringify(at())}`;
+      }
+    }
 
 	return parse_main();
 }

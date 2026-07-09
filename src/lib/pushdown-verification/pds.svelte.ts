@@ -5,6 +5,7 @@ import type {
 	HuiNodeDefinition
 } from '$lib/hui-graphs/hui-core';
 import { tex } from '$lib/mathjax';
+import { ANY_CHAR } from '$lib/regex/character-classes';
 import { find_pdfl, make_pdfl_automaton, make_pdfl_data } from '$lib/regex/glushkov';
 import { cat, format_regex, re_alias, type RegexNode } from '$lib/regex/regex';
 import { LOC_COLOR_CODE } from './configs';
@@ -435,7 +436,7 @@ export class MA {
 	consume(trigger: StackSymbol) {
 		const next_states: Set<MA_State> = new Set();
 		for (const { from, trigger: tr, to } of this.def) {
-			if (this.active_states.has(from) && trigger === tr) {
+			if (this.active_states.has(from) && (trigger === tr || tr === ANY_CHAR)) {
 				next_states.add(to);
 			}
 		}
@@ -682,5 +683,5 @@ function render_config_table(config: Configuration | null) {
 }
 
 function color_loc(loc: string | undefined, active: boolean) {
-  return loc ? ['bg-' + (LOC_COLOR_CODE[loc] + (active ? "-400" : "-100") || 'white')] : [];
+  return loc ? ['bg-' + ((LOC_COLOR_CODE[loc] || LOC_COLOR_CODE['']) + (active ? "-300" : "-50") || 'white')] : [];
 }
