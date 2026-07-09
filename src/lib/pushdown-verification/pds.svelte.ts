@@ -546,7 +546,7 @@ export class MA {
 		for (const { from, trigger, to, created_at_index } of this.def) {
 			const edge_id = from + `\\` + to;
 			let edge = edge_map.get(edge_id);
-			const label = tex(tex_stack_symbol(trigger));
+			const label = render_stack_symbol(trigger);
 
 			if (!edge) {
 				edge = {
