@@ -22,7 +22,7 @@
 	import { generate_cfg, graph_cfg, type CFG_Node } from '$lib/pushdown-verification/minilang-cfg';
 	import { cfg_to_pds } from '$lib/pushdown-verification/minilang-pds';
 
-  let flags = $state({ ltl: false, tex: false, from_mini_lang: true, show_parser_info: false });
+  let flags = $state({ ltl: false, tex: false, from_mini_lang: false, show_parser_info: false });
 
   let mini_src = $state(PROGRAM_EXAMPLES["error & work"]);
 
