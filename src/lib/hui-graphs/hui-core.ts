@@ -122,7 +122,7 @@ export function dFromPoints(
 	corner_radius: number,
   filter_points?: boolean
 ) {
-  if (filter_points || filter_points === undefined) 
+  if (filter_points) 
     points = vec_filter(points, corner_radius);
 
 	switch (mode) {
