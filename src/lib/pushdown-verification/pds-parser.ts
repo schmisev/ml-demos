@@ -3,6 +3,7 @@ import { TT, type Token, lexer } from "$lib/pda/pda-parser";
 import type { InputSymbol } from "$lib/pda/pda.svelte";
 import { cat, char, choice, eps, star, type RegexNode } from "$lib/regex/regex";
 import type { LTL_Expr } from "./pds-ltl";
+import { ANY_CHAR } from "$lib/regex/character-classes";
 
 export function EMPTY_DEF(): PDS_Def {
   return {
@@ -133,7 +134,7 @@ function parse_pds_from_tokens(tokens: Token[]): PDS_Def {
 
   function parse_cat(): RegexNode {
     let left = parse_star();
-    if (is(TT.LeftParen) || is(TT.Symbol)) return cat(left, parse_cat());
+    if (is(TT.LeftParen) || is(TT.Symbol) || is(TT.Dot)) return cat(left, parse_cat());
     return left;
   }
 
@@ -156,7 +157,9 @@ function parse_pds_from_tokens(tokens: Token[]): PDS_Def {
         const re = parse_choice();
         expect(TT.RightParen);
         return re;
-        
+      case TT.Dot:
+        eat();
+        return char(ANY_CHAR);
       case TT.Empty:
         eat();
         return eps();

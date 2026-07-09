@@ -9,6 +9,7 @@ export enum TT {
   LeftPointy = "<",
   RightPointy = ">",
   Comma = ",",
+  Dot = ".",
   Empty = "~",
   Star = "*",
   Or = "|",
@@ -76,6 +77,7 @@ export function lexer(src: string): Token[] {
       case "*": read(); token(TT.Star); break;
       case "|": read(); token(TT.Or); break;
       case "&": read(); token(TT.And); break;
+      case ".": read(); token(TT.Dot); break;
       case "-": read(); 
       if (is(">")) {
         read();

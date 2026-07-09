@@ -96,7 +96,7 @@
 				<Pane class="relative flex flex-col gap-2 p-2">
           {#if flags.from_mini_lang}
           <div class="flex flex-row gap-2">
-						<select onchange={(ev) => (mini_src = ev.currentTarget.value)}>
+						<select class="grow" onchange={(ev) => (mini_src = ev.currentTarget.value)}>
 							{#each Object.entries(PROGRAM_EXAMPLES) as example}
 								<option value={example[1]}>{example[0]}</option>
 							{/each}
@@ -106,7 +106,7 @@
           <div>{mini_error}</div>
           {:else}
           <div class="flex flex-row gap-2">
-						<select onchange={(ev) => (src = ev.currentTarget.value)}>
+						<select class="grow" onchange={(ev) => (src = ev.currentTarget.value)}>
 							{#each Object.entries(PDS_EXAMPLES) as example}
 								<option value={example[1]}>{example[0]}</option>
 							{/each}

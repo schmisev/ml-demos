@@ -590,11 +590,11 @@ export function tex_stack_regex(node: RegexNode): string {
 			return '(' + non_empty_nodes.map((n) => tex_stack_regex(n)).join('|') + ')' + question;
 		}
 		case 'CONCAT':
-			return tex_stack_regex(node.left) + tex_stack_regex(node.right);
+			return tex_stack_regex(node.left) + " " + tex_stack_regex(node.right);
 		case 'EMPTY':
 			return `\\epsilon`;
 		case 'CHAR':
-      if (node.trigger === ANY_CHAR) return `\\cdot`;
+      if (node.trigger === ANY_CHAR) return `\\bullet`;
 			if (isNaN(parseInt(node.trigger))) {
 				return node.trigger;
 			}
@@ -604,7 +604,7 @@ export function tex_stack_regex(node: RegexNode): string {
 
 export function tex_stack_symbol(sym: StackSymbol): string {
 	if (sym === 0) return `\\varepsilon`;
-  if (sym === ANY_CHAR) return `\\cdot`;
+  if (sym === ANY_CHAR) return `\\bullet`;
 	if (isNaN(parseInt(sym))) return sym;
 	return `\\gamma_{${sym}}`;
 }
