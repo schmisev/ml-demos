@@ -30,16 +30,16 @@ export function cfg_to_pds(cfg: Record<string, CFG_Node>): PDS_Def {
 	}
 
 	function traverse(stmt: CFG_Node) {
+    const stmt_id = id_cfg(stmt);
+    if (visited.has(stmt_id)) return;
+    visited.add(stmt_id);
+
     if (stmt.config) {
       def.target_configs.push({
         loc: id_cfg(stmt),
         w: stmt.config.w
       });
     }
-
-    const stmt_id = id_cfg(stmt);
-    if (visited.has(stmt_id)) return;
-    visited.add(stmt_id);
 
     for (const [label, next] of stmt.to) {
       const suffix = next.type === MiniKind.Return ? [] : [next]; // "next" position
