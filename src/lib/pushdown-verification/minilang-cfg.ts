@@ -244,7 +244,7 @@ export function format_cfg(node: CFG_Node) {
   return `<b>${node.loc}</b> : <code>${node.label}</code>`;
 }
 
-export function graph_cfg(def: Record<string, CFG_Node>): HuiGraphDefinition {
+export async function graph_cfg(def: Record<string, CFG_Node>): Promise<HuiGraphDefinition> {
   const graph: HuiGraphDefinition = {
     edges: [],
     nodes: []

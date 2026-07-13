@@ -176,7 +176,7 @@ export class PDS {
 		this.history.push(history_enty);
 	}
 
-	graph_history(tex_mode: boolean): HuiGraphDefinition {
+	async graph_history(tex_mode: boolean): Promise<HuiGraphDefinition> {
 		const graph: HuiGraphDefinition = {
 			edges: [],
 			nodes: []
@@ -229,7 +229,7 @@ export class PDS {
 		return graph;
 	}
 
-	graph(): HuiGraphDefinition {
+	async graph(): Promise<HuiGraphDefinition> {
 		const graph: HuiGraphDefinition = {
 			edges: [],
 			nodes: []
@@ -496,7 +496,7 @@ export class MA {
 		this.setup();
 	}
 
-	graph(): HuiGraphDefinition {
+	async graph(): Promise<HuiGraphDefinition> {
 		const graph: HuiGraphDefinition = {
 			nodes: [],
 			edges: []

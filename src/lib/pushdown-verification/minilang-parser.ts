@@ -585,7 +585,7 @@ export function parse_mini(src: string) {
 
 // Graphing
 
-export function graph_mini(stmt: MiniStmt): HuiGraphDefinition {
+export async function graph_mini(stmt: MiniStmt): Promise<HuiGraphDefinition> {
 	const graph: HuiGraphDefinition = {
 		edges: [],
 		nodes: []

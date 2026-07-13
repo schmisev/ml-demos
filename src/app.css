@@ -202,3 +202,15 @@ th, td {
 .splitpanes__pane {
     background-color: white !important;
   }
+
+.cm-editor {
+  @apply h-full min-h-0 overflow-auto
+}
+
+.cm-debug-highlight {
+  background-color: rgba(255, 200, 0, 0.4);
+}
+
+.cm-debug-error {
+  @apply decoration-1 decoration-red-500 underline underline-offset-3;
+}
