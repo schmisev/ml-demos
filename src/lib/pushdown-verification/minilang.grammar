@@ -1,0 +1,118 @@
+@top Program {
+  FunctionDeclaration*
+}
+
+@skip {
+  whitespace |
+  LineComment
+}
+
+FunctionDeclaration {
+  Tag? Identifier ParameterList Statement
+}
+
+ParameterList {
+  "(" ")"
+}
+
+Block {
+  "{" Statement* "}"
+}
+
+Statement {
+  Tag? (
+    Block |
+    WhileStatement |
+    IfStatement |
+    FunctionCall |
+    BareStatement
+  )
+}
+
+WhileStatement {
+  kw<"while"> Condition Statement
+}
+
+@precedence {
+  else_prec
+}
+
+IfStatement {
+  kw<"if"> Condition Statement (!else_prec kw<"else"> Statement)?
+}
+
+Condition {
+  "(" ConditionContent ")"
+}
+
+ConditionContent {
+  "?" | "!"
+}
+
+FunctionCall {
+  Identifier "(" ")" ";"
+}
+
+BareStatement {
+  (kw<"work"> | kw<"error"> | kw<"crash">) ";"
+}
+
+Tag {
+  "<" TagContent ">"
+}
+
+TagContent {
+  Identifier |
+  Identifier "," Regex
+}
+
+Regex {
+  Alternation
+}
+
+Alternation {
+  Concatenation ("|" Concatenation)*
+}
+
+Concatenation {
+  Repetition+
+}
+
+Repetition {
+  Primary "*"*
+}
+
+Primary {
+  Identifier | "(" Alternation ")" | "."
+}
+
+kw<term> { @specialize[@name={term}]<Identifier, term> }
+
+@tokens {
+  Identifier {
+    identifierStart identifierContinue*
+  }
+
+  LineComment {
+    "%" ![\n]*
+  }
+
+  whitespace {
+    $[ \t\n\r]+
+  }
+
+  identifierStart {
+    @asciiLetter |
+    "_"
+  }
+
+  identifierContinue {
+    @asciiLetter |
+    @digit |
+    "_"
+  }
+
+  @precedence {
+    Identifier
+  }
+}

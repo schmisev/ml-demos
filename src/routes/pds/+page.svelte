@@ -21,9 +21,12 @@
 	import { graph_mini, MiniKind, parse_mini, type MiniProgram } from '$lib/pushdown-verification/minilang-parser';
 	import { generate_cfg, graph_cfg, type CFG_Node } from '$lib/pushdown-verification/minilang-cfg';
 	import { cfg_to_pds } from '$lib/pushdown-verification/minilang-pds';
+  import CodeMirror from "svelte-codemirror-editor";
+  import { miniLanguageSupport, miniHighlightStyle } from '$lib/pushdown-verification/minilang-ext';
+	import { syntaxHighlighting } from '@codemirror/language';
+	import { basicSetup } from 'codemirror';
 
-  let flags = $state({ ltl: false, tex: false, from_mini_lang: false, show_parser_info: false });
-
+  let flags = $state({ ltl: false, tex: false, from_mini_lang: true, show_parser_info: false });
   let mini_src = $state(PROGRAM_EXAMPLES["error & work"]);
 
   const [mini_def, mini_error]: [MiniProgram, string] = $derived.by(() => {
@@ -102,7 +105,11 @@
 							{/each}
 						</select>
 					</div>
-          <textarea class="h-full resize-none font-mono" bind:value={mini_src}></textarea>
+          <div class="grow overflow-auto">
+            <CodeMirror extensions={[basicSetup,
+    miniLanguageSupport(),
+    syntaxHighlighting(miniHighlightStyle)]} class="grow" foldGutter={false} indentOnInput={true}  bind:value={mini_src}></CodeMirror>
+          </div>
           <div>{mini_error}</div>
           {:else}
           <div class="flex flex-row gap-2">

@@ -254,7 +254,7 @@ export interface MiniCall extends MiniMeta {
 export interface MiniFuncDef extends MiniMeta {
 	kind: MiniKind.FuncDef;
 	ident: string;
-	seq: MiniSequence;
+	seq: MiniStmt;
 }
 
 export interface MiniProgram extends MiniMeta {
@@ -377,8 +377,7 @@ export function parse_mini(src: string) {
     reserve_id();
 		expect(TT.LeftParen);
 		expect(TT.RightParen);
-		expect(TT.LeftCurly);
-		const seq = parse_seq(TT.RightCurly);
+		const seq = parse_stmt();
     const id = retrieve_id();
 		return {
 			kind: MiniKind.FuncDef,

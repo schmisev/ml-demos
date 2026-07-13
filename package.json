@@ -12,7 +12,9 @@
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
 		"format": "prettier --write .",
 		"lint": "prettier --check .",
-		"deploy": "vite build && gh-pages -d build -t"
+		"deploy": "vite build && gh-pages -d build -t",
+		"generate": "lezer-generator src/lib/pushdown-verification/minilang.grammar -o src/lib/pushdown-verification/parser.js",
+		"watch:grammar": "lezer-generator src/lib/pushdown-verification/syntax.grammar -o src/lib/pushdown-verification/parser.js --watch"
 	},
 	"devDependencies": {
 		"@sveltejs/adapter-static": "^3.0.9",
@@ -24,6 +26,7 @@
 		"@types/graphlib": "^2.1.12",
 		"@types/seedrandom": "^3.0.8",
 		"@types/three": "^0.181.0",
+		"lezer": "^0.13.5",
 		"prettier": "^3.6.2",
 		"prettier-plugin-svelte": "^3.4.0",
 		"prettier-plugin-tailwindcss": "^0.6.14",
@@ -32,15 +35,18 @@
 		"svelte-motion": "^0.12.2",
 		"tailwindcss": "^4.1.13",
 		"typescript": "^5.9.3",
-		"vite": "^7.1.7"
+		"vite": "^7.1.7",
+    "@lezer/generator": "^1.1.3"
 	},
 	"dependencies": {
 		"@dagrejs/dagre": "^1.1.8",
 		"@dagrejs/graphlib": "^2.2.4",
+		"@lezer/lezer": "^1.1.3",
 		"@stdlib/math-base-special-gamma": "^0.3.0",
 		"@types/mathjax": "^0.0.40",
 		"apexcharts": "^5.12.0",
 		"chart.js": "^4.5.1",
+		"codemirror": "^6.0.2",
 		"cytoscape": "^3.33.1",
 		"elkjs": "^0.11.0",
 		"gh-pages": "^6.3.0",
@@ -51,6 +57,7 @@
 		"mathjax-svelte": "^0.0.2",
 		"seedrandom": "^3.0.5",
 		"sigma": "^3.0.2",
+		"svelte-codemirror-editor": "^2.1.0",
 		"svelte-splitpanes": "^8.0.12",
 		"svg-round-corners": "^0.4.3",
 		"three": "^0.181.0",
