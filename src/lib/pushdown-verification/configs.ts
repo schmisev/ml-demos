@@ -101,14 +101,14 @@ C = {<bad0, E (E|M|F)*>}`
 
 export const PROGRAM_EXAMPLES = {
   'blank': ``,
-  'error & work': `
+  'error & work': `% A small example
 <M> main() {
-while(?) foo();
-if(?) bar();
+  while(?) foo();
+  if(?) bar();
 }
 
-<F, (F|E)*> foo() { work; }
-bar() { <E, .*> error; }
+<F, (F|E)*> foo() work;
+bar() <E, .*> error;
 `
 }
 

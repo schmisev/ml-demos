@@ -2,6 +2,7 @@ import adapter from '@sveltejs/adapter-static';
 import { vitePreprocess } from '@sveltejs/vite-plugin-svelte';
 
 import { readFileSync } from 'fs';
+import { trusted } from 'svelte/legacy';
 import { fileURLToPath } from 'url';
 
 const file = fileURLToPath(new URL('package.json', import.meta.url));
@@ -22,6 +23,11 @@ const config = {
 		},
 		version: {
 			name: pkg.version
+		}
+	},
+  compilerOptions: {
+		experimental: {
+			async: true
 		}
 	}
 };
