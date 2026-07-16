@@ -176,7 +176,7 @@ export class PDS {
 		this.history.push(history_enty);
 	}
 
-	graph_history(tex_mode: boolean): HuiGraphDefinition {
+	graph_history(tex_mode: boolean, color_mode: boolean): HuiGraphDefinition {
 		const graph: HuiGraphDefinition = {
 			edges: [],
 			nodes: []
@@ -210,7 +210,7 @@ export class PDS {
 					}
 
           if (final_slice) {
-            node_set.get(to_str)!.labelClasses!.push(...color_loc(transition.to.loc, final_slice));
+            node_set.get(to_str)!.labelClasses!.push(...color_loc(transition.to.loc, final_slice && color_mode));
           }
 
 					if (!history_step.from) continue;
